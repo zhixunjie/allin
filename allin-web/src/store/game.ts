@@ -9,6 +9,7 @@ export interface SeatSnapshot {
   folded: boolean
   all_in: boolean
   sit_out: boolean
+  is_bot?: boolean
   hole?: string[]
 }
 
@@ -247,6 +248,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       seat_index: number
       stack: number
       is_reconnect: boolean
+      is_bot?: boolean
     }
     if (p.seat_index < 0) return
     set((state) => {
@@ -261,6 +263,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
         folded: false,
         all_in: false,
         sit_out: false,
+        is_bot: p.is_bot ?? false,
       }
       return { seats: [...state.seats, newSeat] }
     })

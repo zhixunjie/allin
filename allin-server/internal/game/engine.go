@@ -29,6 +29,7 @@ type Engine struct {
 	registry    *Registry
 	onEmpty     func() // called when all players have left
 	emptyTimer  *time.Timer
+	botsSeated  bool // bots are seated on first human join
 }
 
 // NewEngine creates an engine for the given hub and room.
@@ -157,6 +158,12 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		IsReconnect: false,
 	}))
 
+	// Seat bots on first human join.
+	if !e.botsSeated {
+		e.botsSeated = true
+		e.seatBots()
+	}
+
 	// Send current snapshot to the joining player.
 	e.sendSnapshot(msg.SenderID)
 
@@ -166,9 +173,40 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	}
 }
 
+// seatBots places AI players into available seats.
+func (e *Engine) seatBots() {
+	for i := 0; i < e.room.Config.BotCount; i++ {
+		uid := botUserID(e.room.Code, i)
+		if e.gs.FindPlayer(uid) != nil {
+			continue // already seated
+		}
+		p := &Player{
+			UserID:      uid,
+			DisplayName: botDisplayName(i),
+			Stack:       e.room.Config.MaxBuyIn,
+			IsBot:       true,
+		}
+		if !e.gs.SeatPlayer(p) {
+			break // no more seats
+		}
+		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+			PlayerID:    p.UserID,
+			DisplayName: p.DisplayName,
+			SeatIndex:   p.SeatIndex,
+			Stack:       p.Stack,
+			IsBot:       true,
+		}))
+	}
+}
+
 // ---- Disconnect ----
 
 func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+	// Bot IDs never have a real WS connection; ignore spurious disconnect messages.
+	if IsBotID(msg.SenderID) {
+		return
+	}
+
 	p := e.gs.FindPlayer(msg.SenderID)
 	if p == nil {
 		return
@@ -182,7 +220,22 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 	if e.gs.Street == StreetIdle {
 		e.gs.UnseatPlayer(msg.SenderID)
 		e.room.Touch()
-		if e.gs.SeatedCount() == 0 && e.onEmpty != nil {
+
+		// Count remaining human players.
+		humanCount := 0
+		for _, sp := range e.gs.Seats {
+			if sp != nil && !IsBotID(sp.UserID) {
+				humanCount++
+			}
+		}
+		if humanCount == 0 && e.onEmpty != nil {
+			// Remove bot seats so the room starts fresh if a human reconnects.
+			for _, sp := range e.gs.Seats {
+				if sp != nil && IsBotID(sp.UserID) {
+					e.gs.UnseatPlayer(sp.UserID)
+				}
+			}
+			e.botsSeated = false
 			// Grace period: give players 30s to reconnect before closing the room.
 			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
 		}
@@ -587,6 +640,10 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 		Stack:       p.Stack,
 		Pot:         e.gs.TotalPot(),
 	}))
+
+	if p.IsBot {
+		e.scheduleAIAction(p)
+	}
 
 	resetTimer(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 }

@@ -150,6 +150,9 @@ func validateConfig(cfg RoomConfig) error {
 	if cfg.MaxPlayers < 2 || cfg.MaxPlayers > 9 {
 		return errors.New("max_players must be between 2 and 9")
 	}
+	if cfg.BotCount < 0 || cfg.BotCount >= cfg.MaxPlayers {
+		return errors.New("bot_count must be >= 0 and < max_players")
+	}
 	if cfg.ActionTimeSec == 0 {
 		cfg.ActionTimeSec = 30
 	}

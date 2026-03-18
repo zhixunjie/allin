@@ -89,9 +89,10 @@ export class SeatSprite extends Container {
     }
 
     const activeTurn = isActive
-    this.drawFilled(seat.user_id, activeTurn)
+    this.drawFilled(seat.user_id, activeTurn, seat.is_bot ?? false)
 
-    const name = seat.display_name.slice(0, 10)
+    const prefix = seat.is_bot ? '🤖 ' : ''
+    const name = prefix + seat.display_name.slice(0, 10)
     this.nameText.text = name
     this.stackText.text = `🪙 ${seat.stack.toLocaleString()}`
     this.betText.text = seat.bet > 0 ? `${seat.bet}` : ''
@@ -144,11 +145,11 @@ export class SeatSprite extends Container {
     this.avatar.fill({ color: 0x2a3545 })
   }
 
-  private drawFilled(userId: string, isActive: boolean) {
+  private drawFilled(userId: string, isActive: boolean, isBot: boolean) {
     this.nameText.style.fill = 0xe0e8f0
 
     const bgColor = isActive ? 0x253545 : 0x1a2535
-    const borderColor = isActive ? 0xf0c040 : 0x3a4555
+    const borderColor = isActive ? 0xf0c040 : (isBot ? 0x4060a0 : 0x3a4555)
     const borderWidth = isActive ? 2 : 1
 
     this.bg.clear()
@@ -156,8 +157,8 @@ export class SeatSprite extends Container {
     this.bg.fill({ color: bgColor })
     this.bg.stroke({ color: borderColor, width: borderWidth })
 
-    // Avatar: colored circle based on userId hash
-    const hue = this.hashColor(userId)
+    // Avatar: fixed blue for bots, hash-based color for humans
+    const hue = isBot ? 0x4060a0 : this.hashColor(userId)
     this.avatar.clear()
     this.avatar.circle(0, 0, AVATAR_R)
     this.avatar.fill({ color: hue })

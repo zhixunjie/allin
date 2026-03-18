@@ -1,7 +1,7 @@
 # 实现进度
 
 > 最后更新：2026-03-18
-> 当前阶段：Phase 2 — 游戏引擎（后端完成，待集成测试）
+> 当前阶段：Phase 5 完成 + AI 玩家支持
 
 ---
 
@@ -120,3 +120,47 @@
 - [x] 连接丢失 UI 提示（顶部红色横幅，显示重连进度）
 - [x] 结构化日志（slog）✅ Phase 2 已完成
 - [x] 健康检查接口（`GET /health`）✅ Phase 2 已完成
+
+---
+
+## Phase 6：AI 玩家 ✅ 构建通过
+
+### 功能点
+
+- [x] **创建房间时可指定 AI 玩家数**：大厅页新增"AI 玩家数"输入框（min=0, max=人数上限-1），创建请求携带 `bot_count`；后端 `validateConfig` 校验范围
+- [x] **AI 自动入座**：第一个真人通过 WS 加入房间时，Engine 在同一 goroutine 内调用 `seatBots()`，将配置数量的 bot 依次入座并广播 `player_joined`
+- [x] **AI 自动行动**：轮到 AI 时，`broadcastActionRequired` 启动独立 goroutine，随机延迟 1–3 秒后向 `hub.Inbound` 注入 `CmdAction`，走与真人相同的 `ValidateAction → ApplyAction` 路径
+- [x] **AI 决策策略**：无需跟注时 80% check / 20% bet(2×BB)；面对下注时 75% call / 20% raise(2× current) / 5% fold
+- [x] **线程安全**：goroutine 只读快照变量，写操作经 buffered channel (256)，引擎主循环单写者；`ValidateAction` 拒绝过期的 bot 行动
+- [x] **真人全部离开时清场**：统计非 bot 的人类玩家数，人类=0 时移除全部 bot 座位并重置 `botsSeated`，启动 30s 宽限期计时器；宽限期内有真人重连则 bots 重新入座
+- [x] **前端 AI 标识**：bot 座位名称前加 🤖 前缀，边框与头像固定为蓝色（`0x4060a0`），与真人（哈希色头像 + 金色激活边框）视觉区分
+
+### 改动文件
+
+- [x] `internal/room/model.go`：`RoomConfig` 新增 `BotCount int`
+- [x] `internal/room/manager.go`：`validateConfig` 校验 `bot_count >= 0 && bot_count < max_players`
+- [x] `internal/game/model.go`：`Player` 新增 `IsBot bool`；`SeatSnapshot` 新增 `is_bot` JSON 字段；`Snapshot()` 填充 `IsBot`
+- [x] `internal/ws/message.go`：`PlayerJoinedPayload` 新增 `IsBot bool`
+- [x] `internal/game/bot.go`（新建）：`IsBotID()`、`botUserID()`、`botDisplayName()`、`scheduleAIAction()`、`decideBotAction()`
+- [x] `internal/game/engine.go`：`Engine.botsSeated`；第一个真人加入时 `seatBots()`；`broadcastActionRequired` 触发 `scheduleAIAction`；`handleDisconnect` 守卫 + 全人类离开时清除 bot 座位并重置 `botsSeated`
+- [x] `src/api/http.ts`：`RoomConfig` 新增 `bot_count?: number`
+- [x] `src/store/game.ts`：`SeatSnapshot` 新增 `is_bot?: boolean`；`applyPlayerJoined` 填充 `is_bot`
+- [x] `src/react/pages/LobbyPage.tsx`：新增 AI 玩家数输入框
+- [x] `src/pixi/components/SeatSprite.ts`：bot 显示名前缀 🤖，蓝色边框 + 蓝色头像
+
+---
+
+## TODO：已知缺口
+
+### 游戏引擎
+
+- [ ] 筹码归零踢出：栈为 0 的玩家未自动离桌，需在 `hand_result` 分配后检查并 UnseatPlayer
+- [ ] 带入金额校验：`handleJoinRoom` 未按 `min_buy_in` / `max_buy_in` 校验初始筹码，玩家永远以 MaxBuyIn 入座
+- [ ] All-in 超额退还：`runShowdown` 中赢家若 all-in 金额超过其他人 TotalBet，多余部分未退还（`awardUncontested` 有处理，showdown 路径缺失）
+- [ ] 手牌历史持久化：无 `hand_history` 表，牌局结果只广播不落库
+
+### 本地测试 Bug（已修复，记录留档）
+
+- [x] `websocket: response does not implement http.Hijacker`：`loggingMiddleware` 的 `responseWriter` 未代理 `Hijack()`，导致 WS 升级失败 → 已修复
+- [x] React StrictMode 双重挂载导致 WS 立即断开 → 已移除 StrictMode
+- [x] `onEmpty` 立即销毁房间导致重连 404 → 已改为 30s 宽限期

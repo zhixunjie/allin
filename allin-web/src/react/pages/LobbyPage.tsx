@@ -17,6 +17,7 @@ export default function LobbyPage() {
   const [minBuyIn, setMinBuyIn] = useState('40')
   const [maxBuyIn, setMaxBuyIn] = useState('200')
   const [maxPlayers, setMaxPlayers] = useState('9')
+  const [botCount, setBotCount] = useState('0')
 
   // join room
   const [joinCode, setJoinCode] = useState('')
@@ -41,6 +42,7 @@ export default function LobbyPage() {
         min_buy_in: Number(minBuyIn),
         max_buy_in: Number(maxBuyIn),
         max_players: Number(maxPlayers),
+        bot_count: Number(botCount),
       }
       const room = await roomAPI.create(config)
       setRoom(room)
@@ -140,6 +142,17 @@ export default function LobbyPage() {
                   max="9"
                   value={maxPlayers}
                   onChange={(e) => setMaxPlayers(e.target.value)}
+                />
+              </label>
+              <label>
+                AI 玩家数
+                <input
+                  className={styles.numInput}
+                  type="number"
+                  min="0"
+                  max={Number(maxPlayers) - 1}
+                  value={botCount}
+                  onChange={(e) => setBotCount(e.target.value)}
                 />
               </label>
             </div>

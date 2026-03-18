@@ -140,6 +140,7 @@ type PlayerJoinedPayload struct {
 	SeatIndex   int    `json:"seat_index"`
 	Stack       int64  `json:"stack"`
 	IsReconnect bool   `json:"is_reconnect"`
+	IsBot       bool   `json:"is_bot,omitempty"`
 }
 
 // PlayerLeftPayload is broadcast when a player disconnects.

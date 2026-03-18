@@ -61,6 +61,7 @@ type Player struct {
 	Folded bool
 	AllIn  bool
 	SitOut bool
+	IsBot  bool
 
 	// ActedThisStreet is reset to false when the current bet is raised above the player's bet.
 	ActedThisStreet bool
@@ -233,6 +234,7 @@ type SeatSnapshot struct {
 	Folded      bool     `json:"folded"`
 	AllIn       bool     `json:"all_in"`
 	SitOut      bool     `json:"sit_out"`
+	IsBot       bool     `json:"is_bot,omitempty"`
 	Hole        []string `json:"hole,omitempty"` // only for the requesting player
 }
 
@@ -262,6 +264,7 @@ func (gs *GameState) Snapshot(viewerID string) GameSnapshot {
 			Folded:      p.Folded,
 			AllIn:       p.AllIn,
 			SitOut:      p.SitOut,
+			IsBot:       p.IsBot,
 		}
 		if p.UserID == viewerID && gs.Street != StreetIdle {
 			ss.Hole = []string{p.Hole[0].String(), p.Hole[1].String()}
