@@ -109,14 +109,14 @@
 
 ---
 
-## Phase 5：上线准备
+## Phase 5：上线准备 ✅ 构建通过
 
-- [ ] 优雅关闭（排空活跃牌局）
-- [ ] 空房间 GC（30 分钟后回收）
-- [ ] Dockerfile 多阶段构建
-- [ ] docker-compose.yml（app + mysql）
-- [ ] Nginx 配置（WebSocket 反代）
-- [ ] 前端断线自动重连（指数退避）
-- [ ] 连接丢失 UI 提示
-- [ ] 结构化日志（slog）
-- [ ] 健康检查接口（`GET /health`）
+- [x] 优雅关闭：`game.Registry` 跟踪所有 Engine，SIGTERM 时 `StopAll()` 等待全部退出
+- [x] 空房间 GC：`room.Manager.StartGC(5min, 30min, clientCountFn)`，最后玩家离开时立即关闭
+- [x] Dockerfile 多阶段构建（go-builder + node-builder + distroless 最终镜像）
+- [x] `docker-compose.yml`（server + mysql + nginx）
+- [x] `nginx/nginx.conf`（静态文件 + `/api/` 反代 + WebSocket Upgrade）
+- [x] 前端断线自动重连（指数退避 1s→2s→4s…最大 30s，最多 10 次）
+- [x] 连接丢失 UI 提示（顶部红色横幅，显示重连进度）
+- [x] 结构化日志（slog）✅ Phase 2 已完成
+- [x] 健康检查接口（`GET /health`）✅ Phase 2 已完成
