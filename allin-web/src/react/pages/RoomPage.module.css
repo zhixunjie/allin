@@ -1,0 +1,239 @@
+.root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #0a1520;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasWrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Overlay sits on top of canvas, pointer-events: none by default */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* ---- Top bar ---- */
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(10, 21, 32, 0.75);
+  border-bottom: 1px solid #1a2535;
+  pointer-events: auto;
+}
+
+.roomCode {
+  font-size: 0.85rem;
+  color: #8a9bb0;
+  letter-spacing: 1px;
+}
+
+.streetBadge {
+  font-size: 0.8rem;
+  color: #f0c040;
+  letter-spacing: 2px;
+  font-weight: 700;
+}
+
+.leaveBtn {
+  margin-left: auto;
+  background: #2a3545;
+  color: #8a9bb0;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.leaveBtn:hover { background: #3a4555; }
+
+/* ---- Timer banner ---- */
+.timerBanner {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 21, 32, 0.85);
+  border: 1px solid #2a3545;
+  border-radius: 20px;
+  padding: 6px 20px;
+  font-size: 0.9rem;
+  color: #c8d8e8;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.timerNum {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* ---- Waiting message ---- */
+.waiting {
+  position: absolute;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 21, 32, 0.75);
+  border-radius: 20px;
+  padding: 8px 24px;
+  color: #8a9bb0;
+  font-size: 0.9rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ---- Bet slider ---- */
+.sliderPanel {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 37, 53, 0.95);
+  border: 1px solid #2a3545;
+  border-radius: 12px;
+  padding: 12px 20px;
+  pointer-events: auto;
+  min-width: 320px;
+}
+
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider {
+  flex: 1;
+  accent-color: #f0c040;
+}
+
+.smallBtn {
+  width: 28px;
+  height: 28px;
+  background: #2a3545;
+  color: #e0e8f0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sliderPresets {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+
+.presetBtn {
+  padding: 4px 10px;
+  background: #2a3545;
+  color: #c8d8e8;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.presetBtn:hover { background: #3a4555; }
+
+.betValue {
+  margin-left: auto;
+  color: #f0c040;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* ---- Action buttons ---- */
+.actionPanel {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.actionBtn {
+  padding: 12px 22px;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.actionBtn:hover { opacity: 0.88; transform: translateY(-1px); }
+.actionBtn:active { transform: translateY(0); }
+
+.foldBtn  { background: #3a2a2a; color: #ff8080; }
+.checkBtn { background: #1e3a2a; color: #4cde80; }
+.callBtn  { background: #1a3a5c; color: #60b4ff; }
+.raiseBtn { background: #3a2a10; color: #f0c040; }
+.confirmBtn { background: #f0c040; color: #0f1923; }
+.allInBtn { background: #3a1020; color: #ff6090; }
+
+/* ---- My hole cards (React UI overlay) ---- */
+.myCards {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.card {
+  width: 52px;
+  height: 74px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.cardRank {
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cardSuit {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.red  .cardRank,
+.red  .cardSuit { color: #dd2222; }
+
+.black .cardRank,
+.black .cardSuit { color: #111111; }

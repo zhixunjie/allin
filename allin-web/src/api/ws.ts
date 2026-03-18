@@ -21,6 +21,11 @@ class WSClient {
     const url = `${protocol}://${location.host}/api/ws?room=${roomCode}&token=${token}`
     this.socket = new WebSocket(url)
 
+    this.socket.onopen = () => {
+      const handlers = this.listeners.get('__open__')
+      if (handlers) handlers.forEach((fn) => fn(null))
+    }
+
     this.socket.onmessage = (e) => {
       let env: Envelope
       try {

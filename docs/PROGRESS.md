@@ -71,23 +71,24 @@
 
 ---
 
-## Phase 3：PixiJS 牌桌 + WS 集成
+## Phase 3：PixiJS 牌桌 + WS 集成 ✅ 构建通过
 
-- [ ] `src/pixi/app.ts`：PixiJS Application 初始化
-- [ ] `src/pixi/assets.ts`：资源预加载（牌面、筹码、桌面）
-- [ ] `src/pixi/components/CardSprite.ts`：单张牌（翻牌动画）
-- [ ] `src/pixi/components/SeatSprite.ts`：玩家座位
-- [ ] `src/pixi/components/PotDisplay.ts`：底池显示
-- [ ] `src/pixi/components/TimerArc.ts`：圆弧倒计时
-- [ ] `src/pixi/scenes/TableScene.ts`：主场景
-- [ ] `src/pixi/scenes/DealAnimation.ts`：发牌飞行动画
-- [ ] `src/pixi/scenes/ChipAnimation.ts`：筹码入池动画
-- [ ] `src/store/game.ts`：GameSnapshot Zustand store
-- [ ] `src/hooks/useWebSocket.ts`：WS 事件订阅
-- [ ] `src/hooks/useGameState.ts`：派生 UI 状态
-- [ ] `src/hooks/useActionTimer.ts`：本地倒计时
-- [ ] `src/react/pages/RoomPage.tsx`：PixiJS canvas + React 覆盖层
-- [ ] WS → Zustand → PixiJS 桥接完成，浏览器内可完整打一手牌
+- [x] `src/pixi/app.ts`：PixiJS v8 Application 异步初始化，自适应分辨率
+- [x] `src/pixi/assets.ts`：常量定义（纯程序化渲染，无需外部图片）
+- [x] `src/pixi/components/CardSprite.ts`：单张牌（正面/背面）
+- [x] `src/pixi/components/SeatSprite.ts`：玩家座位（头像/名称/筹码/状态）
+- [x] `src/pixi/components/PotDisplay.ts`：底池显示
+- [x] `src/pixi/components/TimerArc.ts`：圆弧倒计时（绿→黄→红）
+- [x] `src/pixi/scenes/TableScene.ts`：主场景（Zustand subscribe 驱动，座位自动旋转）
+- [x] `src/pixi/scenes/DealAnimation.ts`：发牌飞行动画
+- [x] `src/pixi/scenes/ChipAnimation.ts`：筹码入池动画
+- [x] `src/store/game.ts`：完整 GameSnapshot Zustand store（处理所有 WS 事件）
+- [x] `src/hooks/useWebSocket.ts`：WS 事件订阅 → store dispatch
+- [x] `src/hooks/useGameState.ts`：派生 UI 状态（isMyTurn / canCheck/Call/Bet/Raise）
+- [x] `src/hooks/useActionTimer.ts`：本地倒计时（250ms 精度）
+- [x] `src/react/pages/RoomPage.tsx`：PixiJS canvas + React 覆盖层（操作面板/下注滑块/手牌）
+- [x] `src/App.tsx`：新增 `/room/:code` 路由
+- [x] WS → Zustand → PixiJS 桥接完成，`npm run build` 通过
 
 ---
 

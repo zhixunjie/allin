@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/auth'
 import LoginPage from './react/pages/LoginPage'
 import LobbyPage from './react/pages/LobbyPage'
+import RoomPage from './react/pages/RoomPage'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn())
@@ -26,6 +27,14 @@ export default function App() {
           element={
             <RequireAuth>
               <LobbyPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/room/:code"
+          element={
+            <RequireAuth>
+              <RoomPage />
             </RequireAuth>
           }
         />
