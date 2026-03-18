@@ -122,3 +122,14 @@ func (h *Hub) IsConnected(userID string) bool {
 	h.mu.RUnlock()
 	return ok
 }
+
+// DisplayName returns the display name of a connected user, or empty string.
+func (h *Hub) DisplayName(userID string) string {
+	h.mu.RLock()
+	c, ok := h.clients[userID]
+	h.mu.RUnlock()
+	if !ok {
+		return ""
+	}
+	return c.DisplayName
+}

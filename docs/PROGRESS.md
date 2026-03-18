@@ -1,7 +1,7 @@
 # 实现进度
 
-> 最后更新：2026-03-17
-> 当前阶段：Phase 1 — 基础设施（后端完成，待验证 + 前端待开始）
+> 最后更新：2026-03-18
+> 当前阶段：Phase 2 — 游戏引擎（后端完成，待集成测试）
 
 ---
 
@@ -31,35 +31,43 @@
 - [x] `go build ./...` 编译通过，`go vet ./...` 无报错
 - [ ] **待办**：手动建库 `allin`，跑 `go run ./cmd/server` 验证自动建表
 
-### 前端
+### 前端 ✅ 基础完成，`npm run build` 通过
 
-- [ ] Vite + React + TypeScript 项目初始化
-- [ ] 依赖安装（PixiJS、Zustand、React Router）
-- [ ] `src/api/http.ts`：fetch 封装
-- [ ] `src/api/ws.ts`：WebSocket 单例 + 事件总线
-- [ ] `src/store/auth.ts`：鉴权状态
-- [ ] `src/store/room.ts`：房间状态
-- [ ] `src/react/pages/LoginPage.tsx`：登录/注册页
-- [ ] `src/react/pages/LobbyPage.tsx`：大厅页（创建/加入房间）
-- [ ] 基础路由配置
+- [x] Vite + React + TypeScript 项目初始化（`allin-web/`）
+- [x] 依赖安装（PixiJS v8、Zustand、React Router v6）
+- [x] `src/api/http.ts`：fetch 封装 + 类型化 API（authAPI / roomAPI）
+- [x] `src/api/ws.ts`：WebSocket 单例 + 事件总线（on/off/send）
+- [x] `src/store/auth.ts`：JWT + User 鉴权状态（localStorage 持久化）
+- [x] `src/store/room.ts`：房间状态
+- [x] `src/react/pages/LoginPage.tsx`：登录/注册页（含 CSS Module 样式）
+- [x] `src/react/pages/LobbyPage.tsx`：大厅页（创建/加入房间，含邀请码自动填入）
+- [x] 基础路由配置（BrowserRouter + RequireAuth 守卫）
+- [x] `vite.config.ts`：开发代理 `/api` → `localhost:8080`（含 ws）
 
 ---
 
-## Phase 2：游戏引擎
+## Phase 2：游戏引擎 ✅ 编译通过，单测全绿
 
-- [ ] `internal/eval/table.go`：加载 HandRanks.dat
-- [ ] `internal/eval/eval.go`：Evaluate7 函数
-- [ ] `internal/eval/describe.go`：rank → 牌型名称
-- [ ] `internal/game/model.go`：GameState、Player、Card、Pot struct
-- [ ] `internal/game/deck.go`：洗牌 + 发牌
-- [ ] `internal/game/state_machine.go`：FSM 状态与转换
-- [ ] `internal/game/action.go`：动作校验与应用
-- [ ] `internal/game/pot.go`：BuildPots 边底池算法
-- [ ] `internal/game/timer.go`：行动倒计时 + 自动弃牌
-- [ ] `internal/game/engine.go`：游戏主循环
-- [ ] 单元测试：手牌评估正确性
-- [ ] 单元测试：边底池计算（20+ 场景）
-- [ ] 单元测试：完整手牌流程（preflop → showdown）
+- [x] `internal/eval/table.go`：HandRanks.dat 加载器（可选，不存在时自动 fallback）
+- [x] `internal/eval/eval.go`：纯 Go Evaluate7（枚举 21 种 5 选组合）+ T+2 fast path
+- [x] `internal/eval/describe.go`：rank → 牌型名称（含 Royal Flush 判断）
+- [x] `internal/game/model.go`：GameState、Player、Card、Pot、GameSnapshot 全套 struct
+- [x] `internal/game/deck.go`：洗牌 + 发牌（math/rand/v2）
+- [x] `internal/game/pot.go`：BuildPots 边底池算法（支持多人全押 + 弃牌贡献）
+- [x] `internal/game/action.go`：ValidateAction + ApplyAction（fold/check/call/bet/raise/all_in）
+- [x] `internal/game/engine.go`：Engine 主循环（单 goroutine + timer channel 模式）
+  - join_room 入座 / disconnect 自动弃牌
+  - preflop→flop→turn→river→showdown 状态机
+  - 行动超时自动 fold/check
+  - 建底池 + 摊牌评估 + 芯片分配（含边底池平分）
+  - 非争议锅直接归属（免摊牌）
+- [x] `internal/ws/handler.go`：EngineStarter callback（新 hub → 自动启动 Engine）
+- [x] `internal/ws/message.go`：新增所有游戏事件 payload 结构
+- [x] `internal/ws/hub.go`：新增 DisplayName() 方法
+- [x] `cmd/server/main.go`：注册 engine factory
+- [x] 单元测试：手牌评估 15 个用例（全类型 + 排序正确性）✅
+- [x] 单元测试：边底池计算 20 个场景 ✅
+- [ ] 单元测试：完整手牌流程（preflop → showdown）— Phase 3 集成测试覆盖
 
 ---
 

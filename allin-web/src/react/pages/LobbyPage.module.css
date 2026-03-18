@@ -1,0 +1,157 @@
+.container {
+  min-height: 100vh;
+  background: #0f1923;
+  color: #e0e8f0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 32px;
+  background: #1a2535;
+  border-bottom: 1px solid #2a3545;
+}
+
+.logo {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #f0c040;
+  letter-spacing: 3px;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.95rem;
+}
+
+.chips {
+  color: #f0c040;
+}
+
+.logoutBtn {
+  background: #2a3545;
+  color: #8a9bb0;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.logoutBtn:hover {
+  background: #3a4555;
+}
+
+.main {
+  max-width: 520px;
+  margin: 48px auto;
+  padding: 0 16px;
+}
+
+.section {
+  background: #1a2535;
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.section h2 {
+  margin: 0 0 20px;
+  font-size: 1.1rem;
+  color: #c8d8e8;
+}
+
+.divider {
+  text-align: center;
+  color: #4a5565;
+  margin: 24px 0;
+  font-size: 0.9rem;
+}
+
+.joinForm {
+  display: flex;
+  gap: 12px;
+}
+
+.input {
+  flex: 1;
+  background: #0f1923;
+  border: 1px solid #2a3545;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #e0e8f0;
+  font-size: 1rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #f0c040;
+}
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.row {
+  display: flex;
+  gap: 16px;
+}
+
+.row label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: #8a9bb0;
+}
+
+.numInput {
+  background: #0f1923;
+  border: 1px solid #2a3545;
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #e0e8f0;
+  font-size: 0.95rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.numInput:focus {
+  border-color: #f0c040;
+}
+
+.primaryBtn {
+  padding: 13px;
+  background: #f0c040;
+  color: #0f1923;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.primaryBtn:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.primaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin: 0;
+}

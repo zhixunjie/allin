@@ -67,11 +67,70 @@ func MustEvent(msgType string, payload any) Envelope {
 // ---- Payload structs ----
 
 // ConnectedPayload is sent to a client upon successful WebSocket connection.
+// GameSnapshot is a pointer to avoid import cycle: game → ws → game.
+// The ws package accepts any value; the game package fills it.
 type ConnectedPayload struct {
-	PlayerID    string `json:"player_id"`
-	DisplayName string `json:"display_name"`
-	RoomCode    string `json:"room_code"`
-	// GameSnapshot will be added in Phase 2
+	PlayerID     string      `json:"player_id"`
+	DisplayName  string      `json:"display_name"`
+	RoomCode     string      `json:"room_code"`
+	GameSnapshot interface{} `json:"game_snapshot,omitempty"`
+}
+
+// ---- Game event payloads (Server → Client) ----
+
+// GameStartedPayload is broadcast when a new hand begins.
+type GameStartedPayload struct {
+	HandNum    int   `json:"hand_num"`
+	DealerSeat int   `json:"dealer_seat"`
+	SBSeat     int   `json:"sb_seat"`
+	BBSeat     int   `json:"bb_seat"`
+	SmallBlind int64 `json:"small_blind"`
+	BigBlind   int64 `json:"big_blind"`
+}
+
+// HoleCardsPayload is sent privately to one player with their hole cards.
+type HoleCardsPayload struct {
+	PlayerID string   `json:"player_id"`
+	Hole     []string `json:"hole"` // e.g. ["Ac","Kd"]
+}
+
+// CardsDealtPayload notifies all players which seats received hole cards.
+type CardsDealtPayload struct {
+	Seats []int `json:"seats"`
+}
+
+// StreetStartedPayload is broadcast when a new betting street begins.
+type StreetStartedPayload struct {
+	Street    string   `json:"street"`
+	Community []string `json:"community"`
+	Pot       int64    `json:"pot"`
+}
+
+// ActionRequiredPayload is broadcast to prompt a player to act.
+type ActionRequiredPayload struct {
+	PlayerID   string `json:"player_id"`
+	SeatIndex  int    `json:"seat_index"`
+	DeadlineTs int64  `json:"deadline_ts"` // unix milliseconds
+	CurrentBet int64  `json:"current_bet"`
+	CallAmount int64  `json:"call_amount"`
+	MinRaise   int64  `json:"min_raise"`
+	Stack      int64  `json:"stack"`
+	Pot        int64  `json:"pot"`
+}
+
+// ActionTakenPayload is broadcast after a player acts.
+type ActionTakenPayload struct {
+	PlayerID string `json:"player_id"`
+	Action   string `json:"action"`
+	Amount   int64  `json:"amount"`
+	Stack    int64  `json:"stack"`
+	TotalPot int64  `json:"total_pot"`
+}
+
+// ActionTimeoutPayload is broadcast when a player's clock runs out.
+type ActionTimeoutPayload struct {
+	PlayerID string `json:"player_id"`
+	Action   string `json:"action"` // "fold" or "check"
 }
 
 // PlayerJoinedPayload is broadcast when a player joins or reconnects.

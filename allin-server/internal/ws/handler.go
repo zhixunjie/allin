@@ -10,10 +10,15 @@ import (
 	"github.com/allin/server/internal/room"
 )
 
+// EngineStarter is a function called when a new hub is created for a room.
+// The game engine should be created and started inside this callback.
+type EngineStarter func(hub *Hub, rm *room.Room)
+
 // Handler handles WebSocket upgrade requests.
 type Handler struct {
-	roomManager *room.Manager
-	jwtSecret   string
+	roomManager   *room.Manager
+	jwtSecret     string
+	engineStarter EngineStarter
 
 	hubsMu sync.RWMutex
 	hubs   map[string]*Hub // key = room code
@@ -25,6 +30,11 @@ func NewHandler(roomManager *room.Manager, jwtSecret string) *Handler {
 		jwtSecret:   jwtSecret,
 		hubs:        make(map[string]*Hub),
 	}
+}
+
+// SetEngineStarter registers the callback used to start a game engine when a hub is created.
+func (h *Handler) SetEngineStarter(fn EngineStarter) {
+	h.engineStarter = fn
 }
 
 // ServeWS handles GET /api/ws?room=CODE
@@ -49,8 +59,8 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Get or create hub for this room
-	hub := h.getOrCreateHub(rm.Code)
+	// 3. Get or create hub (and engine) for this room
+	hub := h.getOrCreateHub(rm)
 
 	// 4. Upgrade to WebSocket
 	client, err := NewClient(hub, w, r, claims.UserID, claims.DisplayName)
@@ -59,31 +69,15 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 5. Send initial "connected" event to this client only
-	env := MustEvent(TypeConnected, ConnectedPayload{
-		PlayerID:    claims.UserID,
-		DisplayName: claims.DisplayName,
-		RoomCode:    rm.Code,
-	})
-	hub.SendTo(claims.UserID, env)
-
-	// 6. Broadcast to others that this player connected
-	hub.Broadcast(MustEvent(TypePlayerJoined, PlayerJoinedPayload{
-		PlayerID:    claims.UserID,
-		DisplayName: claims.DisplayName,
-		SeatIndex:   -1, // not seated yet; game engine assigns seat in Phase 2
-		IsReconnect: false,
-	}))
-
-	// 7. Start pumps — WritePump in goroutine, ReadPump blocks until close
+	// 5. Start pumps — WritePump in goroutine, ReadPump blocks until close
 	go client.WritePump()
 	client.ReadPump()
 }
 
-// getOrCreateHub returns the hub for the given room code, creating it if needed.
-func (h *Handler) getOrCreateHub(code string) *Hub {
+// getOrCreateHub returns the hub for the given room, creating it if needed.
+func (h *Handler) getOrCreateHub(rm *room.Room) *Hub {
 	h.hubsMu.RLock()
-	hub, ok := h.hubs[code]
+	hub, ok := h.hubs[rm.Code]
 	h.hubsMu.RUnlock()
 	if ok {
 		return hub
@@ -91,14 +85,18 @@ func (h *Handler) getOrCreateHub(code string) *Hub {
 
 	h.hubsMu.Lock()
 	defer h.hubsMu.Unlock()
-	// Double-check after acquiring write lock
-	if hub, ok = h.hubs[code]; ok {
+	if hub, ok = h.hubs[rm.Code]; ok {
 		return hub
 	}
-	hub = NewHub(code)
+
+	hub = NewHub(rm.Code)
 	go hub.Run()
-	h.hubs[code] = hub
-	slog.Info("ws: hub created", "room", code)
+	h.hubs[rm.Code] = hub
+	slog.Info("ws: hub created", "room", rm.Code)
+
+	if h.engineStarter != nil {
+		h.engineStarter(hub, rm)
+	}
 	return hub
 }
 

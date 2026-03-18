@@ -11,6 +11,7 @@ import (
 
 	"github.com/allin/server/internal/auth"
 	"github.com/allin/server/internal/config"
+	"github.com/allin/server/internal/game"
 	"github.com/allin/server/internal/room"
 	"github.com/allin/server/internal/store"
 	"github.com/allin/server/internal/user"
@@ -45,6 +46,12 @@ func main() {
 	roomHandler := room.NewHandler(roomManager)
 	wsHandler := ws.NewHandler(roomManager, cfg.JWTSecret)
 	authMW := auth.Middleware(cfg.JWTSecret)
+
+	// Wire game engine: start an Engine goroutine whenever a new hub is created.
+	wsHandler.SetEngineStarter(func(hub *ws.Hub, rm *room.Room) {
+		eng := game.NewEngine(hub, rm)
+		go eng.Run()
+	})
 
 	// Routes
 	mux := http.NewServeMux()
