@@ -15,6 +15,8 @@ const (
 
 const chatRateLimit = time.Second // minimum interval between chat messages per player
 
+const emptyGracePeriod = 30 * time.Second
+
 // Engine drives the game state machine for one room.
 // All mutations to GameState happen in the single Run() goroutine.
 type Engine struct {
@@ -26,6 +28,7 @@ type Engine struct {
 	chatLimiter map[string]time.Time // last chat time per userID
 	registry    *Registry
 	onEmpty     func() // called when all players have left
+	emptyTimer  *time.Timer
 }
 
 // NewEngine creates an engine for the given hub and room.
@@ -126,6 +129,11 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		return
 	}
 	e.room.Touch()
+	// Cancel any pending room-close timer when a player joins.
+	if e.emptyTimer != nil {
+		e.emptyTimer.Stop()
+		e.emptyTimer = nil
+	}
 
 	if e.gs.SeatedCount() >= e.room.Config.MaxPlayers {
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
@@ -175,7 +183,8 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 		e.gs.UnseatPlayer(msg.SenderID)
 		e.room.Touch()
 		if e.gs.SeatedCount() == 0 && e.onEmpty != nil {
-			e.onEmpty()
+			// Grace period: give players 30s to reconnect before closing the room.
+			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
 		}
 		return
 	}
