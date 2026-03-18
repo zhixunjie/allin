@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -102,6 +103,35 @@ func (m *Manager) generateUniqueCode() (string, error) {
 		}
 	}
 	return "", ErrCodeConflict
+}
+
+// StartGC starts a background goroutine that removes rooms which have had
+// no connected clients for longer than idleTimeout.
+// clientCount(code) must return the number of live WS clients for that room.
+func (m *Manager) StartGC(interval, idleTimeout time.Duration, clientCount func(string) int) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for range ticker.C {
+			m.gc(idleTimeout, clientCount)
+		}
+	}()
+}
+
+func (m *Manager) gc(idleTimeout time.Duration, clientCount func(string) int) {
+	m.mu.RLock()
+	var toClose []string
+	for code, rm := range m.rooms {
+		if clientCount(code) == 0 && rm.IdleDuration() > idleTimeout {
+			toClose = append(toClose, code)
+		}
+	}
+	m.mu.RUnlock()
+
+	for _, code := range toClose {
+		m.Close(code)
+		slog.Info("room: GC removed idle room", "code", code)
+	}
 }
 
 func validateConfig(cfg RoomConfig) error {

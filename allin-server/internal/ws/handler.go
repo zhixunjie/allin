@@ -107,6 +107,17 @@ func (h *Handler) RemoveHub(code string) {
 	h.hubsMu.Unlock()
 }
 
+// ClientCount returns the number of connected clients for the given room.
+func (h *Handler) ClientCount(code string) int {
+	h.hubsMu.RLock()
+	hub, ok := h.hubs[code]
+	h.hubsMu.RUnlock()
+	if !ok {
+		return 0
+	}
+	return hub.ClientCount()
+}
+
 // extractToken pulls JWT from Authorization header or ?token= query param.
 func extractToken(r *http.Request) string {
 	if hdr := r.Header.Get("Authorization"); strings.HasPrefix(hdr, "Bearer ") {

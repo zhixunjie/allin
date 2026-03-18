@@ -47,11 +47,22 @@ func main() {
 	wsHandler := ws.NewHandler(roomManager, cfg.JWTSecret)
 	authMW := auth.Middleware(cfg.JWTSecret)
 
+	// Engine registry for graceful shutdown.
+	registry := game.NewRegistry()
+
 	// Wire game engine: start an Engine goroutine whenever a new hub is created.
 	wsHandler.SetEngineStarter(func(hub *ws.Hub, rm *room.Room) {
-		eng := game.NewEngine(hub, rm)
+		eng := game.NewEngine(hub, rm, registry)
+		eng.SetOnEmpty(func() {
+			roomManager.Close(rm.Code)
+			wsHandler.RemoveHub(rm.Code)
+			slog.Info("room: closed after last player left", "code", rm.Code)
+		})
 		go eng.Run()
 	})
+
+	// Room GC: remove rooms idle for >30 min every 5 minutes.
+	roomManager.StartGC(5*time.Minute, 30*time.Minute, wsHandler.ClientCount)
 
 	// Routes
 	mux := http.NewServeMux()
@@ -101,6 +112,10 @@ func main() {
 	<-quit
 
 	slog.Info("shutting down...")
+
+	// Stop all game engines first (finish or abort active hands).
+	registry.StopAll()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {

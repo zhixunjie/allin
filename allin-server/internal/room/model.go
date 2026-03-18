@@ -1,6 +1,9 @@
 package room
 
-import "time"
+import (
+	"sync"
+	"time"
+)
 
 // RoomConfig is the configuration set by the host when creating a room.
 type RoomConfig struct {
@@ -30,4 +33,26 @@ type Room struct {
 	State       RoomState  `json:"state"`
 	CreatedAt   time.Time  `json:"created_at"`
 	PlayerCount int        `json:"player_count"` // live count for lobby display
+
+	mu           sync.Mutex
+	lastActivity time.Time // updated on player join/leave
+}
+
+// Touch records the current time as the latest activity on the room.
+func (r *Room) Touch() {
+	r.mu.Lock()
+	r.lastActivity = time.Now()
+	r.mu.Unlock()
+}
+
+// IdleDuration returns how long the room has been inactive.
+// Falls back to time since creation if Touch has never been called.
+func (r *Room) IdleDuration() time.Duration {
+	r.mu.Lock()
+	t := r.lastActivity
+	r.mu.Unlock()
+	if t.IsZero() {
+		return time.Since(r.CreatedAt)
+	}
+	return time.Since(t)
 }

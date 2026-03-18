@@ -24,15 +24,17 @@ type Engine struct {
 	deck        []Card
 	quit        chan struct{}
 	chatLimiter map[string]time.Time // last chat time per userID
+	registry    *Registry
+	onEmpty     func() // called when all players have left
 }
 
 // NewEngine creates an engine for the given hub and room.
-func NewEngine(hub *ws.Hub, rm *room.Room) *Engine {
+func NewEngine(hub *ws.Hub, rm *room.Room, registry *Registry) *Engine {
 	cfg := rm.Config
 	if cfg.ActionTimeSec == 0 {
 		cfg.ActionTimeSec = 30
 	}
-	return &Engine{
+	e := &Engine{
 		hub:         hub,
 		room:        rm,
 		chatLimiter: make(map[string]time.Time),
@@ -42,15 +44,26 @@ func NewEngine(hub *ws.Hub, rm *room.Room) *Engine {
 			DealerSeat: -1,
 			Config:     cfg,
 		},
-		quit: make(chan struct{}),
+		quit:     make(chan struct{}),
+		registry: registry,
 	}
+	if registry != nil {
+		registry.track(e)
+	}
+	return e
 }
 
 // Stop signals the engine goroutine to exit.
 func (e *Engine) Stop() { close(e.quit) }
 
+// SetOnEmpty registers a callback invoked when the last player leaves.
+func (e *Engine) SetOnEmpty(fn func()) { e.onEmpty = fn }
+
 // Run is the engine's event loop. Call in a dedicated goroutine.
 func (e *Engine) Run() {
+	if e.registry != nil {
+		defer e.registry.done(e)
+	}
 	var timerC <-chan time.Time
 	var actionTimer *time.Timer
 
@@ -112,6 +125,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	if e.gs.FindPlayer(msg.SenderID) != nil {
 		return
 	}
+	e.room.Touch()
 
 	if e.gs.SeatedCount() >= e.room.Config.MaxPlayers {
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
@@ -159,6 +173,10 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 
 	if e.gs.Street == StreetIdle {
 		e.gs.UnseatPlayer(msg.SenderID)
+		e.room.Touch()
+		if e.gs.SeatedCount() == 0 && e.onEmpty != nil {
+			e.onEmpty()
+		}
 		return
 	}
 

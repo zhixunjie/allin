@@ -4,7 +4,9 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(mysql --version)",
+      "Bash(brew services:*)"
     ]
   }
 }

@@ -9,6 +9,7 @@ import { ActionPanel } from '../panels/ActionPanel'
 import { ChatPanel } from '../panels/ChatPanel'
 import { HandHistory } from '../panels/HandHistory'
 import { RoomInfo } from '../panels/RoomInfo'
+import { ConnectionBanner } from '../components/ConnectionBanner'
 import styles from './RoomPage.module.css'
 
 export default function RoomPage() {
@@ -75,6 +76,9 @@ export default function RoomPage() {
         <div className={styles.actionArea}>
           <ActionPanel gs={gs} />
         </div>
+
+        {/* Connection status */}
+        <ConnectionBanner />
 
         {/* Chat */}
         <ChatPanel />
