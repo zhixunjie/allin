@@ -197,6 +197,15 @@
 .confirmBtn { background: #f0c040; color: #0f1923; }
 .allInBtn { background: #3a1020; color: #ff6090; }
 
+/* ---- Action area (wraps ActionPanel component) ---- */
+.actionArea {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
 /* ---- My hole cards (React UI overlay) ---- */
 .myCards {
   position: absolute;

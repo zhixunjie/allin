@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { wsClient } from '../api/ws'
 import { useGameStore } from '../store/game'
+import { useChatStore } from '../store/chat'
 
 export function useWebSocket(roomCode: string | undefined, token: string | null) {
   const store = useGameStore.getState
@@ -30,6 +31,15 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     on('action_timeout', (p) => store().applyActionTaken(p))
     on('showdown', (p) => store().applyShowdown(p))
     on('hand_result', (p) => store().applyHandResult(p))
+    on('chat_message', (p) => {
+      const m = p as { sender_id: string; display_name: string; text: string; ts: number }
+      useChatStore.getState().addMessage({
+        senderId: m.sender_id,
+        displayName: m.display_name,
+        text: m.text,
+        ts: m.ts,
+      })
+    })
 
     // Send join_room after connecting
     on('__open__', () => {
@@ -45,6 +55,7 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
       offs.forEach((off) => off())
       wsClient.disconnect()
       store().reset()
+      useChatStore.getState().clear()
       connectedRef.current = false
     }
   }, [roomCode, token])

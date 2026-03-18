@@ -13,14 +13,17 @@ const (
 	handStartDelay = 3 * time.Second // delay between hands
 )
 
+const chatRateLimit = time.Second // minimum interval between chat messages per player
+
 // Engine drives the game state machine for one room.
 // All mutations to GameState happen in the single Run() goroutine.
 type Engine struct {
-	hub  *ws.Hub
-	room *room.Room
-	gs   *GameState
-	deck []Card
-	quit chan struct{}
+	hub         *ws.Hub
+	room        *room.Room
+	gs          *GameState
+	deck        []Card
+	quit        chan struct{}
+	chatLimiter map[string]time.Time // last chat time per userID
 }
 
 // NewEngine creates an engine for the given hub and room.
@@ -30,8 +33,9 @@ func NewEngine(hub *ws.Hub, rm *room.Room) *Engine {
 		cfg.ActionTimeSec = 30
 	}
 	return &Engine{
-		hub:  hub,
-		room: rm,
+		hub:         hub,
+		room:        rm,
+		chatLimiter: make(map[string]time.Time),
 		gs: &GameState{
 			Street:     StreetIdle,
 			ActionSeat: -1,
@@ -92,6 +96,10 @@ func (e *Engine) handleMessage(
 		e.handleAction(msg, resetTimer, stopTimer)
 	case ws.CmdChat:
 		e.handleChat(msg)
+	case ws.CmdAddChips:
+		e.handleAddChips(msg)
+	case ws.CmdSitOut:
+		e.handleSitOut(msg, resetTimer, stopTimer)
 	case "disconnect":
 		e.handleDisconnect(msg, resetTimer, stopTimer)
 	}
@@ -207,6 +215,12 @@ func (e *Engine) handleAction(
 // ---- Chat ----
 
 func (e *Engine) handleChat(msg ws.InboundMessage) {
+	// Rate limit: 1 message per second per player
+	if last, ok := e.chatLimiter[msg.SenderID]; ok && time.Since(last) < chatRateLimit {
+		return
+	}
+	e.chatLimiter[msg.SenderID] = time.Now()
+
 	var cmd ws.ChatCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		return
@@ -220,6 +234,71 @@ func (e *Engine) handleChat(msg ws.InboundMessage) {
 		Text:        cmd.Text,
 		Ts:          time.Now().UnixMilli(),
 	}))
+}
+
+// ---- Add chips ----
+
+func (e *Engine) handleAddChips(msg ws.InboundMessage) {
+	if e.gs.Street != StreetIdle {
+		e.sendError(msg.SenderID, "hand_in_progress", "can only add chips between hands", msg.Env.Seq)
+		return
+	}
+	var cmd ws.AddChipsCmd
+	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
+		e.sendError(msg.SenderID, "bad_payload", "invalid add_chips payload", msg.Env.Seq)
+		return
+	}
+	p := e.gs.FindPlayer(msg.SenderID)
+	if p == nil {
+		e.sendError(msg.SenderID, "not_seated", "you are not seated", msg.Env.Seq)
+		return
+	}
+	if cmd.Amount <= 0 {
+		e.sendError(msg.SenderID, "invalid_amount", "amount must be positive", msg.Env.Seq)
+		return
+	}
+	newStack := p.Stack + cmd.Amount
+	if newStack > e.gs.Config.MaxBuyIn {
+		newStack = e.gs.Config.MaxBuyIn
+	}
+	added := newStack - p.Stack
+	p.Stack = newStack
+
+	e.hub.Broadcast(ws.MustEvent(ws.TypeStackUpdated, ws.StackUpdatedPayload{
+		PlayerID: p.UserID,
+		Stack:    p.Stack,
+		Delta:    added,
+	}))
+	slog.Info("game: chips added", "room", e.room.Code, "player", p.UserID, "added", added, "stack", p.Stack)
+}
+
+// ---- Sit out ----
+
+func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+	var cmd ws.SitOutCmd
+	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
+		return
+	}
+	p := e.gs.FindPlayer(msg.SenderID)
+	if p == nil {
+		return
+	}
+	p.SitOut = cmd.SitOut
+
+	e.hub.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+		PlayerID:    p.UserID,
+		DisplayName: p.DisplayName,
+		SeatIndex:   p.SeatIndex,
+		Stack:       p.Stack,
+		IsReconnect: true,
+	}))
+
+	// If sit-out during active hand and it's their turn, auto-fold.
+	if cmd.SitOut && e.gs.Street != StreetIdle && e.gs.ActionSeat == p.SeatIndex {
+		ApplyAction(e.gs, p.UserID, ActionFold, 0)
+		stopTimer()
+		e.advanceOrEnd(resetTimer, stopTimer)
+	}
 }
 
 // ---- Timeout ----

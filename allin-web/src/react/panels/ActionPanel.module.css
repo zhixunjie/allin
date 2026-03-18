@@ -1,0 +1,41 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  min-width: 80px;
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
+
+.fold    { background: #555; color: #fff; }
+.check   { background: #2196f3; color: #fff; }
+.call    { background: #4caf50; color: #fff; }
+.raise   { background: #ff9800; color: #fff; }
+.raise.active { background: #e65100; }
+.confirm { background: #f0c040; color: #111; }
+.allIn   { background: #e91e63; color: #fff; }

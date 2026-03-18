@@ -163,6 +163,13 @@ type ErrorPayload struct {
 	RefSeq  int64  `json:"ref_seq"`
 }
 
+// StackUpdatedPayload is broadcast when a player's stack changes outside of hand play.
+type StackUpdatedPayload struct {
+	PlayerID string `json:"player_id"`
+	Stack    int64  `json:"stack"`
+	Delta    int64  `json:"delta"`
+}
+
 // ---- Incoming command payloads ----
 
 // JoinRoomCmd is the payload for CmdJoinRoom.

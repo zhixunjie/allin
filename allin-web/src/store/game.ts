@@ -34,12 +34,24 @@ export interface GameSnapshot {
   config: GameConfig | null
 }
 
+export interface HandWinner {
+  player_id: string
+  display_name: string
+  amount: number
+  hand_name?: string
+}
+
+export interface LastHandResult {
+  winners: HandWinner[]
+}
+
 interface GameStoreState extends GameSnapshot {
   myUserId: string | null
   myHole: string[]
   deadlineTs: number | null
   callAmount: number
   minRaiseAmount: number
+  lastHandResult: LastHandResult | null
 
   setMyUserId: (id: string) => void
   applyConnected: (payload: unknown) => void
@@ -76,6 +88,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   deadlineTs: null,
   callAmount: 0,
   minRaiseAmount: 0,
+  lastHandResult: null,
 
   setMyUserId: (id) => set({ myUserId: id }),
 
@@ -201,19 +214,30 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
 
   applyHandResult: (payload) => {
     const p = payload as {
-      winners: Array<{ player_id: string; amount: number }>
+      winners: Array<{ player_id: string; amount: number; hand_name?: string }>
       seats: Array<{ player_id: string; stack: number }>
     }
     if (!p.seats) return
-    set((state) => ({
-      street: 'idle',
-      action_seat: -1,
-      deadlineTs: null,
-      seats: state.seats.map((s) => {
-        const rs = p.seats?.find((x) => x.player_id === s.user_id)
-        return rs ? { ...s, stack: rs.stack } : s
-      }),
-    }))
+    set((state) => {
+      const lastHandResult: LastHandResult = {
+        winners: p.winners.map((w) => ({
+          player_id: w.player_id,
+          display_name: state.seats.find((s) => s.user_id === w.player_id)?.display_name ?? w.player_id,
+          amount: w.amount,
+          hand_name: w.hand_name,
+        })),
+      }
+      return {
+        street: 'idle',
+        action_seat: -1,
+        deadlineTs: null,
+        lastHandResult,
+        seats: state.seats.map((s) => {
+          const rs = p.seats?.find((x) => x.player_id === s.user_id)
+          return rs ? { ...s, stack: rs.stack } : s
+        }),
+      }
+    })
   },
 
   applyPlayerJoined: (payload) => {
@@ -256,5 +280,6 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       deadlineTs: null,
       callAmount: 0,
       minRaiseAmount: 0,
+      lastHandResult: null,
     }),
 }))

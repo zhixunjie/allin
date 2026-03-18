@@ -92,16 +92,20 @@
 
 ---
 
-## Phase 4：React 面板 + 聊天
+## Phase 4：React 面板 + 聊天 ✅ 构建通过
 
-- [ ] `src/react/panels/ActionPanel.tsx`：操作按钮
-- [ ] `src/react/panels/BetSlider.tsx`：下注滑块 + 快捷按钮
-- [ ] `src/react/panels/ChatPanel.tsx`：聊天框
-- [ ] `src/react/panels/HandHistory.tsx`：本手结果弹层
-- [ ] `src/react/panels/RoomInfo.tsx`：房间码 + 邀请链接
-- [ ] 后端：聊天消息中继（限速）
-- [ ] 后端：补充筹码接口
-- [ ] 后端：暂离逻辑
+- [x] `src/react/panels/ActionPanel.tsx`：操作按钮（fold/check/call/bet/raise/all-in）
+- [x] `src/react/panels/BetSlider.tsx`：下注滑块 + 快捷按钮（1/3、1/2、3/4、Pot、All-In）
+- [x] `src/react/panels/ChatPanel.tsx`：可折叠聊天框，Enter 发送，限 200 字
+- [x] `src/react/panels/HandHistory.tsx`：本手结果弹层（5 秒自动消失）
+- [x] `src/react/panels/RoomInfo.tsx`：房间码 + 一键复制邀请链接
+- [x] `src/store/chat.ts`：Zustand 聊天消息 store（最多 200 条）
+- [x] `src/store/game.ts`：新增 `lastHandResult` 字段（HandHistory 驱动）
+- [x] `src/hooks/useWebSocket.ts`：新增 `chat_message` → `useChatStore.addMessage()`
+- [x] `src/react/pages/RoomPage.tsx`：重构，使用所有面板组件
+- [x] 后端：聊天消息中继（1 秒限速）
+- [x] 后端：补充筹码接口（`add_chips`，遵守 MaxBuyIn 上限）
+- [x] 后端：暂离逻辑（`sit_out`，自动弃牌）
 
 ---
 
