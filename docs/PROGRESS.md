@@ -1,7 +1,7 @@
 # 实现进度
 
-> 最后更新：2026-03-18
-> 当前阶段：Phase 5 完成 + AI 玩家支持
+> 最后更新：2026-03-19
+> 当前阶段：Phase 5 完成 + AI 玩家风格升级
 
 ---
 
@@ -147,6 +147,28 @@
 - [x] `src/store/game.ts`：`SeatSnapshot` 新增 `is_bot?: boolean`；`applyPlayerJoined` 填充 `is_bot`
 - [x] `src/react/pages/LobbyPage.tsx`：新增 AI 玩家数输入框
 - [x] `src/pixi/components/SeatSprite.ts`：bot 显示名前缀 🤖，蓝色边框 + 蓝色头像
+
+---
+
+## Phase 7：AI 玩家风格升级 ✅ 构建通过
+
+### 功能点
+
+- [x] **四种 bot 风格**：TAG（紧凶）、LAG（松凶）、Station（松被动）、Rock（紧被动），每种风格有独立的入局/加注/下注/弃牌阈值和虚张声势率
+- [x] **风格主题**：创建房间时可选混合 / 激进 / 被动 / 随机四种主题，决定同桌 bot 的风格分配规则
+- [x] **Preflop 强度评估**：对子按等级线性映射，非对子按点数和 + 同花/连牌加成
+- [x] **Postflop 强度评估**：调用现有 `EvaluateHand()`，按成牌类别（SF→HC）映射 0–1 强度
+- [x] **风格感知决策**：preflop 按 EnterThreshold/RaiseThreshold 决定入局/加注/弃牌；postflop 按 BetThreshold/FoldThreshold 决定下注/弃牌/加注；BluffRate 引入随机虚张声势
+
+### 改动文件
+
+- [x] `internal/room/model.go`：`RoomConfig` 新增 `BotStyle string`
+- [x] `internal/room/manager.go`：`validateConfig` 校验 `bot_style` 合法值
+- [x] `internal/game/model.go`：`Player` 新增 `BotStyle string`
+- [x] `internal/game/bot.go`：全面重写，新增 `BotPersonality`、`assignBotStyle()`、`preflopStrength()`、`postflopStrength()`、`handStrength()`、`decideBotAction()`
+- [x] `internal/game/engine.go`：`seatBots()` 调用 `assignBotStyle()` 写入 `p.BotStyle`；`scheduleAIAction()` 传入手牌快照
+- [x] `src/api/http.ts`：`RoomConfig` 新增 `bot_style?: string`
+- [x] `src/react/pages/LobbyPage.tsx`：AI 风格下拉选择框（混合 / 激进 / 被动 / 随机）
 
 ---
 

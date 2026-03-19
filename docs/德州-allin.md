@@ -8,13 +8,15 @@
 >
 > https://www.sud.tech/cn/gamelist
 
+我的想法：
+
 - 技术栈：
   - Go + React + PixiJS
   - 消息协议：WebSocket + JSON/Protobuf
 - 架构设计：
   - 规则引擎：
     - State Machine（控制游戏状态）
-    - 比牌逻辑（Lookup Table、Two Plus Two算法）
+    - 比牌逻辑（Two Plus Two算法）
 - 产品定位：
   - 前期先做 PC Web，后面在扩展到 移动端H5 / Android / IOS
   - 组局形式：熟人组局

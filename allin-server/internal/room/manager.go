@@ -153,6 +153,12 @@ func validateConfig(cfg RoomConfig) error {
 	if cfg.BotCount < 0 || cfg.BotCount >= cfg.MaxPlayers {
 		return errors.New("bot_count must be >= 0 and < max_players")
 	}
+	switch cfg.BotStyle {
+	case "", "mixed", "aggressive", "passive", "random":
+		// valid
+	default:
+		return errors.New("bot_style must be mixed, aggressive, passive, or random")
+	}
 	if cfg.ActionTimeSec == 0 {
 		cfg.ActionTimeSec = 30
 	}

@@ -185,6 +185,7 @@ func (e *Engine) seatBots() {
 			DisplayName: botDisplayName(i),
 			Stack:       e.room.Config.MaxBuyIn,
 			IsBot:       true,
+			BotStyle:    assignBotStyle(e.room.Config.BotStyle, i),
 		}
 		if !e.gs.SeatPlayer(p) {
 			break // no more seats

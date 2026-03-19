@@ -61,7 +61,8 @@ type Player struct {
 	Folded bool
 	AllIn  bool
 	SitOut bool
-	IsBot  bool
+	IsBot    bool
+	BotStyle string // tag|lag|station|rock (only set when IsBot=true)
 
 	// ActedThisStreet is reset to false when the current bet is raised above the player's bet.
 	ActedThisStreet bool

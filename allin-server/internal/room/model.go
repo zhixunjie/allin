@@ -13,7 +13,8 @@ type RoomConfig struct {
 	MaxBuyIn      int64 `json:"max_buy_in"`
 	MaxPlayers    int   `json:"max_players"`     // 2-9
 	ActionTimeSec int   `json:"action_time_sec"` // default 30
-	BotCount      int   `json:"bot_count"`       // number of AI players (0 = none)
+	BotCount      int    `json:"bot_count"`       // number of AI players (0 = none)
+	BotStyle      string `json:"bot_style"`       // mixed|aggressive|passive|random (default "mixed")
 }
 
 // RoomState represents the lifecycle state of a room.

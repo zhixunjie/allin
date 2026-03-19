@@ -18,6 +18,7 @@ export default function LobbyPage() {
   const [maxBuyIn, setMaxBuyIn] = useState('200')
   const [maxPlayers, setMaxPlayers] = useState('9')
   const [botCount, setBotCount] = useState('0')
+  const [botStyle, setBotStyle] = useState('mixed')
 
   // join room
   const [joinCode, setJoinCode] = useState('')
@@ -34,6 +35,10 @@ export default function LobbyPage() {
   async function handleCreate(e: FormEvent) {
     e.preventDefault()
     setError('')
+    if (Number(botCount) >= Number(maxPlayers)) {
+      setError('AI 玩家数必须小于最大人数，至少留 1 个座位给真人')
+      return
+    }
     setLoading(true)
     try {
       const config: RoomConfig = {
@@ -43,6 +48,7 @@ export default function LobbyPage() {
         max_buy_in: Number(maxBuyIn),
         max_players: Number(maxPlayers),
         bot_count: Number(botCount),
+        bot_style: botStyle,
       }
       const room = await roomAPI.create(config)
       setRoom(room)
@@ -154,6 +160,22 @@ export default function LobbyPage() {
                   value={botCount}
                   onChange={(e) => setBotCount(e.target.value)}
                 />
+                {Number(botCount) >= Number(maxPlayers) && (
+                  <span className={styles.fieldError}>AI 数量不能占满所有座位，至少留 1 个给真人</span>
+                )}
+              </label>
+              <label>
+                AI 风格
+                <select
+                  className={styles.numInput}
+                  value={botStyle}
+                  onChange={(e) => setBotStyle(e.target.value)}
+                >
+                  <option value="mixed">混合</option>
+                  <option value="aggressive">激进</option>
+                  <option value="passive">被动</option>
+                  <option value="random">随机</option>
+                </select>
               </label>
             </div>
             <div className={styles.row}>

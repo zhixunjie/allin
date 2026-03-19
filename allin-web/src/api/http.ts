@@ -57,6 +57,7 @@ export interface RoomConfig {
   max_buy_in: number
   max_players: number
   bot_count?: number
+  bot_style?: string
 }
 
 export interface Room {
