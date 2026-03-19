@@ -155,3 +155,8 @@
   font-size: 0.85rem;
   margin: 0;
 }
+
+.fieldError {
+  color: #ff6b6b;
+  font-size: 0.78rem;
+}

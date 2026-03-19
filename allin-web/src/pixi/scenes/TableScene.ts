@@ -1,6 +1,12 @@
 import { Application, Container, Graphics, Text, Ticker } from 'pixi.js'
 import { useGameStore } from '../../store/game'
-import { SEAT_POSITIONS, TABLE_CX, TABLE_CY, TABLE_H, TABLE_W } from '../assets'
+import {
+  SEAT_POSITIONS,
+  TABLE_CX,
+  TABLE_CY,
+  TABLE_H,
+  TABLE_W,
+} from '../assets'
 import { CardSprite } from '../components/CardSprite'
 import { PotDisplay } from '../components/PotDisplay'
 import { SeatSprite } from '../components/SeatSprite'
@@ -80,18 +86,15 @@ export class TableScene {
   // ---- Build ----
 
   private buildTable() {
-    // Felt background
     const felt = new Graphics()
     felt.rect(0, 0, TABLE_W, TABLE_H)
     felt.fill({ color: 0x0a1520 })
 
-    // Oval table
     const table = new Graphics()
     table.ellipse(TABLE_CX, TABLE_CY, 490, 240)
     table.fill({ color: 0x1a5c2a })
     table.stroke({ color: 0x0d3018, width: 6 })
 
-    // Inner rail
     const rail = new Graphics()
     rail.ellipse(TABLE_CX, TABLE_CY, 470, 222)
     rail.stroke({ color: 0x2d7a40, width: 3 })
@@ -121,6 +124,7 @@ export class TableScene {
   }
 
   private buildCommunityArea() {
+    // Community cards
     for (let i = 0; i < 5; i++) {
       const card = new CardSprite()
       card.visible = false

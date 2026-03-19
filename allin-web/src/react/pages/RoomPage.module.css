@@ -206,43 +206,4 @@
   pointer-events: auto;
 }
 
-/* ---- My hole cards (React UI overlay) ---- */
-.myCards {
-  position: absolute;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  pointer-events: none;
-}
 
-.card {
-  width: 52px;
-  height: 74px;
-  background: #fff;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
-}
-
-.cardRank {
-  font-size: 1.2rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.cardSuit {
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.red  .cardRank,
-.red  .cardSuit { color: #dd2222; }
-
-.black .cardRank,
-.black .cardSuit { color: #111111; }

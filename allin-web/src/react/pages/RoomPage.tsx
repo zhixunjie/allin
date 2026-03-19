@@ -60,18 +60,6 @@ export default function RoomPage() {
           <div className={styles.waiting}>准备开始下一手…</div>
         )}
 
-        {/* My hole cards */}
-        {gs.myHole.length === 2 && (
-          <div className={styles.myCards}>
-            {gs.myHole.map((card, i) => (
-              <div key={i} className={`${styles.card} ${isRedSuit(card) ? styles.red : styles.black}`}>
-                <span className={styles.cardRank}>{card[0]}</span>
-                <span className={styles.cardSuit}>{suitSymbol(card[1])}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Action panel */}
         <div className={styles.actionArea}>
           <ActionPanel gs={gs} />
@@ -90,10 +78,3 @@ export default function RoomPage() {
   )
 }
 
-function isRedSuit(card: string) {
-  return card[1] === 'h' || card[1] === 'd'
-}
-
-function suitSymbol(s: string) {
-  return { c: '♣', d: '♦', h: '♥', s: '♠' }[s] ?? s
-}

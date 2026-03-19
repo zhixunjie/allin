@@ -37,3 +37,4 @@ export const SEAT_POSITIONS: { x: number; y: number }[] = [
   { x: 185, y: 185 }, // 7  left
   { x: 135, y: 400 }, // 8  bottom left
 ]
+

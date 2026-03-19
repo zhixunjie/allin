@@ -1,7 +1,7 @@
 # 实现进度
 
 > 最后更新：2026-03-19
-> 当前阶段：Phase 5 完成 + AI 玩家风格升级
+> 当前阶段：Phase 7 完成，Phase 8 修复已保留，视觉重绘待重新实现
 
 ---
 
@@ -169,6 +169,14 @@
 - [x] `internal/game/engine.go`：`seatBots()` 调用 `assignBotStyle()` 写入 `p.BotStyle`；`scheduleAIAction()` 传入手牌快照
 - [x] `src/api/http.ts`：`RoomConfig` 新增 `bot_style?: string`
 - [x] `src/react/pages/LobbyPage.tsx`：AI 风格下拉选择框（混合 / 激进 / 被动 / 随机）
+
+---
+
+## Phase 8：渲染修复 ✅ 构建通过
+
+- [x] **Canvas 宽高比修复**（`src/pixi/app.ts`）：移除 `height: '100%'`，改用 `aspectRatio: 1200/700`，防止 CSS 垂直拉伸导致整体模糊
+- [x] **手牌可见性修复**（`src/pixi/components/SeatSprite.ts`）：删除 `else if (isActive)` 背面牌分支（showdown 前 `seat.hole` 本就是 undefined，无需此逻辑）；手牌逻辑统一为 `isLocal ? myHole : seat.hole`
+- [x] **手牌渲染统一到 PixiJS**（`src/react/pages/RoomPage.tsx`）：移除 React overlay 的 `myCards` HTML 版手牌（含 `isRedSuit`/`suitSymbol` 辅助函数和对应 CSS），`SeatSprite` 统一渲染本地玩家和摊牌手牌
 
 ---
 

@@ -20,12 +20,13 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
     autoDensity: true,
   })
 
-  // Make canvas responsive
+  // Make canvas responsive — maintain aspect ratio to avoid stretching blur
   const canvas = app.canvas as HTMLCanvasElement
   canvas.style.width = '100%'
-  canvas.style.height = '100%'
   canvas.style.maxWidth = `${TABLE_W}px`
+  canvas.style.aspectRatio = `${TABLE_W} / ${TABLE_H}`
   canvas.style.display = 'block'
+  canvas.style.margin = '0 auto'
   container.appendChild(canvas)
 
   scene = new TableScene(app)

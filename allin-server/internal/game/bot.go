@@ -146,11 +146,17 @@ func preflopStrength(hole [2]Card) float64 {
 var catStrength = [9]float64{1.0, 0.95, 0.88, 0.78, 0.70, 0.60, 0.45, 0.30, 0.15}
 
 // postflopStrength 在有公共牌时评估最佳成牌强度，返回 0.0–1.0。
-// 公共牌不足 3 张时退回 preflopStrength。
+//
+// EvaluateHand 内部构造 [7]eval.Card 数组，不足 7 张时用零值填充。
+// 翻牌（3张）和转牌（4张）时零牌会使 evaluateFive 越界 panic，
+// 因此只有公共牌达到 5 张（河牌后）才做完整评估，否则退回 preflop 估算。
 func postflopStrength(hole [2]Card, community []Card) float64 {
+	if len(community) < 5 {
+		// 翻牌/转牌阶段：公共牌不足，零值填充会引发 panic，退回 preflop 强度
+		return preflopStrength(hole)
+	}
 	rank, _ := EvaluateHand(hole, community)
 	if rank == 0xFFFFFFFF {
-		// EvaluateHand 返回无效值（公共牌不足），退回 preflop 估算
 		return preflopStrength(hole)
 	}
 	cat := rank >> 20

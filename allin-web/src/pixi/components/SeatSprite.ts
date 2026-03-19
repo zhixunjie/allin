@@ -1,11 +1,13 @@
 import { Container, Graphics, Text } from 'pixi.js'
 import type { SeatSnapshot } from '../../store/game'
-import { CARD_H, CARD_W } from '../assets'
 import { CardSprite } from './CardSprite'
 
 const SEAT_W = 120
 const SEAT_H = 80
 const AVATAR_R = 26
+const CARD_W = 60
+const CARD_H = 84
+const CARD_Y = -CARD_H - AVATAR_R * 2 - 10
 
 export class SeatSprite extends Container {
   private bg: Graphics
@@ -67,14 +69,13 @@ export class SeatSprite extends Container {
     this.statusText.position.set(SEAT_W / 2, SEAT_H / 2)
     this.addChild(this.statusText)
 
-    // Hole cards (shown below avatar, centered above seat)
-    this.card0 = new CardSprite()
-    this.card1 = new CardSprite()
-    const cardY = -CARD_H - AVATAR_R * 2 - 10
+    // Hole cards
     const cardX0 = SEAT_W / 2 - CARD_W - 2
     const cardX1 = SEAT_W / 2 + 2
-    this.card0.position.set(cardX0, cardY)
-    this.card1.position.set(cardX1, cardY)
+    this.card0 = new CardSprite()
+    this.card1 = new CardSprite()
+    this.card0.position.set(cardX0, CARD_Y)
+    this.card1.position.set(cardX1, CARD_Y)
     this.card0.visible = false
     this.card1.visible = false
     this.addChild(this.card0, this.card1)
@@ -107,17 +108,11 @@ export class SeatSprite extends Container {
       this.statusText.text = ''
     }
 
-    // Hole cards
+    // Hole cards — local player uses myHole; other players only reveal at showdown via seat.hole.
     const hole = this.isLocal ? myHole : seat.hole
     if (hole && hole.length === 2) {
       this.card0.setCard(hole[0])
       this.card1.setCard(hole[1])
-      this.card0.visible = true
-      this.card1.visible = true
-    } else if (seat.user_id && !seat.folded && isActive) {
-      // Other player has cards dealt (face down)
-      this.card0.setFaceDown()
-      this.card1.setFaceDown()
       this.card0.visible = true
       this.card1.visible = true
     } else {
@@ -137,8 +132,8 @@ export class SeatSprite extends Container {
 
     this.bg.clear()
     this.bg.roundRect(0, 0, SEAT_W, SEAT_H, 10)
-    this.bg.fill({ color: 0x1a2535, alpha: 0.6 })
-    this.bg.stroke({ color: 0x2a3545, width: 1 })
+    this.bg.fill({ color: 0x1a2535, alpha: 0.5 })
+    this.bg.stroke({ color: 0x2a3545, width: 1, alpha: 0.6 })
 
     this.avatar.clear()
     this.avatar.circle(0, 0, AVATAR_R)
@@ -157,12 +152,11 @@ export class SeatSprite extends Container {
     this.bg.fill({ color: bgColor })
     this.bg.stroke({ color: borderColor, width: borderWidth })
 
-    // Avatar: fixed blue for bots, hash-based color for humans
     const hue = isBot ? 0x4060a0 : this.hashColor(userId)
     this.avatar.clear()
     this.avatar.circle(0, 0, AVATAR_R)
     this.avatar.fill({ color: hue })
-    this.avatar.stroke({ color: isActive ? 0xf0c040 : 0x1a2535, width: isActive ? 3 : 1 })
+    this.avatar.stroke({ color: isActive ? 0xf0c040 : 0x1a2535, width: isActive ? 2 : 1 })
   }
 
   private hashColor(str: string): number {
@@ -170,7 +164,6 @@ export class SeatSprite extends Container {
     for (let i = 0; i < str.length; i++) {
       hash = (hash * 31 + str.charCodeAt(i)) & 0xffffff
     }
-    // Make sure it's not too dark
     return 0x406080 | (hash & 0x3f3f3f)
   }
 }

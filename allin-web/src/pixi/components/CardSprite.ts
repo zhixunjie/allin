@@ -13,6 +13,7 @@ export class CardSprite extends Container {
     this.bg = new Graphics()
     this.addChild(this.bg)
 
+    // Top-left: rank
     this.rankText = new Text({
       text: '',
       style: { fontSize: 15, fontWeight: 'bold', fill: 0x111111 },
@@ -20,12 +21,13 @@ export class CardSprite extends Container {
     this.rankText.position.set(4, 2)
     this.addChild(this.rankText)
 
+    // Center: large suit symbol
     this.suitText = new Text({
       text: '',
-      style: { fontSize: 22, fill: 0x111111 },
+      style: { fontSize: 32, fill: 0x111111 },
     })
     this.suitText.anchor.set(0.5)
-    this.suitText.position.set(CARD_W / 2, CARD_H / 2 + 4)
+    this.suitText.position.set(CARD_W / 2, CARD_H / 2)
     this.addChild(this.suitText)
 
     this.drawBack()
@@ -44,6 +46,7 @@ export class CardSprite extends Container {
     this.rankText.style.fill = color
     this.suitText.text = symbol
     this.suitText.style.fill = color
+
     this.rankText.visible = true
     this.suitText.visible = true
   }
@@ -59,17 +62,15 @@ export class CardSprite extends Container {
     this.bg.clear()
     this.bg.roundRect(0, 0, CARD_W, CARD_H, CARD_RADIUS)
     this.bg.fill({ color: 0xffffff })
-    this.bg.stroke({ color: 0xaaaaaa, width: 1 })
+    this.bg.stroke({ color: 0xbbbbbb, width: 1 })
   }
 
   private drawBack() {
     this.bg.clear()
     this.bg.roundRect(0, 0, CARD_W, CARD_H, CARD_RADIUS)
-    this.bg.fill({ color: 0x1a3a8f })
-    this.bg.stroke({ color: 0x0d1f5c, width: 1 })
-    // Simple crosshatch pattern
-    this.bg.roundRect(4, 4, CARD_W - 8, CARD_H - 8, 3)
-    this.bg.stroke({ color: 0x2a5ac8, width: 1 })
+    this.bg.fill({ color: 0x1a2a7a })
+    this.bg.roundRect(4, 4, CARD_W - 8, CARD_H - 8, CARD_RADIUS - 2)
+    this.bg.stroke({ color: 0xffffff, width: 1, alpha: 0.3 })
   }
 
   get isFaceDown() {
