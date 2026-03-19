@@ -6,7 +6,8 @@
       "Bash(npm run:*)",
       "Bash(go build:*)",
       "Bash(mysql --version)",
-      "Bash(brew services:*)"
+      "Bash(brew services:*)",
+      "Bash(npx vite:*)"
     ]
   }
 }
