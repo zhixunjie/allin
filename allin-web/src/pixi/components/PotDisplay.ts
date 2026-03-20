@@ -106,33 +106,49 @@ export class PotDisplay extends Container {
         const g = this.chipStacks
         g.clear()
 
-        // 并排绘制 3 个筹码堆
-        const stacks = [5, 4, 6]
+        // 运用真实赌场的红蓝金明亮发牌配色（避免在深色桌布上显得过于暗沉）
+        const stackCols = [
+            { count: 5, top: 0xff4d4f, edge: 0xcf1322 }, // 亮采红
+            { count: 4, top: 0x36cfc9, edge: 0x08979c }, // 霓虹青
+            { count: 6, top: 0xffc53d, edge: 0xd48806 }, // 香槟金
+        ]
+
         const stackSpacing = 10
         const chipW = 10
         const chipH = 4
-        const chipGap = 3
+        // chipGap 代表每一枚筹码叠上去的露出厚度（稍小于真实厚度能产生堆叠感）
+        const chipGap = 2
+        // chipThickness 代表筹码的柱体厚度
+        const chipThickness = 2
 
-        // 原本筹码是以 bottom 贴着 centerY 向上堆叠，导致整体完全偏在半上半边。
-        // 现在我们将整体沿着 Y 轴向下偏移，使整坨筹码在视觉上完美垂直居中。
-        const maxStackHeight = (Math.max(...stacks) - 1) * chipGap
-        const yOffset = maxStackHeight / 2 // 向下偏移半个最大高度
+        const maxStackHeight = (Math.max(...stackCols.map(s => s.count)) - 1) * chipGap
+        const yOffset = maxStackHeight / 2 // 向下偏移以完美垂直居中
 
-        for (let s = 0; s < stacks.length; s++) {
-            // 改为从 0 开始向右排列，避免 s-1 导致向左偏移跳出左半球形外
+        for (let s = 0; s < stackCols.length; s++) {
             const cx = s * stackSpacing
-            const count = stacks[s]
-            for (let i = 0; i < count; i++) {
+            const colData = stackCols[s]
+
+            for (let i = 0; i < colData.count; i++) {
                 const cy = -i * chipGap + yOffset
+
+                // 1. 绘制筹码厚度层 (产生伪全 3D 柱体效果，且每一枚都有厚度)
+                g.ellipse(cx, cy + chipThickness, chipW / 2, chipH / 2)
+                g.fill({color: colData.edge})
+
+                // 2. 绘制筹码顶面主力颜色
                 g.ellipse(cx, cy, chipW / 2, chipH / 2)
-                g.fill({color: C.GOLD})
+                g.fill({color: colData.top})
+                
+                // 3. 画出顶面与厚度之间的圆角轮廓暗线，极度增强立体感
                 g.ellipse(cx, cy, chipW / 2, chipH / 2)
-                g.stroke({color: 0x000000, width: 0.5, alpha: 0.3})
-                // 底部边缘，营造 3D 效果
-                if (i === 0) {
-                    g.ellipse(cx, cy + 2, chipW / 2, chipH / 2)
-                    g.fill({color: C.GOLD_DIM})
-                }
+                g.stroke({color: 0x000000, width: 0.5, alpha: 0.25})
+
+                // 4. 画一个白色的小内圈，模拟赌场筹码中心的品牌贴纸 (Decal)
+                g.ellipse(cx, cy, chipW / 3.5, chipH / 3.5)
+                g.fill({color: 0xffffff, alpha: 0.85})
+                // 贴纸外再套一层极细的微透黑圈表示贴纸边界
+                g.ellipse(cx, cy, chipW / 3.5, chipH / 3.5)
+                g.stroke({color: 0x000000, width: 0.5, alpha: 0.15})
             }
         }
     }
