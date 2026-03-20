@@ -1,4 +1,4 @@
-import {Application, Container, Graphics, Text, Ticker, NineSliceSprite, Texture} from 'pixi.js'
+import {Application, Container, Graphics, NineSliceSprite, Text, Texture, Ticker} from 'pixi.js'
 import {Street} from '../../types/enums'
 import {useGameStore} from '../../store/game'
 import {
@@ -174,7 +174,7 @@ export class TableScene {
         this.root.addChild(this.dealerChip)
     }
 
-    /** 
+    /**
      * 动态生成一个支持九宫格缩放的牌桌基础纹理。
      * 利用 Canvas 2D API 绘制完美平滑的真·径向渐变毛毡。
      */
@@ -189,23 +189,27 @@ export class TableScene {
         const ctx = canvas.getContext('2d')!
 
         const hexToRgb = (hex: number) => `${hex >> 16}, ${(hex >> 8) & 0xff}, ${hex & 0xff}`
-        
+
         // 底层实色（边缘基底颜色，Alpha 1.0）
         ctx.fillStyle = `rgb(${hexToRgb(C.FELT_EDGE)})`
         ctx.fillRect(0, 0, size, size)
 
         // 中心高亮叠加径向光晕（融合到完全透明）
-        const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2)
-        gradient.addColorStop(0, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.3)`)
+        // 增加更多的扩散阶段，让高光衰减有着像光学漫反射那样富有层次感的效果
+        const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+        gradient.addColorStop(0, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.8)`)
+        gradient.addColorStop(0.25, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.6)`)
+        gradient.addColorStop(0.5, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.4)`)
+        gradient.addColorStop(0.75, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.15)`)
         gradient.addColorStop(1, `rgba(${hexToRgb(C.FELT_CENTER)}, 0)`)
-        
+
         ctx.fillStyle = gradient
         ctx.fillRect(0, 0, size, size)
 
         const feltTexture = Texture.from(canvas)
 
         const g = new Graphics()
-        
+
         // 2. 深色木质边框
         g.roundRect(0, 0, size, size, radius)
         g.fill({color: C.WOOD_FRAME})
