@@ -33,23 +33,24 @@ import {CardSprite} from './CardSprite'
  *   远程玩家（displayIdx>0） — 小头像(R=38)，名称在头像下方，筹码在名称下方，手牌显示在头像上方
  */
 export class SeatSprite extends Container {
-    private avatarBg: Graphics      // 头像圆形背景 + 描边
-    private avatarIcon: Text        // 头像 emoji
-    private nameText: Text          // 玩家昵称
-    private stackText: Text         // 筹码金额
-    private stackLabel: Text        // 本地玩家的 "筹码余额" 副标签
-    private betBadge: Container     // 下注徽章容器（背景 + 图标 + 文字）
-    private betIcon: Text           // 下注图标 🪙
-    private betText: Text           // 下注金额文字
-    private statusBadge: Container  // 状态徽章容器（"已弃牌" / "ALL-IN"）
-    private statusBadgeBg: Graphics // 状态徽章背景
-    private statusBadgeText: Text   // 状态徽章文字
-    private posTag: Container       // 位置标签容器（BTN/SB/BB 等）
-    private posTagText: Text        // 位置标签文字
-    private card0: CardSprite       // 手牌 1
-    private card1: CardSprite       // 手牌 2
-    private nameBadge: Graphics     // 本地玩家金色名称底板
-    private stackPanel: Graphics    // 本地玩家玻璃筹码面板
+    private avatarBg!: Graphics      // 头像圆形背景 + 描边
+    private avatarIcon!: Text        // 头像 emoji
+    private nameText!: Text          // 玩家昵称
+    private stackText!: Text         // 筹码金额
+    private stackLabel!: Text        // 本地玩家的 "筹码余额" 副标签
+    private betBadge!: Container     // 下注徽章容器（背景 + 图标 + 文字）
+    private betIcon!: Text           // 下注图标 🪙
+    private betText!: Text           // 下注金额文字
+    private statusBadge!: Container  // 状态徽章容器（"已弃牌" / "ALL-IN"）
+    private statusBadgeBg!: Graphics // 状态徽章背景
+    private statusBadgeText!: Text   // 状态徽章文字
+    private posTag!: Container       // 位置标签容器（BTN/SB/BB 等）
+    private posTagText!: Text        // 位置标签文字
+    private card0!: CardSprite       // 手牌 1
+    private card1!: CardSprite       // 手牌 2
+    private nameBadge!: Graphics     // 本地玩家金色名称底板
+    private stackPanel!: Graphics    // 本地玩家玻璃筹码面板
+
     private isLocal: boolean        // 是否为本地玩家（底部大头像）
     private avatarR: number         // 头像半径（本地 52，远程 38）
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
@@ -62,23 +63,40 @@ export class SeatSprite extends Container {
         this.isLocal = isLocal
         this.avatarR = isLocal ? AVATAR_R_LOCAL : AVATAR_R_REMOTE
 
-        // ---- 头像 ----
+        this.buildAvatar()
+        this.buildPosTag()
+        this.buildNameText()
+        this.buildStackElements()
+        this.buildBetBadge()
+        this.buildStatusBadge()
+        this.buildCards()
+
+        // 初始状态：绘制空座位
+        this.drawEmpty()
+    }
+
+    // ─── 构造分解 ──────────────────────────────────────────────
+
+    private buildAvatar() {
         this.avatarBg = new Graphics()
         this.addChild(this.avatarBg)
 
         // 头像 emoji（居中锚点，覆盖在圆形背景上）
         this.avatarIcon = new Text({
             text: '',
-            style: {fontSize: isLocal ? 40 : 28},
+            style: {fontSize: this.isLocal ? 40 : 28},
         })
         this.avatarIcon.anchor.set(0.5)
         this.addChild(this.avatarIcon)
+    }
 
-        // ---- 位置标签（BTN/SB/BB 等）— 浮于头像上方 ----
+    private buildPosTag() {
         this.posTag = new Container()
         this.posTag.visible = false
+
         const posTagBg = new Graphics()  // 标签背景（玻璃面板 + 金色边框）
         this.posTag.addChild(posTagBg)
+
         this.posTagText = new Text({
             text: '',
             style: {
@@ -92,13 +110,14 @@ export class SeatSprite extends Container {
         this.posTagText.anchor.set(0.5)
         this.posTag.addChild(this.posTagText)
         this.addChild(this.posTag)
+    }
 
-        // ---- 名称 ----
-        if (isLocal) {
+    private buildNameText() {
+        this.nameBadge = new Graphics()
+        
+        if (this.isLocal) {
             // 本地玩家：头像底部的金色药丸形名称徽章
-            this.nameBadge = new Graphics()
             this.addChild(this.nameBadge)
-
             this.nameText = new Text({
                 text: '',
                 style: {
@@ -112,7 +131,6 @@ export class SeatSprite extends Container {
             this.nameText.anchor.set(0.5)
         } else {
             // 远程玩家：头像下方普通文字
-            this.nameBadge = new Graphics()
             this.nameText = new Text({
                 text: '',
                 style: {
@@ -126,23 +144,24 @@ export class SeatSprite extends Container {
             this.nameText.anchor.set(0.5, 0)
         }
         this.addChild(this.nameText)
+    }
 
-        // ---- 筹码 ----
+    private buildStackElements() {
         // 本地玩家有独立的玻璃面板底板
         this.stackPanel = new Graphics()
-        if (isLocal) this.addChild(this.stackPanel)
+        if (this.isLocal) this.addChild(this.stackPanel)
 
         this.stackText = new Text({
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: isLocal ? 22 : 11,   // 本地大号，远程小号
+                fontSize: this.isLocal ? 22 : 11,   // 本地大号，远程小号
                 fontWeight: '900',
                 fill: C.GOLD,
-                letterSpacing: isLocal ? 1.5 : 0,
+                letterSpacing: this.isLocal ? 1.5 : 0,
             },
         })
-        this.stackText.anchor.set(0.5, isLocal ? 0.5 : 0)
+        this.stackText.anchor.set(0.5, this.isLocal ? 0.5 : 0)
         this.addChild(this.stackText)
 
         // 本地玩家筹码金额下方的 "筹码余额" 说明文字
@@ -159,19 +178,20 @@ export class SeatSprite extends Container {
         this.stackLabel.anchor.set(0.5, 0)
         this.stackLabel.alpha = 0.7
         this.stackLabel.visible = false
-        if (isLocal) this.addChild(this.stackLabel)
+        if (this.isLocal) this.addChild(this.stackLabel)
+    }
 
-        // ---- 下注徽章 — 朝牌桌中心方向浮动 ----
+    private buildBetBadge() {
         this.betBadge = new Container()
         this.betBadge.visible = false
+
         const betBg = new Graphics()  // 徽章背景（绿色药丸 + 金色边框）
         this.betBadge.addChild(betBg)
-        this.betIcon = new Text({
-            text: '🪙',
-            style: {fontSize: 12},
-        })
+
+        this.betIcon = new Text({ text: '🪙', style: {fontSize: 12} })
         this.betIcon.anchor.set(0.5)
         this.betBadge.addChild(this.betIcon)
+
         this.betText = new Text({
             text: '',
             style: {
@@ -184,12 +204,15 @@ export class SeatSprite extends Container {
         this.betText.anchor.set(0, 0.5)
         this.betBadge.addChild(this.betText)
         this.addChild(this.betBadge)
+    }
 
-        // ---- 状态徽章（"已弃牌" / "ALL-IN"）----
+    private buildStatusBadge() {
         this.statusBadge = new Container()
         this.statusBadge.visible = false
+
         this.statusBadgeBg = new Graphics()
         this.statusBadge.addChild(this.statusBadgeBg)
+
         this.statusBadgeText = new Text({
             text: '',
             style: {
@@ -202,26 +225,18 @@ export class SeatSprite extends Container {
         this.statusBadgeText.anchor.set(0.5)
         this.statusBadge.addChild(this.statusBadgeText)
         this.addChild(this.statusBadge)
+    }
 
-        // ---- 手牌（两张缩小版 CardSprite）----
+    private buildCards() {
         this.card0 = new CardSprite(true)  // isHoleCard=true
         this.card1 = new CardSprite(true)
         this.card0.visible = false
         this.card1.visible = false
         this.addChild(this.card0, this.card1)
-
-        // 初始状态：绘制空座位
-        this.drawEmpty()
     }
 
     /**
      * 从 GameStore 状态更新座位显示。由 TableScene.updateFromState() 每帧调用。
-     *
-     * @param seat       座位快照数据（null 表示空座位）
-     * @param isActive   该座位是否为当前行动玩家
-     * @param myHole     本地玩家的手牌（仅当 isLocal 时使用）
-     * @param posName    位置标签名（如 "BTN", "SB", "BB"）
-     * @param displayIdx 显示索引（0=底部本地，用于计算下注徽章朝向）
      */
     update(
         seat: SeatSnapshot | null,
@@ -232,12 +247,22 @@ export class SeatSprite extends Container {
     ) {
         this.displayIdx = displayIdx ?? 0
 
-        // 空座位：清空所有元素
         if (!seat) {
             this.drawEmpty()
             return
         }
 
+        this.updateBaseLayer(seat, isActive)
+        this.updatePlayerInfo(seat)
+        this.updatePosTag(posName)
+        this.updateBetBadge(seat)
+        this.updateStatusBadge(seat)
+        this.updateHandCards(seat, myHole)
+    }
+
+    // ─── 更新分解 ──────────────────────────────────────────────
+
+    private updateBaseLayer(seat: SeatSnapshot, isActive: boolean) {
         // 绘制有玩家的座位背景（头像圆 + 活跃光环/普通描边）
         this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded)
 
@@ -245,7 +270,9 @@ export class SeatSprite extends Container {
         const icon = seat.is_bot ? '🤖' : this.getPlayerIcon(seat.user_id)
         this.avatarIcon.text = icon
         this.avatarIcon.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
+    }
 
+    private updatePlayerInfo(seat: SeatSnapshot) {
         // 玩家昵称（截断到 10 字符）
         this.nameText.text = seat.display_name.slice(0, 10)
 
@@ -256,8 +283,9 @@ export class SeatSprite extends Container {
         if (this.isLocal) {
             this.layoutLocalStack()
         }
+    }
 
-        // 位置标签（BTN/SB/BB 等）— 浮于头像上方
+    private updatePosTag(posName?: string) {
         if (posName) {
             this.posTag.visible = true
             this.posTagText.text = posName
@@ -265,8 +293,9 @@ export class SeatSprite extends Container {
         } else {
             this.posTag.visible = false
         }
+    }
 
-        // 下注徽章 — 从座位朝牌桌中心方向放置
+    private updateBetBadge(seat: SeatSnapshot) {
         if (seat.bet > 0 && !seat.folded) {
             this.betBadge.visible = true
             this.betText.text = `下注 $${seat.bet.toLocaleString()}`
@@ -274,8 +303,9 @@ export class SeatSprite extends Container {
         } else {
             this.betBadge.visible = false
         }
+    }
 
-        // 状态徽章（"已弃牌" 或 "ALL-IN"）
+    private updateStatusBadge(seat: SeatSnapshot) {
         if (seat.folded) {
             this.statusBadge.visible = true
             this.statusBadgeText.text = '已弃牌'
@@ -289,11 +319,12 @@ export class SeatSprite extends Container {
         } else {
             this.statusBadge.visible = false
         }
+    }
 
-        // 手牌显示逻辑：
-        //   本地玩家 → 使用 myHole（从服务器私密下发）
-        //   远程玩家 → 使用 seat.hole（仅 showdown 时服务器才下发）
+    private updateHandCards(seat: SeatSnapshot, myHole?: string[]) {
+        // 手牌显示逻辑：本地玩家用 myHole，远程使用 seat.hole（仅 show down 可见）
         const hole = this.isLocal ? myHole : seat.hole
+        
         if (hole && hole.length === 2 && !seat.folded) {
             this.card0.setCard(hole[0])
             this.card1.setCard(hole[1])
@@ -303,9 +334,9 @@ export class SeatSprite extends Container {
             if (this.isLocal) {
                 // 本地玩家：手牌在头像右侧扇形展开，微微旋转
                 this.card0.position.set(this.avatarR + 24, -50)
-                this.card0.rotation = -0.08  // 逆时针微倾
+                this.card0.rotation = -0.08
                 this.card1.position.set(this.avatarR + 60, -50)
-                this.card1.rotation = 0.08   // 顺时针微倾
+                this.card1.rotation = 0.08
             } else {
                 // 远程玩家：摊牌时手牌显示在头像上方
                 this.card0.position.set(-36, -this.avatarR - 70)
