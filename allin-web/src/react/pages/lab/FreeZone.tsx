@@ -113,17 +113,36 @@ export function FreeZone() {
         </p>
       )}
 
-      {/* 可用变量速查 */}
-      <details className="text-[10px] text-white/30 cursor-pointer">
-        <summary className="hover:text-white/50">可用变量</summary>
-        <pre className="mt-1 leading-relaxed text-white/40">{
-`app  stage  layer
-Graphics  Container
-Text  Sprite  Texture  Assets
-C  W  H`
-        }</pre>
-      </details>
+      {/* 可用变量 tooltip 速查 */}
+      <div className="flex flex-wrap gap-1">
+        {VARS.map(({ name, tip }) => (
+          <span key={name} className="relative group">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-white/40 group-hover:text-amber-300/80 group-hover:bg-amber-500/10 cursor-default transition-colors block">
+              {name}
+            </span>
+            {/* tooltip */}
+            <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap rounded bg-black/90 border border-white/10 px-2 py-1 text-[10px] text-white/80 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+              {tip}
+            </span>
+          </span>
+        ))}
+      </div>
 
     </div>
   )
 }
+
+const VARS: { name: string; tip: string }[] = [
+  { name: 'app',       tip: 'PixiJS Application 实例' },
+  { name: 'stage',     tip: 'app.stage — 根 Container' },
+  { name: 'layer',     tip: '自由区专属 Container，清空时只清这里' },
+  { name: 'Graphics',  tip: 'new Graphics() — 程序化绘图' },
+  { name: 'Container', tip: 'new Container() — 分组容器' },
+  { name: 'Text',      tip: 'new Text({ text, style }) — 文字' },
+  { name: 'Sprite',    tip: 'new Sprite(texture) — 纹理精灵' },
+  { name: 'Texture',   tip: 'Texture.from(url) — 纹理加载' },
+  { name: 'Assets',    tip: 'Assets.load(url) — 异步资源加载' },
+  { name: 'C',         tip: '项目色板常量，如 C.GOLD / C.FELT_CENTER' },
+  { name: 'W',         tip: `画布宽度 ${CANVAS_W}` },
+  { name: 'H',         tip: `画布高度 ${CANVAS_H}` },
+]
