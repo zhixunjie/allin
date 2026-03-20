@@ -4,10 +4,6 @@ export const CANVAS_W = 1600
 /** 画布总高度 */
 export const CANVAS_H = 900
 
-/** PixiJS 场景内部别名，与 CANVAS_W/H 相同 */
-// export const TABLE_W = CANVAS_W
-// export const TABLE_H = CANVAS_H
-
 // ── 牌桌椭圆 ─────────────────────────────────────────
 /** 椭圆中心 X（画布水平居中） */
 export const TABLE_CX = 800
