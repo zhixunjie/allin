@@ -176,54 +176,78 @@ export class TableScene {
 
     /**
      * 动态生成一个支持九宫格缩放的牌桌基础纹理。
-     * 利用 Canvas 2D API 绘制完美平滑的真·径向渐变毛毡。
      */
     private createTableTexture() {
-        const size = TABLE_TEX_CONFIG.SIZE
-        const radius = TABLE_TEX_CONFIG.CORNER_RADIUS
+        const { SIZE: size, CORNER_RADIUS: radius } = TABLE_TEX_CONFIG
 
-        // 1. 利用 Canvas 2D 创建平滑径向渐变毛毡贴图
+        // 1. 生成内部真·径向渐变毛毡材质
+        const feltTexture = this.createFeltGradientTexture(size)
+
+        // 2. 依次叠加桌侧组件
+        const g = new Graphics()
+        this.drawWoodFrame(g, size, radius)
+        this.drawGoldBorders(g, size, radius)
+        this.drawFeltSurface(g, size, radius, feltTexture)
+
+        return this.app.renderer.generateTexture(g)
+    }
+
+    /** 用 Canvas API 离屏绘制高质量绿毛毡渐变贴图 */
+    private createFeltGradientTexture(size: number): Texture {
         const canvas = document.createElement('canvas')
         canvas.width = size
         canvas.height = size
         const ctx = canvas.getContext('2d')!
 
         const hexToRgb = (hex: number) => `${hex >> 16}, ${(hex >> 8) & 0xff}, ${hex & 0xff}`
-
-        // 底层实色（边缘基底颜色，Alpha 1.0）
+        
         ctx.fillStyle = `rgb(${hexToRgb(C.FELT_EDGE)})`
         ctx.fillRect(0, 0, size, size)
 
-        // 中心高亮叠加径向光晕（融合到完全透明）
-        // 增加更多的扩散阶段，让高光衰减有着像光学漫反射那样富有层次感的效果
         const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
-        gradient.addColorStop(0, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.8)`)
-        gradient.addColorStop(0.25, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.6)`)
-        gradient.addColorStop(0.5, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.4)`)
-        gradient.addColorStop(0.75, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.15)`)
-        gradient.addColorStop(1, `rgba(${hexToRgb(C.FELT_CENTER)}, 0)`)
+        const centerColor = hexToRgb(C.FELT_CENTER)
+        
+        gradient.addColorStop(0, `rgba(${centerColor}, 0.8)`)
+        gradient.addColorStop(0.25, `rgba(${centerColor}, 0.6)`)
+        gradient.addColorStop(0.5, `rgba(${centerColor}, 0.4)`)
+        gradient.addColorStop(0.75, `rgba(${centerColor}, 0.15)`)
+        gradient.addColorStop(1, `rgba(${centerColor}, 0)`)
 
         ctx.fillStyle = gradient
         ctx.fillRect(0, 0, size, size)
 
-        const feltTexture = Texture.from(canvas)
+        return Texture.from(canvas)
+    }
 
-        const g = new Graphics()
-
-        // 2. 深色木质边框
+    /** 绘制主体木质外沿 */
+    private drawWoodFrame(g: Graphics, size: number, radius: number) {
         g.roundRect(0, 0, size, size, radius)
-        g.fill({color: C.WOOD_FRAME})
+        g.fill({ color: C.WOOD_FRAME })
+    }
 
-        // 3. 金边
-        g.roundRect(2, 2, size - 4, size - 4, radius - 2).stroke({color: C.GOLD, width: 3, alpha: 0.6})
-        g.roundRect(5, 5, size - 10, size - 10, radius - 5).stroke({color: C.GOLD, width: 1, alpha: 0.15})
+    /** 绘制嵌在木框上的金线 */
+    private drawGoldBorders(g: Graphics, size: number, radius: number) {
+        // 使用 alignment: 1 (向内描边) 彻底解决了边缘向外溢出导致与深底色过度抗锯齿产生泛白的描边问题
+        g.roundRect(2, 2, size - 4, size - 4, Math.max(0, radius - 2))
+         .stroke({ color: C.GOLD, width: 3, alpha: 0.6, alignment: 1 })
+         
+        g.roundRect(5, 5, size - 10, size - 10, Math.max(0, radius - 5))
+         .stroke({ color: C.GOLD, width: 1, alpha: 0.15, alignment: 1 })
+    }
 
-        // 4. 绿毛毡渐变层 (填充刚创建的无缝渐变贴图)
+    /** 绘制绿色毛毡体本身以及它的内阴影 */
+    private drawFeltSurface(g: Graphics, size: number, radius: number, feltTex: Texture) {
         const feltEdge = RAIL_W
-        g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
-        g.fill({texture: feltTexture})
+        const innerRadius = Math.max(0, radius - feltEdge)
+        const innerSize = size - feltEdge * 2
 
-        return this.app.renderer.generateTexture(g)
+        // 填充绒布纹理
+        g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
+        g.fill({ texture: feltTex })
+
+        // 施加内阴影，增加桌沿下陷的立体感 (一样使用内描边防止扩散白边)
+        g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
+         .stroke({ color: 0x000000, width: 25, alpha: 0.3, alignment: 1 })
     }
 
     /** 9 个座位精灵，displayIdx=0 为本地玩家（大头像） */
