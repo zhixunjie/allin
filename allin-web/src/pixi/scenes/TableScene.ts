@@ -1,4 +1,4 @@
-import {Application, Container, Graphics, Text, Ticker, NineSliceSprite} from 'pixi.js'
+import {Application, Container, Graphics, Text, Ticker, NineSliceSprite, Texture} from 'pixi.js'
 import {Street} from '../../types/enums'
 import {useGameStore} from '../../store/game'
 import {
@@ -16,6 +16,7 @@ import {
     TABLE_CY,
     TABLE_RX,
     TABLE_RY,
+    TABLE_TEX_CONFIG,
 } from '../assets'
 import {CardSprite} from '../components/CardSprite'
 import {PotDisplay} from '../components/PotDisplay'
@@ -143,12 +144,13 @@ export class TableScene {
     private buildTable() {
         // 使用生成的纹理创建九宫格精灵
         const tableTex = this.createTableTexture()
+        const rad = TABLE_TEX_CONFIG.CORNER_RADIUS
         const tableSprite = new NineSliceSprite({
             texture: tableTex,
-            leftWidth: 150,
-            rightWidth: 150,
-            topHeight: 150,
-            bottomHeight: 150,
+            leftWidth: rad,
+            rightWidth: rad,
+            topHeight: rad,
+            bottomHeight: rad,
         })
 
         // 设定目标的牌桌总宽高
@@ -174,48 +176,57 @@ export class TableScene {
 
     /** 
      * 动态生成一个支持九宫格缩放的牌桌基础纹理。
-     * 基础尺寸 350x350，四角切图面积为 150x150。
+     * 利用 Canvas 2D API 绘制完美平滑的真·径向渐变毛毡。
      */
     private createTableTexture() {
-        const size = 350
-        const radius = 150
+        const size = TABLE_TEX_CONFIG.SIZE
+        const radius = TABLE_TEX_CONFIG.CORNER_RADIUS
+
+        // 1. 利用 Canvas 2D 创建平滑径向渐变毛毡贴图
+        const canvas = document.createElement('canvas')
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')!
+
+        const hexToRgb = (hex: number) => `${hex >> 16}, ${(hex >> 8) & 0xff}, ${hex & 0xff}`
+        
+        // 底层实色（边缘基底颜色，Alpha 1.0）
+        ctx.fillStyle = `rgb(${hexToRgb(C.FELT_EDGE)})`
+        ctx.fillRect(0, 0, size, size)
+
+        // 中心高亮叠加径向光晕（融合到完全透明）
+        const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2)
+        gradient.addColorStop(0, `rgba(${hexToRgb(C.FELT_CENTER)}, 0.3)`)
+        gradient.addColorStop(1, `rgba(${hexToRgb(C.FELT_CENTER)}, 0)`)
+        
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, size, size)
+
+        const feltTexture = Texture.from(canvas)
 
         const g = new Graphics()
         
-        // 1. 深色木质边框
+        // 2. 深色木质边框
         g.roundRect(0, 0, size, size, radius)
         g.fill({color: C.WOOD_FRAME})
 
-        // 2. 金边
+        // 3. 金边
         g.roundRect(2, 2, size - 4, size - 4, radius - 2)
         g.stroke({color: C.GOLD, width: 3, alpha: 0.6})
         g.roundRect(5, 5, size - 10, size - 10, radius - 5)
         g.stroke({color: C.GOLD, width: 1, alpha: 0.15})
 
-        // 3. 绿毛毡外圈边缘
+        // 4. 绿毛毡渐变层 (填充刚创建的无缝渐变贴图)
         const feltEdge = RAIL_W
         g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
-        g.fill({color: C.FELT_EDGE})
-
-        // 4. 模拟内侧光照渐变 (四层叠加)
-        const d1 = feltEdge + 15
-        g.roundRect(d1, d1, size - d1 * 2, size - d1 * 2, radius - d1)
-        g.fill({color: C.FELT_OUTER})
-
-        const d2 = d1 + 25
-        g.roundRect(d2, d2, size - d2 * 2, size - d2 * 2, radius - d2)
-        g.fill({color: C.FELT_MID})
-
-        const d3 = d2 + 35
-        g.roundRect(d3, d3, size - d3 * 2, size - d3 * 2, radius - d3)
-        g.fill({color: C.FELT_CENTER})
+        g.fill({texture: feltTexture})
 
         // 5. 毛毡内侧边缘阴影
         g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
-        g.stroke({color: 0x000000, width: 25, alpha: 0.3})
+        g.stroke({color: 0x000000, width: TABLE_TEX_CONFIG.GRADIENTS.SHADOW_WIDTH, alpha: 0.3})
 
         // 6. 毛毡内侧金色细环
-        const innerG = feltEdge + 25
+        const innerG = feltEdge + TABLE_TEX_CONFIG.GRADIENTS.INNER_GOLD
         g.roundRect(innerG, innerG, size - innerG * 2, size - innerG * 2, radius - innerG)
         g.stroke({color: C.GOLD, width: 1, alpha: 0.1})
 
