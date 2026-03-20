@@ -63,13 +63,13 @@ export class SeatSprite extends Container {
         this.isLocal = isLocal
         this.avatarR = isLocal ? AVATAR_R_LOCAL : AVATAR_R_REMOTE
 
-        this.buildAvatar()
-        this.buildPosTag()
-        this.buildNameText()
-        this.buildStackElements()
-        this.buildBetBadge()
-        this.buildStatusBadge()
-        this.buildCards()
+        this.buildAvatar()        // 1. 基础头像构建（底板光环 + 裁切遮罩 + 实际图象）
+        this.buildPosTag()        // 2. 位置身份标签（BTN/SB/BB 悬浮位于正上方）
+        this.buildNameText()      // 3. 昵称文本区（本地大牌采用金底黑字，远程直接渲染文本）
+        this.buildStackElements() // 4. 自身筹码额（本地附带宽体玻璃质感托盘底板）
+        this.buildBetBadge()      // 5. 本街有效下注额展现徽章（绿底红心金币标识）
+        this.buildStatusBadge()   // 6. 特殊极化行为标识徽章（全押爆点，或弃牌高斯灰）
+        this.buildCards()         // 7. 座位的两张手牌物理容器（默认遮盖底牌）
 
         // 初始状态：绘制空座位
         this.drawEmpty()
@@ -77,6 +77,7 @@ export class SeatSprite extends Container {
 
     // ─── 构造分解 ──────────────────────────────────────────────
 
+    /** 初始化玩家头像层：含有一层白色裁切遮罩和用于装载网络图或本地后备图的 Sprite */
     private buildAvatar() {
         this.avatarBg = new Graphics()
         this.addChild(this.avatarBg)
@@ -95,6 +96,7 @@ export class SeatSprite extends Container {
         this.addChild(mask)
     }
 
+    /** 初始化身份标签栏（例如："BTN", "SB", "BB", "UTG"）：位于头像正上方 */
     private buildPosTag() {
         this.posTag = new Container()
         this.posTag.visible = false
@@ -117,6 +119,7 @@ export class SeatSprite extends Container {
         this.addChild(this.posTag)
     }
 
+    /** 初始化玩家昵称展示：本地玩家配有金色底标，远程玩家为底部极简文字 */
     private buildNameText() {
         this.nameBadge = new Graphics()
         
@@ -151,6 +154,7 @@ export class SeatSprite extends Container {
         this.addChild(this.nameText)
     }
 
+    /** 初始化筹码面板组件：包括大基数的总筹码额和本地玩家独占的"玻璃托盘" */
     private buildStackElements() {
         // 本地玩家有独立的玻璃面板底板
         this.stackPanel = new Graphics()
@@ -186,6 +190,7 @@ export class SeatSprite extends Container {
         if (this.isLocal) this.addChild(this.stackLabel)
     }
 
+    /** 初始化下注徽章（带金币图标和绿底的药丸框）：表示当前街的下注金额 */
     private buildBetBadge() {
         this.betBadge = new Container()
         this.betBadge.visible = false
@@ -211,6 +216,7 @@ export class SeatSprite extends Container {
         this.addChild(this.betBadge)
     }
 
+    /** 初始化状态徽章：用于高亮显示特殊行为导致的状态突变（如 ALL-IN、已弃牌） */
     private buildStatusBadge() {
         this.statusBadge = new Container()
         this.statusBadge.visible = false
@@ -232,6 +238,7 @@ export class SeatSprite extends Container {
         this.addChild(this.statusBadge)
     }
 
+    /** 初始化当前座位的左/右手牌对象（默认隐藏待发牌） */
     private buildCards() {
         this.card0 = new CardSprite(true)  // isHoleCard=true
         this.card1 = new CardSprite(true)
@@ -267,6 +274,11 @@ export class SeatSprite extends Container {
 
     // ─── 更新分解 ──────────────────────────────────────────────
 
+    /** 
+     * 核心渲染底层容器的流态：
+     * 包括轮光（Active/倒计时）、头像图像和玻璃衬底的弃牌透明衰减，
+     * 以及决定是否去网络爬取自定义 URL 图片或直接启用本地渲染生成后备图。
+     */
     private updateBaseLayer(seat: SeatSnapshot, isActive: boolean) {
         // 绘制有玩家的座位背景（头像圆 + 活跃光环/普通描边）
         this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded)
@@ -292,6 +304,7 @@ export class SeatSprite extends Container {
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
     }
 
+    /** 更新基本数据字段：截断昵称以及筹码数显 */
     private updatePlayerInfo(seat: SeatSnapshot) {
         // 玩家昵称（截断到 10 字符）
         this.nameText.text = seat.display_name.slice(0, 10)
@@ -305,6 +318,7 @@ export class SeatSprite extends Container {
         }
     }
 
+    /** 更新座次头衔（BTN/SB等）：如无身份则隐形 */
     private updatePosTag(posName?: string) {
         if (posName) {
             this.posTag.visible = true
@@ -315,6 +329,7 @@ export class SeatSprite extends Container {
         }
     }
 
+    /** 重绘本街有效下注额的动态呈现，如果已盖牌或未下注则隐现 */
     private updateBetBadge(seat: SeatSnapshot) {
         if (seat.bet > 0 && !seat.folded) {
             this.betBadge.visible = true
@@ -325,6 +340,7 @@ export class SeatSprite extends Container {
         }
     }
 
+    /** 切变行为标记：包含 'ALL-IN' 耀金标识或 '已弃牌' 的灰冷态提示 */
     private updateStatusBadge(seat: SeatSnapshot) {
         if (seat.folded) {
             this.statusBadge.visible = true
@@ -341,6 +357,7 @@ export class SeatSprite extends Container {
         }
     }
 
+    /** 根据客户端身份和 Showdown 公开协议判断并渲染当事两张底牌的倾角分列位 */
     private updateHandCards(seat: SeatSnapshot, myHole?: string[]) {
         // 手牌显示逻辑：本地玩家用 myHole，远程使用 seat.hole（仅 show down 可见）
         const hole = this.isLocal ? myHole : seat.hole
@@ -453,7 +470,7 @@ export class SeatSprite extends Container {
         }
     }
 
-    /** 布局本地玩家的筹码面板：头像下方的玻璃药丸底板 + 金额 + "筹码余额" 标签 */
+    /** 布局并计算本地主视角特供的长条半透明托盘样式，包含"筹码余额"小字 */
     private layoutLocalStack() {
         const R = this.avatarR
         const panelY = R + 24
@@ -560,9 +577,12 @@ export class SeatSprite extends Container {
 const _defaultAvatarCache = new Map<string, Texture>()
 
 /**
- * 用 Canvas 本地生成默认头像纹理。
- * 背景色由 userId 哈希决定（相同玩家颜色稳定），中央显示昵称首字。
- * 结果被缓存，多次调用同一 userId 不会重复绘制。
+ * 使用纯 Canvas API 本地降级生成备选头像材质：
+ * 背景色由其 userId 进行 Hash 并映射至一套稳定的色相光域中，中心附带昵称的单字符简显。
+ * 生成出来的图像结果会永久全局缓存于 _defaultAvatarCache 中，多席同位均无性消耗。
+ * 
+ * @param userId 确定性散列凭证
+ * @param displayName 获取首字母印花来源
  */
 function makeDefaultAvatarTexture(userId: string, displayName: string): Texture {
     const cached = _defaultAvatarCache.get(userId)
