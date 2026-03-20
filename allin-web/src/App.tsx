@@ -3,7 +3,7 @@ import { useAuthStore } from './store/auth'
 import LoginPage from './react/pages/LoginPage'
 import LobbyPage from './react/pages/LobbyPage'
 import RoomPage from './react/pages/RoomPage'
-import LabPage from './react/pages/LabPage'
+import LabPage from './react/pages/lab/LabPage'
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn())
