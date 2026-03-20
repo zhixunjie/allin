@@ -36,9 +36,6 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
     const app = new Application()
     _app = app
 
-    // 暴露给 PixiJS DevTools Chrome 插件
-    await initDevtools({app})
-
     await app.init({
         width: CANVAS_W,             // 画布宽度 1600px（16:9）
         height: CANVAS_H,            // 画布高度 900px（16:9）
@@ -56,6 +53,11 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
     canvas.style.display = 'block'
     canvas.style.margin = '0 auto'
     container.appendChild(canvas)
+
+    // 暴露给 PixiJS DevTools Chrome 插件（必须在 app.init() 之后调用）
+    // @ts-ignore
+    globalThis.__PIXI_APP__ = app
+    await initDevtools({app})
 
     // 创建牌桌场景并初始化（构建所有子元素 + 订阅状态）
     scene = new TableScene(app)
