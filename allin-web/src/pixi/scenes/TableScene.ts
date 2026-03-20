@@ -168,7 +168,8 @@ export class TableScene {
         this.streetLabel.position.set(TABLE_CX, TABLE_CY + TABLE_RY * 0.65)
         this.root.addChild(this.streetLabel)
 
-        this.potDisplay.position.set(TABLE_CX - 110, TABLE_CY + 40)
+        // 底池背景 200宽 -> 居中 x - 100
+        this.potDisplay.position.set(TABLE_CX - 100, TABLE_CY + 30)
         this.root.addChild(this.potDisplay)
 
         this.root.addChild(this.dealerChip)
