@@ -225,13 +225,18 @@ export class TableScene {
         g.fill({ color: C.WOOD_FRAME })
     }
 
-    /** 绘制嵌在木框上的金线 */
+    /** 绘制嵌在木框内侧边缘的金线 */
     private drawGoldBorders(g: Graphics, size: number, radius: number) {
-        // 使用 alignment: 1 (向内描边) 彻底解决了边缘向外溢出导致与深底色过度抗锯齿产生泛白的描边问题
-        g.roundRect(2, 2, size - 4, size - 4, Math.max(0, radius - 2))
+        const feltEdge = RAIL_W
+
+        // 靠内的一条较粗的主金线（宽度3，从 feltEdge-3 出方向内侧描边，刚好贴合绒布边缘）
+        const offset1 = feltEdge - 3
+        g.roundRect(offset1, offset1, size - offset1 * 2, size - offset1 * 2, Math.max(0, radius - offset1))
          .stroke({ color: C.GOLD, width: 3, alpha: 0.6, alignment: 1 })
          
-        g.roundRect(5, 5, size - 10, size - 10, Math.max(0, radius - 5))
+        // 靠外的一条极细的副金线（增加包裹的层次质感）
+        const offset2 = feltEdge - 6
+        g.roundRect(offset2, offset2, size - offset2 * 2, size - offset2 * 2, Math.max(0, radius - offset2))
          .stroke({ color: C.GOLD, width: 1, alpha: 0.15, alignment: 1 })
     }
 
