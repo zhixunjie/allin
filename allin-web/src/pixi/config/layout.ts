@@ -10,11 +10,11 @@ export const TABLE_CX = 800
 /** 椭圆中心 Y（偏上，给底部本地玩家留空间） */
 export const TABLE_CY = 385
 /** 椭圆 X 半轴（毛毡外边缘） */
-export const TABLE_RX = 630
+export const TABLE_RX = 555
 /** 椭圆 Y 半轴（毛毡外边缘） */
-export const TABLE_RY = 270
+export const TABLE_RY = 220
 /** 木质边框厚度（变得更细莹） */
-export const RAIL_W = 12
+export const RAIL_W = 17
 
 // ── 座位 ─────────────────────────────────────────────
 /** 本地玩家头像半径（底部大头像） */

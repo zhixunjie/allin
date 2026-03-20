@@ -271,19 +271,23 @@ export class SeatSprite extends Container {
         // 绘制有玩家的座位背景（头像圆 + 活跃光环/普通描边）
         this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded)
 
-        // 如果用户有自定义头像则使用其 url，否则利用 userId 生成可预测的随机冒险者头像
-        const avatarUrl = seat.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${seat.user_id}&backgroundColor=b6e3f4`
-        
-        // 异步加载图片并赋值给 Sprite
-        Assets.load(avatarUrl).then((tex) => {
+        const setTex = (tex: Texture) => {
             if (this.avatarImg && !this.avatarImg.destroyed) {
                 this.avatarImg.texture = tex
                 this.avatarImg.width = this.avatarR * 2
                 this.avatarImg.height = this.avatarR * 2
             }
-        }).catch(() => {
-            // handle error if necessary
-        })
+        }
+
+        if (seat.avatar) {
+            // 有自定义头像：远程加载，失败则降级为默认头像
+            Assets.load(seat.avatar).then(setTex).catch(() => {
+                setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
+            })
+        } else {
+            // 无头像：本地直接生成
+            setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
+        }
 
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
     }
@@ -548,6 +552,47 @@ export class SeatSprite extends Container {
         this.statusBadgeBg.roundRect(-badgeW / 2, -11, badgeW, 22, 8)
         this.statusBadgeBg.stroke({color: 0xffffff, width: 0.5, alpha: 0.05})
     }
+}
 
+// ── 默认头像生成 ─────────────────────────────────────────────────────────────
 
+/** 缓存：相同 userId 只生成一次 */
+const _defaultAvatarCache = new Map<string, Texture>()
+
+/**
+ * 用 Canvas 本地生成默认头像纹理。
+ * 背景色由 userId 哈希决定（相同玩家颜色稳定），中央显示昵称首字。
+ * 结果被缓存，多次调用同一 userId 不会重复绘制。
+ */
+function makeDefaultAvatarTexture(userId: string, displayName: string): Texture {
+    const cached = _defaultAvatarCache.get(userId)
+    if (cached) return cached
+
+    const SIZE = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = SIZE
+    canvas.height = SIZE
+    const ctx = canvas.getContext('2d')!
+
+    // 背景色：基于 userId 的稳定哈希值
+    const hue = Math.abs(userId.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0)) % 360
+    const grad = ctx.createRadialGradient(SIZE / 2, SIZE / 2, 0, SIZE / 2, SIZE / 2, SIZE / 2)
+    grad.addColorStop(0, `hsl(${hue}, 55%, 40%)`)
+    grad.addColorStop(1, `hsl(${hue}, 45%, 22%)`)
+    ctx.fillStyle = grad
+    ctx.beginPath()
+    ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
+    ctx.fill()
+
+    // 首字母
+    const letter = (displayName || '?')[0].toUpperCase()
+    ctx.fillStyle = 'rgba(255,255,255,0.90)'
+    ctx.font = `bold ${SIZE * 0.42}px sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(letter, SIZE / 2, SIZE / 2 + 2)
+
+    const tex = Texture.from(canvas)
+    _defaultAvatarCache.set(userId, tex)
+    return tex
 }

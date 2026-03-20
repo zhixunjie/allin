@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { initPixiApp } from '../../pixi/app'
 import { useAuthStore } from '../../store/auth'
 import { useWebSocket } from '../../hooks/useWebSocket'
@@ -13,8 +13,7 @@ import { Street } from '../../types/enums'
 import styles from './RoomPage.module.css'
 
 export default function RoomPage() {
-  const { code } = useParams<{ code: string }>()
-  const navigate = useNavigate()
+  const { code } = useParams<{ code: string }>()  // 用于 WebSocket 连接房间
   const { token } = useAuthStore()
   const canvasRef = useRef<HTMLDivElement>(null)
 
@@ -30,35 +29,11 @@ export default function RoomPage() {
     return () => { cleanup?.() }
   }, [])
 
-  const blindsText = gs.config
-    ? `${gs.config.small_blind}/${gs.config.big_blind}`
-    : ''
-
   return (
     <div className={styles.root}>
       <div className={styles.canvasWrap} ref={canvasRef} />
 
       <div className={styles.overlay}>
-        {/* 顶部信息栏 */}
-        <div className={styles.topBar}>
-          <span className={styles.brand}>GALACTIC ACES</span>
-
-          <div className={styles.topBarRight}>
-            {blindsText && (
-              <div className={styles.tableInfo}>
-                <span className={styles.tableInfoLabel}>牌桌 #{code ?? ''}</span>
-                <span className={styles.tableInfoValue}>盲注 {blindsText}</span>
-              </div>
-            )}
-            {gs.street !== Street.Idle && (
-              <span className={styles.streetBadge}>{gs.street.toUpperCase()}</span>
-            )}
-            <button className={styles.leaveBtn} onClick={() => navigate('/lobby')}>
-              ← 离开
-            </button>
-          </div>
-        </div>
-
         {/* 行动计时器 临时屏蔽*/}
         {/*{gs.isMyTurn && secondsLeft > 0 && (*/}
         {/*  <div className={styles.timerBanner}>*/}
