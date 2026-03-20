@@ -1,9 +1,21 @@
-import { Application } from 'pixi.js'
+import { Application, Container } from 'pixi.js'
 import { CANVAS_W, CANVAS_H } from './assets'
 import { TableScene } from './scenes/TableScene'
 
 /** 当前活跃的牌桌场景实例（全局单例） */
 let scene: TableScene | null = null
+
+/** 当前 PixiJS Application 实例（初始化后可用） */
+let _app: Application | null = null
+
+/** Lab 自由区专用容器，叠在所有游戏元素之上 */
+let _freeLayer: Container | null = null
+
+/** 获取当前 PixiJS Application，仅供 Lab 调试使用 */
+export function getApp(): Application | null { return _app }
+
+/** 获取自由区容器，仅供 Lab 调试使用 */
+export function getFreeLayer(): Container | null { return _freeLayer }
 
 /**
  * 初始化 PixiJS 应用并将 canvas 挂载到 `container` 中。
@@ -17,6 +29,7 @@ let scene: TableScene | null = null
  */
 export async function initPixiApp(container: HTMLElement): Promise<() => void> {
   const app = new Application()
+  _app = app
 
   await app.init({
     width: CANVAS_W,             // 画布宽度 1600px（16:9）
@@ -40,10 +53,16 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
   scene = new TableScene(app)
   scene.init()
 
+  // 自由区容器：叠在所有游戏元素之上，供 Lab 直接添加任意 PixiJS 对象
+  _freeLayer = new Container()
+  app.stage.addChild(_freeLayer)
+
   // 返回清理函数：销毁场景 → 销毁 PixiJS 应用（含 canvas）
   return () => {
     scene?.destroy()
     scene = null
+    _freeLayer = null
+    _app = null
     app.destroy(true, { children: true })
   }
 }
