@@ -82,33 +82,41 @@ export const RANK_DISPLAY: Record<string, string> = {
   '5': '5', '4': '4', '3': '3', '2': '2',
 }
 
-// ---- 牌桌布局 ----
-export const TABLE_W = 1200
-export const TABLE_H = 700
-export const TABLE_CX = 600
-export const TABLE_CY = 300
+// ---- 画布尺寸（16:9，适配 PC macOS 浏览器）----
+export const CANVAS_W = 1600       // 画布总宽度
+export const CANVAS_H = 900        // 画布总高度
 
-// 牌桌椭圆尺寸
-export const TABLE_RX = 480       // X 半轴（外侧毛毡）
-export const TABLE_RY = 220       // Y 半轴（外侧毛毡）
-export const FRAME_THICKNESS = 14 // 木质边框厚度
+// PixiJS 导出兼容别名（内部用）
+export const TABLE_W = CANVAS_W
+export const TABLE_H = CANVAS_H
+
+// ---- 牌桌椭圆 ----
+export const TABLE_CX = 800        // 椭圆中心 X（画布水平居中）
+export const TABLE_CY = 385        // 椭圆中心 Y（偏上，给底部本地玩家留空间）
+export const TABLE_RX = 630        // 椭圆 X 半轴（毛毡外边缘）
+export const TABLE_RY = 270        // 椭圆 Y 半轴（毛毡外边缘）
+export const RAIL_W   = 18         // 木质边框厚度（含金色描边）
 
 // ---- 座位布局 ----
 // 头像半径
 export const AVATAR_R_LOCAL = 52
 export const AVATAR_R_REMOTE = 38
 
-// 9 个座位位置（显示索引 0 = 本地玩家在底部）
+// 9 个座位中心坐标（显示索引 0 = 本地玩家在底部，顺时针排列）
+// 边距说明：
+//   顶部座位 y ≥ 110（留出头像+位置标签+摊牌手牌的空间）
+//   底部本地 y = 745（筹码面板底边约 y+130 = 875，距画布底 25px）
+//   左右侧   x 距边缘 ≥ 160（留出头像+下注徽章的空间）
 export const SEAT_POSITIONS: { x: number; y: number }[] = [
-  { x: 600, y: 580 },  // 0  底部中央（本地玩家）
-  { x: 940, y: 500 },  // 1  右下
-  { x: 1080, y: 310 }, // 2  右侧
-  { x: 990, y: 130 },  // 3  右上
-  { x: 790, y: 55 },   // 4  上方偏右
-  { x: 600, y: 35 },   // 5  顶部中央
-  { x: 410, y: 55 },   // 6  上方偏左
-  { x: 210, y: 130 },  // 7  左上
-  { x: 120, y: 310 },  // 8  左侧
+  { x: 800,  y: 745 },  // 0  底部中央（本地玩家，大头像）
+  { x: 1255, y: 645 },  // 1  右下
+  { x: 1445, y: 395 },  // 2  右侧
+  { x: 1320, y: 165 },  // 3  右上
+  { x: 1055, y: 80  },  // 4  上方偏右
+  { x: 800,  y: 60  },  // 5  顶部中央
+  { x: 545,  y: 80  },  // 6  上方偏左
+  { x: 280,  y: 165 },  // 7  左上
+  { x: 155,  y: 395 },  // 8  左侧
 ]
 
 // ---- 位置名称 ----

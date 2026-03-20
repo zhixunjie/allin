@@ -4,7 +4,7 @@ import { initPixiApp } from '../../pixi/app'
 import { useAuthStore } from '../../store/auth'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { useGameState } from '../../hooks/useGameState'
-import { useActionTimer } from '../../hooks/useActionTimer'
+// import { useActionTimer } from '../../hooks/useActionTimer'
 import { ActionPanel } from '../panels/ActionPanel'
 // import { ChatPanel } from '../panels/ChatPanel'
 import { HandHistory } from '../panels/HandHistory'
@@ -21,7 +21,7 @@ export default function RoomPage() {
   useWebSocket(code, token)
 
   const gs = useGameState()
-  const secondsLeft = useActionTimer()
+  // const secondsLeft = useActionTimer()
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -59,7 +59,7 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* 行动计时器 */}
+        {/* 行动计时器 临时屏蔽*/}
         {/*{gs.isMyTurn && secondsLeft > 0 && (*/}
         {/*  <div className={styles.timerBanner}>*/}
         {/*    <span className={styles.timerNum} style={{ color: secondsLeft <= 5 ? '#ff5252' : '#d4af37' }}>*/}

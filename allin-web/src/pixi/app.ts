@@ -1,5 +1,5 @@
 import { Application } from 'pixi.js'
-import { TABLE_H, TABLE_W } from './assets'
+import { CANVAS_W, CANVAS_H } from './assets'
 import { TableScene } from './scenes/TableScene'
 
 /** 当前活跃的牌桌场景实例（全局单例） */
@@ -19,8 +19,8 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
   const app = new Application()
 
   await app.init({
-    width: TABLE_W,             // 设计稿宽度 1200px
-    height: TABLE_H,            // 设计稿高度 700px
+    width: CANVAS_W,             // 画布宽度 1600px（16:9）
+    height: CANVAS_H,            // 画布高度 900px（16:9）
     backgroundColor: 0x060c14,  // 深空背景色
     antialias: true,            // 抗锯齿
     resolution: window.devicePixelRatio || 1,  // 适配 Retina 屏幕
@@ -30,8 +30,8 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
   // canvas 响应式布局 — 通过 CSS aspectRatio 保持宽高比，避免拉伸模糊
   const canvas = app.canvas as HTMLCanvasElement
   canvas.style.width = '100%'
-  canvas.style.maxWidth = `${TABLE_W}px`
-  canvas.style.aspectRatio = `${TABLE_W} / ${TABLE_H}`
+  canvas.style.maxWidth = `${CANVAS_W}px`
+  canvas.style.aspectRatio = `${CANVAS_W} / ${CANVAS_H}`
   canvas.style.display = 'block'
   canvas.style.margin = '0 auto'
   container.appendChild(canvas)
