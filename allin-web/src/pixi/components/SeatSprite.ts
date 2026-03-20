@@ -1,4 +1,4 @@
-import {Container, Graphics, Text} from 'pixi.js'
+import {Assets, Container, Graphics, Sprite, Text, Texture} from 'pixi.js'
 import type {SeatSnapshot} from '../../store/game'
 import {
     AVATAR_R_LOCAL,
@@ -34,7 +34,7 @@ import {CardSprite} from './CardSprite'
  */
 export class SeatSprite extends Container {
     private avatarBg!: Graphics      // 头像圆形背景 + 描边
-    private avatarIcon!: Text        // 头像 emoji
+    private avatarImg!: Sprite       // 头像图片
     private nameText!: Text          // 玩家昵称
     private stackText!: Text         // 筹码金额
     private stackLabel!: Text        // 本地玩家的 "筹码余额" 副标签
@@ -81,13 +81,18 @@ export class SeatSprite extends Container {
         this.avatarBg = new Graphics()
         this.addChild(this.avatarBg)
 
-        // 头像 emoji（居中锚点，覆盖在圆形背景上）
-        this.avatarIcon = new Text({
-            text: '',
-            style: {fontSize: this.isLocal ? 40 : 28},
-        })
-        this.avatarIcon.anchor.set(0.5)
-        this.addChild(this.avatarIcon)
+        // 头像图片 Sprite
+        this.avatarImg = new Sprite()
+        this.avatarImg.anchor.set(0.5)
+
+        // 裁切遮罩：把方形图片裁成正圆
+        const mask = new Graphics()
+        mask.circle(0, 0, this.avatarR)
+        mask.fill({color: 0xffffff})
+        this.avatarImg.mask = mask
+
+        this.addChild(this.avatarImg)
+        this.addChild(mask)
     }
 
     private buildPosTag() {
@@ -266,10 +271,21 @@ export class SeatSprite extends Container {
         // 绘制有玩家的座位背景（头像圆 + 活跃光环/普通描边）
         this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded)
 
-        // 头像 emoji：bot 固定 🤖，真人通过 userId 哈希选择
-        const icon = seat.is_bot ? '🤖' : this.getPlayerIcon(seat.user_id)
-        this.avatarIcon.text = icon
-        this.avatarIcon.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
+        // 如果用户有自定义头像则使用其 url，否则利用 userId 生成可预测的随机冒险者头像
+        const avatarUrl = seat.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${seat.user_id}&backgroundColor=b6e3f4`
+        
+        // 异步加载图片并赋值给 Sprite
+        Assets.load(avatarUrl).then((tex) => {
+            if (this.avatarImg && !this.avatarImg.destroyed) {
+                this.avatarImg.texture = tex
+                this.avatarImg.width = this.avatarR * 2
+                this.avatarImg.height = this.avatarR * 2
+            }
+        }).catch(() => {
+            // handle error if necessary
+        })
+
+        this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
     }
 
     private updatePlayerInfo(seat: SeatSnapshot) {
@@ -348,17 +364,30 @@ export class SeatSprite extends Container {
         }
     }
 
-    /** 绘制空座位状态：半透明圆形占位，清空所有信息元素 */
+    /** 绘制空座位状态：带有“入座”暗示的样式，清空所有信息元素 */
     private drawEmpty() {
         const R = this.avatarR
 
         this.avatarBg.clear()
+        
+        // 1. 底板填充（微亮）
         this.avatarBg.circle(0, 0, R)
-        this.avatarBg.fill({color: C.SURFACE_HIGH, alpha: 0.3})
+        this.avatarBg.fill({color: C.SURFACE_HIGH, alpha: 0.15})
+        
+        // 2. 淡虚线或纯细线边框以暗示空位
         this.avatarBg.circle(0, 0, R)
-        this.avatarBg.stroke({color: C.TEXT_DIM, width: 1, alpha: 0.15})
+        this.avatarBg.stroke({color: C.TEXT_DIM, width: 1.5, alpha: 0.2})
 
-        this.avatarIcon.text = ''
+        // 3. 正中心增加一个低调的 "+" 符号
+        const cross = this.isLocal ? 16 : 10
+        this.avatarBg.moveTo(-cross, 0).lineTo(cross, 0)
+                     .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
+        this.avatarBg.moveTo(0, -cross).lineTo(0, cross)
+                     .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
+
+        // 移除图像元素
+        this.avatarImg.texture = Texture.EMPTY
+
         this.nameText.text = ''
         this.stackText.text = ''
         this.stackLabel.visible = false
@@ -520,16 +549,5 @@ export class SeatSprite extends Container {
         this.statusBadgeBg.stroke({color: 0xffffff, width: 0.5, alpha: 0.05})
     }
 
-    /**
-     * 根据 userId 哈希值分配一个固定 emoji 头像。
-     * 使用简单的字符哈希确保同一用户始终获得相同图标。
-     */
-    private getPlayerIcon(userId: string): string {
-        const icons = ['👨‍🚀', '👾', '🤖', '👽', '🎭', '👩‍🎤', '🦊', '🐉', '🎯']
-        let hash = 0
-        for (let i = 0; i < userId.length; i++) {
-            hash = (hash * 31 + userId.charCodeAt(i)) | 0
-        }
-        return icons[Math.abs(hash) % icons.length]
-    }
+
 }

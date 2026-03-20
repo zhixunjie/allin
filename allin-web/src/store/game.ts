@@ -85,6 +85,7 @@ export interface SeatSnapshot {
   sit_out: boolean     // 是否暂离
   is_bot?: boolean     // 是否 AI 机器人
   hole?: string[]      // 手牌（showdown 时服务端下发）
+  avatar?: string      // 玩家头像图片链接
 }
 
 /** 房间配置 */
