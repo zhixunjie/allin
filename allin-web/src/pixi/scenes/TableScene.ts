@@ -165,7 +165,8 @@ export class TableScene {
         this.root.addChild(tableSprite)
 
         // 背景全局发光已在 buildBackground 完成，此处保留功能元素逻辑
-        this.streetLabel.position.set(TABLE_CX, TABLE_CY + TABLE_RY * 0.65)
+        // 将街道标签 (PREFLOP, FLOP) 移动到公共牌的上方居中位置
+        this.streetLabel.position.set(TABLE_CX, TABLE_CY - 110)
         this.root.addChild(this.streetLabel)
 
         // 底池背景 200宽 -> 居中 x - 100
@@ -179,7 +180,7 @@ export class TableScene {
      * 动态生成一个支持九宫格缩放的牌桌基础纹理。
      */
     private createTableTexture() {
-        const { SIZE: size, CORNER_RADIUS: radius } = TABLE_TEX_CONFIG
+        const {SIZE: size, CORNER_RADIUS: radius} = TABLE_TEX_CONFIG
 
         // 1. 生成内部真·径向渐变毛毡材质
         const feltTexture = this.createFeltGradientTexture(size)
@@ -201,14 +202,14 @@ export class TableScene {
         const ctx = canvas.getContext('2d')!
 
         const hexToRgb = (hex: number) => `${hex >> 16}, ${(hex >> 8) & 0xff}, ${hex & 0xff}`
-        
+
         ctx.fillStyle = `rgb(${hexToRgb(C.FELT_EDGE)})`
         ctx.fillRect(0, 0, size, size)
 
         // 增大径向渐变的半径 (size*0.75)，让中间的高光扩散得更自然，避免边缘衰减得太快形成全黑
         const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.75)
         const centerColor = hexToRgb(C.FELT_CENTER)
-        
+
         gradient.addColorStop(0, `rgba(${centerColor}, 0.9)`)
         gradient.addColorStop(0.3, `rgba(${centerColor}, 0.7)`)
         gradient.addColorStop(0.6, `rgba(${centerColor}, 0.4)`)
@@ -224,7 +225,7 @@ export class TableScene {
     /** 绘制主体木质外沿 */
     private drawWoodFrame(g: Graphics, size: number, radius: number) {
         g.roundRect(0, 0, size, size, radius)
-        g.fill({ color: C.WOOD_FRAME })
+        g.fill({color: C.WOOD_FRAME})
     }
 
     /** 绘制嵌在木框内侧边缘的金线 */
@@ -234,12 +235,12 @@ export class TableScene {
         // 靠内的一条较粗的主金线（宽度3，从 feltEdge-3 出方向内侧描边，刚好贴合绒布边缘）
         const offset1 = feltEdge - 3
         g.roundRect(offset1, offset1, size - offset1 * 2, size - offset1 * 2, Math.max(0, radius - offset1))
-         .stroke({ color: C.GOLD, width: 3, alpha: 0.6, alignment: 1 })
-         
+            .stroke({color: C.GOLD, width: 3, alpha: 0.6, alignment: 1})
+
         // 靠外的一条极细的副金线（增加包裹的层次质感）
         const offset2 = feltEdge - 6
         g.roundRect(offset2, offset2, size - offset2 * 2, size - offset2 * 2, Math.max(0, radius - offset2))
-         .stroke({ color: C.GOLD, width: 1, alpha: 0.15, alignment: 1 })
+            .stroke({color: C.GOLD, width: 1, alpha: 0.15, alignment: 1})
     }
 
     /** 绘制绿色毛毡体本身以及它的内阴影 */
@@ -250,7 +251,7 @@ export class TableScene {
 
         // 填充绒布纹理
         g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
-        g.fill({ texture: feltTex })
+        g.fill({texture: feltTex})
 
         // 施加柔和内阴影：利用多层宽度衰减的纯黑内侧描边，代替原有单层 25px 的“粗暴黑眼圈”
         const shadowSteps = 6
@@ -258,7 +259,7 @@ export class TableScene {
         for (let i = 1; i <= shadowSteps; i++) {
             // 从最宽(最浅层)画到最窄(最深层)，靠边的位置会叠加6层变得暗沉，内部分布变浅
             g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
-             .stroke({ color: 0x000000, width: (maxShadowWidth * i) / shadowSteps, alpha: 0.05, alignment: 1 })
+                .stroke({color: 0x000000, width: (maxShadowWidth * i) / shadowSteps, alpha: 0.05, alignment: 1})
         }
     }
 
@@ -273,8 +274,10 @@ export class TableScene {
 
     /** 5 张公共牌 + 行动计时器弧 */
     private buildCommunityArea() {
-        const spacing = CARD_W + 12
-        const startX = TABLE_CX - (5 * spacing - 12) / 2
+        // 增加公共牌之间的间距，让牌面不至于太过拥挤
+        const cardGap = 20
+        const spacing = CARD_W + cardGap
+        const startX = TABLE_CX - (5 * spacing - cardGap) / 2
 
         for (let i = 0; i < 5; i++) {
             const card = new CardSprite()
@@ -409,6 +412,12 @@ export class TableScene {
 
     // ═══════ 构造辅助 ═══════
 
+    /**
+     * 创建游戏阶段（回合 / Street）的中央提示标签。
+     * 它可以展示如 "PREFLOP", "FLOP", "TURN", "RIVER" 或 "SHOWDOWN" 等状态。
+     * 采用加宽的字距（letterSpacing: 3）和暗色字体（TEXT_DIM），
+     * 让其以一种内敛高级、具有质感的形态悬浮在公共牌堆正上方。
+     */
     private createStreetLabel(): Text {
         const label = new Text({
             text: '',
@@ -424,18 +433,28 @@ export class TableScene {
         return label
     }
 
+    /**
+     * 创建庄家标识牌（Dealer Button，俗称 D 扣）。
+     * 指代当前局里的庄家（Button）位置。
+     * 外观是一枚纯金材质、并带有黑色（C.VOID）粗体 "D" 字样的实体圆形按扣图标。
+     *
+     * （当前版本使用 SeatSprite 的悬浮位置标签来展示身份，因此该 D 扣暂时设为 visible = false，作为彩蛋备用）
+     */
     private createDealerChip(): Graphics {
         const chip = new Graphics()
+        // 1. D扣质感底盘
         chip.circle(0, 0, 12)
         chip.fill({color: C.GOLD})
         chip.stroke({color: C.GOLD_DIM, width: 2})
 
+        // 2. 正中间的 D 字样
         const label = new Text({
             text: 'D',
             style: {fontFamily: FONT_HEADLINE, fontSize: 11, fill: C.VOID, fontWeight: '900'},
         })
         label.anchor.set(0.5)
         chip.addChild(label)
+
         chip.visible = false
         return chip
     }
