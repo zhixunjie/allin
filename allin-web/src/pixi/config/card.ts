@@ -1,8 +1,8 @@
 import {C} from './colors'
 
 // ── 公共牌尺寸（桌面展示）────────────────────────────
-export const CARD_W = 80
-export const CARD_H = 112
+export const CARD_W = 64
+export const CARD_H = 90
 export const CARD_RADIUS = 10
 
 // ── 手牌尺寸（座位旁小牌）────────────────────────────
