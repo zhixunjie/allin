@@ -1,4 +1,5 @@
 import { Application, Container } from 'pixi.js'
+import { initDevtools } from '@pixi/devtools'
 import { CANVAS_W, CANVAS_H } from './assets'
 import { TableScene } from './scenes/TableScene'
 
@@ -56,6 +57,9 @@ export async function initPixiApp(container: HTMLElement): Promise<() => void> {
   // 自由区容器：叠在所有游戏元素之上，供 Lab 直接添加任意 PixiJS 对象
   _freeLayer = new Container()
   app.stage.addChild(_freeLayer)
+
+  // 暴露给 PixiJS DevTools Chrome 插件
+  await initDevtools({ app })
 
   // 返回清理函数：销毁场景 → 销毁 PixiJS 应用（含 canvas）
   return () => {

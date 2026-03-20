@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Vite 构建缓存（自动生成，无需提交）
+vite.config.ts.timestamp-*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
