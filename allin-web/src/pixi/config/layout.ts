@@ -45,3 +45,27 @@ export const SEAT_POSITIONS: { x: number; y: number }[] = [
   { x: 280,  y: 165 },  // 7  左上
   { x: 155,  y: 395 },  // 8  左侧
 ]
+
+// ── 牌桌纹理 (NineSlice) ───────────────────────────────
+/**
+ * 九宫格牌桌纹理生成的参数配置
+ */
+export const TABLE_TEX_CONFIG = {
+  /** 纹理基础矩形的大小（需保证大于边缘切片宽度的两倍） */
+  SIZE: 350,
+  /** 牌桌圆角半径，同时作为九宫格图片保留拉伸比例的边缘尺寸 */
+  CORNER_RADIUS: 150,
+  /** 毛毡渐变多层叠加的内缩偏移量 */
+  GRADIENTS: {
+    /** 基础偏移 */
+    OUTER: 15,
+    /** 中圈偏移 */
+    MID: 40,
+    /** 内圈光亮区偏移 */
+    CENTER: 75,
+    /** 边缘内阴影宽度 */
+    SHADOW_WIDTH: 25,
+    /** 内侧装饰金线位置 */
+    INNER_GOLD: 25,
+  }
+} as const

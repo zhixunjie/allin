@@ -1,4 +1,4 @@
-import {Application, Container, Graphics, Text, Ticker} from 'pixi.js'
+import {Application, Container, Graphics, Text, Ticker, NineSliceSprite} from 'pixi.js'
 import {Street} from '../../types/enums'
 import {useGameStore} from '../../store/game'
 import {
@@ -137,45 +137,32 @@ export class TableScene {
     }
 
     /**
-     * 牌桌层：木框 → 金色描边 → 绿色毛毡（4层同心椭圆模拟径向渐变）
-     *         → 内侧装饰线 → 轮次标签 → 底池 → 庄家筹码
+     * 牌桌层：由内部动态生成的九宫格纹理 (NineSliceSprite) 渲染。
+     * 可以完美地自适应尺寸并支持无损的边缘拉伸。
      */
     private buildTable() {
-        // 深色木质边框
-        const frame = new Graphics()
-        frame.ellipse(TABLE_CX, TABLE_CY, TABLE_RX + RAIL_W, TABLE_RY + RAIL_W)
-        frame.fill({color: C.WOOD_FRAME})
-        this.root.addChild(frame)
+        // 使用生成的纹理创建九宫格精灵
+        const tableTex = this.createTableTexture()
+        const tableSprite = new NineSliceSprite({
+            texture: tableTex,
+            leftWidth: 150,
+            rightWidth: 150,
+            topHeight: 150,
+            bottomHeight: 150,
+        })
 
-        // 金色描边装饰
-        const goldBorder = new Graphics()
-        goldBorder.ellipse(TABLE_CX, TABLE_CY, TABLE_RX + 2, TABLE_RY + 2)
-        goldBorder.stroke({color: C.GOLD, width: 3, alpha: 0.6})
-        goldBorder.ellipse(TABLE_CX, TABLE_CY, TABLE_RX + 5, TABLE_RY + 5)
-        goldBorder.stroke({color: C.GOLD, width: 1, alpha: 0.15})
-        this.root.addChild(goldBorder)
+        // 设定目标的牌桌总宽高
+        const targetWidth = (TABLE_RX + RAIL_W) * 2
+        const targetHeight = (TABLE_RY + RAIL_W) * 2
 
-        // 绿色毛毡（边缘暗 → 中心亮）
-        const felt = new Graphics()
-        felt.ellipse(TABLE_CX, TABLE_CY, TABLE_RX, TABLE_RY);
-        felt.fill({color: C.FELT_EDGE})
-        felt.ellipse(TABLE_CX, TABLE_CY, TABLE_RX * 0.88, TABLE_RY * 0.88);
-        felt.fill({color: C.FELT_OUTER})
-        felt.ellipse(TABLE_CX, TABLE_CY, TABLE_RX * 0.7, TABLE_RY * 0.7);
-        felt.fill({color: C.FELT_MID})
-        felt.ellipse(TABLE_CX, TABLE_CY, TABLE_RX * 0.4, TABLE_RY * 0.4);
-        felt.fill({color: C.FELT_CENTER})
-        felt.ellipse(TABLE_CX, TABLE_CY, TABLE_RX, TABLE_RY)
-        felt.stroke({color: 0x000000, width: 50, alpha: 0.3}) // 内阴影
-        this.root.addChild(felt)
+        tableSprite.width = targetWidth
+        tableSprite.height = targetHeight
 
-        // 内侧金色装饰线
-        const innerGold = new Graphics()
-        innerGold.ellipse(TABLE_CX, TABLE_CY, TABLE_RX * 0.78, TABLE_RY * 0.78)
-        innerGold.stroke({color: C.GOLD, width: 1, alpha: 0.1})
-        this.root.addChild(innerGold)
+        // 九宫格的定位基于左上角，我们用 (X - width/2, Y - height/2) 将其居中
+        tableSprite.position.set(TABLE_CX - targetWidth / 2, TABLE_CY - targetHeight / 2)
+        this.root.addChild(tableSprite)
 
-        // 功能元素
+        // 背景全局发光已在 buildBackground 完成，此处保留功能元素逻辑
         this.streetLabel.position.set(TABLE_CX, TABLE_CY + TABLE_RY * 0.65)
         this.root.addChild(this.streetLabel)
 
@@ -183,6 +170,56 @@ export class TableScene {
         this.root.addChild(this.potDisplay)
 
         this.root.addChild(this.dealerChip)
+    }
+
+    /** 
+     * 动态生成一个支持九宫格缩放的牌桌基础纹理。
+     * 基础尺寸 350x350，四角切图面积为 150x150。
+     */
+    private createTableTexture() {
+        const size = 350
+        const radius = 150
+
+        const g = new Graphics()
+        
+        // 1. 深色木质边框
+        g.roundRect(0, 0, size, size, radius)
+        g.fill({color: C.WOOD_FRAME})
+
+        // 2. 金边
+        g.roundRect(2, 2, size - 4, size - 4, radius - 2)
+        g.stroke({color: C.GOLD, width: 3, alpha: 0.6})
+        g.roundRect(5, 5, size - 10, size - 10, radius - 5)
+        g.stroke({color: C.GOLD, width: 1, alpha: 0.15})
+
+        // 3. 绿毛毡外圈边缘
+        const feltEdge = RAIL_W
+        g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
+        g.fill({color: C.FELT_EDGE})
+
+        // 4. 模拟内侧光照渐变 (四层叠加)
+        const d1 = feltEdge + 15
+        g.roundRect(d1, d1, size - d1 * 2, size - d1 * 2, radius - d1)
+        g.fill({color: C.FELT_OUTER})
+
+        const d2 = d1 + 25
+        g.roundRect(d2, d2, size - d2 * 2, size - d2 * 2, radius - d2)
+        g.fill({color: C.FELT_MID})
+
+        const d3 = d2 + 35
+        g.roundRect(d3, d3, size - d3 * 2, size - d3 * 2, radius - d3)
+        g.fill({color: C.FELT_CENTER})
+
+        // 5. 毛毡内侧边缘阴影
+        g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
+        g.stroke({color: 0x000000, width: 25, alpha: 0.3})
+
+        // 6. 毛毡内侧金色细环
+        const innerG = feltEdge + 25
+        g.roundRect(innerG, innerG, size - innerG * 2, size - innerG * 2, radius - innerG)
+        g.stroke({color: C.GOLD, width: 1, alpha: 0.1})
+
+        return this.app.renderer.generateTexture(g)
     }
 
     /** 9 个座位精灵，displayIdx=0 为本地玩家（大头像） */
