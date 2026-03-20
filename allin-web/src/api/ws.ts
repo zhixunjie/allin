@@ -1,6 +1,7 @@
-// WebSocket singleton + simple event bus with auto-reconnect
+// WebSocket 单例 + 简易事件总线，支持自动重连
 
 import { useConnectionStore } from '../store/connection'
+import { ConnectionStatus, WSInternalEvent } from '../types/enums'
 
 type Listener = (payload: unknown) => void
 
@@ -16,7 +17,7 @@ class WSClient {
   private listeners: Map<string, Set<Listener>> = new Map()
   private seq = 0
 
-  // Reconnect state
+  // 重连状态
   private roomCode = ''
   private token = ''
   private manualClose = false
@@ -34,7 +35,7 @@ class WSClient {
 
   private _connect(): void {
     if (this.socket) {
-      // Prevent old socket from triggering reconnect
+      // 防止旧 socket 触发重连
       this.socket.onclose = null
       this.socket.close()
       this.socket = null
@@ -46,8 +47,8 @@ class WSClient {
 
     this.socket.onopen = () => {
       this.reconnectAttempts = 0
-      useConnectionStore.getState().set('connected')
-      const handlers = this.listeners.get('__open__')
+      useConnectionStore.getState().set(ConnectionStatus.Connected)
+      const handlers = this.listeners.get(WSInternalEvent.Open)
       if (handlers) handlers.forEach((fn) => fn(null))
     }
 
@@ -65,26 +66,26 @@ class WSClient {
     }
 
     this.socket.onerror = () => {
-      const handlers = this.listeners.get('__error__')
+      const handlers = this.listeners.get(WSInternalEvent.Error)
       if (handlers) handlers.forEach((fn) => fn(null))
     }
 
     this.socket.onclose = () => {
       if (this.manualClose) {
-        useConnectionStore.getState().set('disconnected')
-        const handlers = this.listeners.get('__close__')
+        useConnectionStore.getState().set(ConnectionStatus.Disconnected)
+        const handlers = this.listeners.get(WSInternalEvent.Close)
         if (handlers) handlers.forEach((fn) => fn(null))
         return
       }
 
-      // Auto-reconnect with exponential backoff (1s, 2s, 4s … capped at 30s)
+      // 指数退避自动重连（1s, 2s, 4s … 上限 30s）
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30_000)
         this.reconnectAttempts++
-        useConnectionStore.getState().set('reconnecting', this.reconnectAttempts)
+        useConnectionStore.getState().set(ConnectionStatus.Reconnecting, this.reconnectAttempts)
         this.reconnectTimer = setTimeout(() => this._connect(), delay)
       } else {
-        useConnectionStore.getState().set('disconnected')
+        useConnectionStore.getState().set(ConnectionStatus.Disconnected)
       }
     }
   }

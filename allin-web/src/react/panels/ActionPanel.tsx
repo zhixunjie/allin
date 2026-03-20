@@ -1,8 +1,8 @@
 import styles from './ActionPanel.module.css'
 import { sendAction } from '../../hooks/useWebSocket'
 import { useGameState } from '../../hooks/useGameState'
+import { PlayerAction } from '../../types/enums'
 type UseGameReturn = ReturnType<typeof useGameState>
-import { BetSlider } from './BetSlider'
 import { useState, useEffect } from 'react'
 
 interface Props {
@@ -11,65 +11,87 @@ interface Props {
 
 export function ActionPanel({ gs }: Props) {
   const [betAmount, setBetAmount] = useState(0)
-  const [showSlider, setShowSlider] = useState(false)
+
+  const minBet = gs.current_bet > 0 ? gs.minRaiseAmount : (gs.config?.big_blind ?? 2)
+  const maxBet = (gs.mySeat?.stack ?? 0) + (gs.mySeat?.bet ?? 0)
+  const step = gs.config?.big_blind ?? 2
 
   useEffect(() => {
     if (gs.isMyTurn) {
       setBetAmount(gs.minRaiseAmount || gs.config?.big_blind || 2)
-      setShowSlider(false)
     }
   }, [gs.isMyTurn, gs.minRaiseAmount])
 
   if (!gs.isMyTurn) return null
 
-  function fold()  { sendAction('fold') }
-  function check() { sendAction('check') }
-  function call()  { sendAction('call') }
-  function bet()   { sendAction('bet', betAmount);   setShowSlider(false) }
-  function raise() { sendAction('raise', betAmount); setShowSlider(false) }
-  function allIn() { sendAction('all_in');            setShowSlider(false) }
+  function fold()  { sendAction(PlayerAction.Fold) }
+  function check() { sendAction(PlayerAction.Check) }
+  function call()  { sendAction(PlayerAction.Call) }
+  function doRaise() {
+    if (gs.canBet) {
+      sendAction(PlayerAction.Bet, betAmount)
+    } else {
+      sendAction(PlayerAction.Raise, betAmount)
+    }
+  }
+  function allIn() { sendAction(PlayerAction.AllIn) }
+
+  const clamp = (v: number) => Math.max(minBet, Math.min(maxBet, v))
 
   return (
     <div className={styles.root}>
-      {showSlider && (
-        <BetSlider
-          pot={gs.pot}
-          min={gs.current_bet > 0 ? gs.minRaiseAmount : (gs.config?.big_blind ?? 2)}
-          max={(gs.mySeat?.stack ?? 0) + (gs.mySeat?.bet ?? 0)}
-          step={gs.config?.big_blind ?? 2}
-          value={betAmount}
-          onChange={setBetAmount}
-        />
-      )}
+      <div className={styles.dock}>
+        {/* 弃牌 */}
+        <button className={`${styles.actionBtn} ${styles.fold}`} onClick={fold}>
+          <span className={styles.icon}>✕</span>
+          <span className={styles.label}>弃牌</span>
+        </button>
 
-      <div className={styles.buttons}>
-        <button className={`${styles.btn} ${styles.fold}`}  onClick={fold}>弃牌</button>
-
+        {/* 过牌 */}
         {gs.canCheck && (
-          <button className={`${styles.btn} ${styles.check}`} onClick={check}>看牌</button>
-        )}
-        {gs.canCall && (
-          <button className={`${styles.btn} ${styles.call}`}  onClick={call}>
-            跟注&nbsp;{gs.callAmount.toLocaleString()}
+          <button className={`${styles.actionBtn} ${styles.check}`} onClick={check}>
+            <span className={styles.icon}>✓</span>
+            <span className={styles.label}>过牌</span>
           </button>
         )}
-        {(gs.canBet || gs.canRaise) && (
-          <>
-            <button
-              className={`${styles.btn} ${styles.raise} ${showSlider ? styles.active : ''}`}
-              onClick={() => setShowSlider(v => !v)}
-            >
-              {gs.canBet ? '下注' : '加注'} {showSlider ? '▼' : '▲'}
-            </button>
-            {showSlider && (
-              <button className={`${styles.btn} ${styles.confirm}`} onClick={gs.canBet ? bet : raise}>
-                确认&nbsp;{betAmount.toLocaleString()}
-              </button>
-            )}
-          </>
+
+        {/* 跟注 */}
+        {gs.canCall && (
+          <button className={`${styles.actionBtn} ${styles.call}`} onClick={call}>
+            <span className={styles.icon}>💰</span>
+            <span className={styles.label}>跟注 ${gs.callAmount.toLocaleString()}</span>
+          </button>
         )}
 
-        <button className={`${styles.btn} ${styles.allIn}`} onClick={allIn}>All-In</button>
+        {/* 加注 — 内联 -/+ 控件 */}
+        {(gs.canBet || gs.canRaise) && (
+          <div className={styles.raiseGroup}>
+            <button
+              className={styles.adjBtn}
+              onClick={() => setBetAmount(clamp(betAmount - step))}
+            >
+              −
+            </button>
+            <button className={styles.raiseCenter} onClick={doRaise}>
+              <span className={styles.icon}>↗</span>
+              <span className={styles.raiseLabel}>
+                {gs.canBet ? '下注' : '加注'} ${betAmount.toLocaleString()}
+              </span>
+            </button>
+            <button
+              className={styles.adjBtn}
+              onClick={() => setBetAmount(clamp(betAmount + step))}
+            >
+              +
+            </button>
+          </div>
+        )}
+
+        {/* 全押 */}
+        <button className={`${styles.actionBtn} ${styles.allIn}`} onClick={allIn}>
+          <span className={styles.icon}>★</span>
+          <span className={styles.label}>全押</span>
+        </button>
       </div>
     </div>
   )

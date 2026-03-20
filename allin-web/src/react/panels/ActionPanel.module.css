@@ -1,41 +1,188 @@
-.root {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-}
+/* Galactic Casino — Action Dock */
 
-.buttons {
+.root {
+  width: 100%;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
   justify-content: center;
 }
 
-.btn {
-  padding: 10px 20px;
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(4, 8, 16, 0.95);
+  backdrop-filter: blur(24px);
+  border-radius: 3rem;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.8);
+  padding: 14px 20px;
+  width: 100%;
+  max-width: 700px;
+}
+
+/* ---- Base action button ---- */
+.actionBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 4px;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
+  border-radius: 16px;
+  background: transparent;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  min-width: 80px;
+  transition: all 0.3s ease;
+  min-width: 50px;
 }
 
-.btn:active {
-  transform: scale(0.96);
+.actionBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  transform: scale(1.05);
 }
 
-.btn:hover {
-  opacity: 0.85;
+.actionBtn:active {
+  transform: scale(0.95);
 }
 
-.fold    { background: #555; color: #fff; }
-.check   { background: #2196f3; color: #fff; }
-.call    { background: #4caf50; color: #fff; }
-.raise   { background: #ff9800; color: #fff; }
-.raise.active { background: #e65100; }
-.confirm { background: #f0c040; color: #111; }
-.allIn   { background: #e91e63; color: #fff; }
+.icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.label {
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ---- Fold ---- */
+.fold {
+  color: rgba(175, 205, 189, 0.7);
+}
+.fold:hover {
+  color: #fff;
+}
+
+/* ---- Check ---- */
+.check {
+  color: rgba(175, 205, 189, 0.7);
+}
+.check:hover {
+  color: #fff;
+}
+
+/* ---- Call ---- */
+.call {
+  color: rgba(175, 205, 189, 0.7);
+}
+.call:hover {
+  color: #fff;
+}
+
+/* ---- Raise group (inline -/amount/+) ---- */
+.raiseGroup {
+  flex: 1.8;
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  transition: all 0.3s ease;
+}
+
+.raiseGroup:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.15);
+}
+
+.adjBtn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  color: #d4af37;
+  font-size: 22px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+
+.adjBtn:hover {
+  background: rgba(212, 175, 55, 0.15);
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+}
+
+.raiseCenter {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+
+.raiseCenter:hover {
+  transform: translateY(-2px);
+}
+
+.raiseCenter .icon {
+  font-size: 16px;
+  color: rgba(175, 205, 189, 0.8);
+}
+
+.raiseLabel {
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: #d4af37;
+  white-space: nowrap;
+}
+
+/* ---- All-In — Hero button ---- */
+.allIn {
+  background: linear-gradient(135deg, #d4af37, #b8952c);
+  color: #060c14;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.allIn .icon {
+  color: #060c14;
+}
+
+.allIn .label {
+  color: #060c14;
+  font-weight: 900;
+}
+
+.allIn:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 0 40px rgba(212, 175, 55, 0.8);
+}
+
+@keyframes pulseGold {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(212, 175, 55, 0.7);
+  }
+}
+
+.allIn {
+  animation: pulseGold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

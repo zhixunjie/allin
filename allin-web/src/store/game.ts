@@ -1,76 +1,156 @@
 import { create } from 'zustand'
+import { Street, PlayerAction } from '../types/enums'
 
+// ── WebSocket payload 类型定义（与服务端消息结构一一对应） ──
+
+export interface ConnectedPayload {
+  player_id: string        // 本次连接对应的用户 ID
+  game_snapshot?: GameSnapshot // 若房间已在进行中，附带当前完整快照
+}
+
+export interface GameStartedPayload {
+  hand_num: number    // 本手编号（从 1 递增）
+  dealer_seat: number // 庄家座位（服务端索引）
+  sb_seat: number     // 小盲座位
+  bb_seat: number     // 大盲座位
+}
+
+export interface HoleCardsPayload {
+  player_id: string // 收牌玩家（只发给当事人）
+  hole: string[]    // 手牌，如 ['Ah', 'Kd']
+}
+
+export interface StreetStartedPayload {
+  street: Street    // 新街道名称
+  community: string[] // 当前公共牌（flop=3张，turn=4张，river=5张）
+  pot: number       // 本街开始时的底池
+}
+
+export interface ActionRequiredPayload {
+  player_id: string  // 需要行动的玩家
+  seat_index: number // 其座位索引
+  deadline_ts: number // 行动截止时间（Unix 毫秒）
+  current_bet: number // 本轮最大下注额
+  call_amount: number // 跟注所需金额
+  min_raise: number   // 最小加注额
+  stack: number       // 玩家当前筹码
+  pot: number         // 当前底池
+}
+
+export interface ActionTakenPayload {
+  player_id: string  // 行动玩家
+  action: PlayerAction // 执行的操作
+  amount: number     // 操作金额（check/fold 为 0）
+  stack: number      // 行动后玩家剩余筹码
+  total_pot: number  // 行动后总底池
+}
+
+export type ShowdownPayload = Array<{
+  player_id: string  // 玩家 ID
+  seat_index: number // 座位索引
+  hole: string[]     // 公开的手牌
+  hand_name: string  // 牌型名称，如 "Full House"
+}>
+
+export interface HandResultPayload {
+  winners: Array<{ player_id: string; amount: number; hand_name?: string }> // 赢家列表
+  seats: Array<{ player_id: string; stack: number }> // 结算后各玩家筹码
+}
+
+export interface PlayerJoinedPayload {
+  player_id: string    // 加入的玩家 ID
+  display_name: string // 显示名
+  seat_index: number   // 分配的座位（-1 表示旁观）
+  stack: number        // 携带筹码
+  is_reconnect: boolean // 是否为重连（而非首次加入）
+  is_bot?: boolean     // 是否为 AI 机器人
+}
+
+export interface PlayerLeftPayload {
+  player_id: string  // 离开的玩家 ID
+  seat_index: number // 其座位索引
+}
+
+// ── 游戏数据结构 ──
+
+/** 单个座位的实时快照 */
 export interface SeatSnapshot {
-  seat_index: number
-  user_id: string
-  display_name: string
-  stack: number
-  bet: number
-  folded: boolean
-  all_in: boolean
-  sit_out: boolean
-  is_bot?: boolean
-  hole?: string[]
+  seat_index: number   // 服务端座位索引（0-8）
+  user_id: string      // 玩家 ID
+  display_name: string // 显示名
+  stack: number        // 当前筹码
+  bet: number          // 本街已下注金额
+  folded: boolean      // 是否已弃牌
+  all_in: boolean      // 是否全押
+  sit_out: boolean     // 是否暂离
+  is_bot?: boolean     // 是否 AI 机器人
+  hole?: string[]      // 手牌（showdown 时服务端下发）
 }
 
+/** 房间配置 */
 export interface GameConfig {
-  small_blind: number
-  big_blind: number
-  min_buy_in: number
-  max_buy_in: number
-  max_players: number
-  action_time_sec: number
+  small_blind: number    // 小盲注
+  big_blind: number      // 大盲注
+  min_buy_in: number     // 最小买入
+  max_buy_in: number     // 最大买入
+  max_players: number    // 最大玩家数
+  action_time_sec: number // 每人行动时限（秒）
 }
 
+/** 完整游戏快照（连接/重连时同步） */
 export interface GameSnapshot {
-  street: string
-  hand_num: number
-  community: string[]
-  seats: SeatSnapshot[]
-  pot: number
-  dealer_seat: number
-  action_seat: number
-  current_bet: number
-  min_raise: number
-  config: GameConfig | null
+  street: Street        // 当前街道
+  hand_num: number      // 手牌编号
+  community: string[]   // 公共牌
+  seats: SeatSnapshot[] // 所有座位
+  pot: number           // 当前底池
+  dealer_seat: number   // 庄家座位（-1 表示未开始）
+  action_seat: number   // 当前行动座位（-1 表示无）
+  current_bet: number   // 本轮最大下注额
+  min_raise: number     // 最小加注额
+  config: GameConfig | null // 房间配置（首次连接后下发）
 }
 
+/** 单个赢家信息 */
 export interface HandWinner {
-  player_id: string
-  display_name: string
-  amount: number
-  hand_name?: string
+  player_id: string    // 赢家 ID
+  display_name: string // 显示名
+  amount: number       // 赢得筹码
+  hand_name?: string   // 牌型，如 "Flush"
 }
 
+/** 本手结算结果（用于展示结算弹窗） */
 export interface LastHandResult {
   winners: HandWinner[]
 }
 
+// ── Store 状态定义 ──
+
 interface GameStoreState extends GameSnapshot {
-  myUserId: string | null
-  myHole: string[]
-  deadlineTs: number | null
-  callAmount: number
-  minRaiseAmount: number
-  lastHandResult: LastHandResult | null
+  myUserId: string | null      // 本客户端对应的玩家 ID
+  myHole: string[]             // 本人手牌（服务端单独下发，不经过 seats）
+  deadlineTs: number | null    // 当前行动截止时间（Unix 毫秒），驱动倒计时
+  callAmount: number           // 跟注所需金额（用于 ActionPanel 显示）
+  minRaiseAmount: number       // 最小加注额（用于 BetSlider 下限）
+  lastHandResult: LastHandResult | null // 最近一手结算结果，null 表示无需展示
 
   setMyUserId: (id: string) => void
-  applyConnected: (payload: unknown) => void
-  applyGameStarted: (payload: unknown) => void
-  applyHoleCards: (payload: unknown) => void
+  applyConnected: (payload: ConnectedPayload) => void
+  applyGameStarted: (payload: GameStartedPayload) => void
+  applyHoleCards: (payload: HoleCardsPayload) => void
   applyCardsDealt: (payload: unknown) => void
-  applyStreetStarted: (payload: unknown) => void
-  applyActionRequired: (payload: unknown) => void
-  applyActionTaken: (payload: unknown) => void
-  applyShowdown: (payload: unknown) => void
-  applyHandResult: (payload: unknown) => void
-  applyPlayerJoined: (payload: unknown) => void
-  applyPlayerLeft: (payload: unknown) => void
+  applyStreetStarted: (payload: StreetStartedPayload) => void
+  applyActionRequired: (payload: ActionRequiredPayload) => void
+  applyActionTaken: (payload: ActionTakenPayload) => void
+  applyShowdown: (payload: ShowdownPayload) => void
+  applyHandResult: (payload: HandResultPayload) => void
+  applyPlayerJoined: (payload: PlayerJoinedPayload) => void
+  applyPlayerLeft: (payload: PlayerLeftPayload) => void
   reset: () => void
 }
 
 const defaultSnapshot: GameSnapshot = {
-  street: 'idle',
+  street: Street.Idle,
   hand_num: 0,
   community: [],
   seats: [],
@@ -93,58 +173,48 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
 
   setMyUserId: (id) => set({ myUserId: id }),
 
+  // 连接成功：记录本人 ID，若附带快照则直接同步整局状态
   applyConnected: (payload) => {
-    const p = payload as {
-      player_id: string
-      game_snapshot?: GameSnapshot
-    }
-    set({ myUserId: p.player_id })
-    if (p.game_snapshot) {
-      const snap = p.game_snapshot
-      const myHole = snap.seats.find((s) => s.user_id === p.player_id)?.hole ?? []
+    set({ myUserId: payload.player_id })
+    if (payload.game_snapshot) {
+      const snap = payload.game_snapshot
+      const myHole = snap.seats.find((s) => s.user_id === payload.player_id)?.hole ?? []
       set({ ...snap, myHole })
     }
   },
 
+  // 新一手开始：重置所有座位状态，保留玩家列表
   applyGameStarted: (payload) => {
-    const p = payload as {
-      hand_num: number
-      dealer_seat: number
-      sb_seat: number
-      bb_seat: number
-    }
     set({
-      hand_num: p.hand_num,
-      dealer_seat: p.dealer_seat,
-      street: 'preflop',
+      hand_num: payload.hand_num,
+      dealer_seat: payload.dealer_seat,
+      street: Street.PreFlop,
       community: [],
       pot: 0,
       action_seat: -1,
       current_bet: 0,
       myHole: [],
       deadlineTs: null,
-      // Reset seat bets
       seats: get().seats.map((s) => ({ ...s, bet: 0, folded: false, all_in: false, hole: undefined })),
     })
   },
 
+  // 收到手牌：仅更新本人（服务端只向当事人发送）
   applyHoleCards: (payload) => {
-    const p = payload as { player_id: string; hole: string[] }
-    if (p.player_id === get().myUserId) {
-      set({ myHole: p.hole })
+    if (payload.player_id === get().myUserId) {
+      set({ myHole: payload.hole })
     }
   },
 
-  applyCardsDealt: (_payload) => {
-    // Visual cue only — seat list already updated by applyGameStarted
-  },
+  // 发公共牌：无需处理，公共牌由 applyStreetStarted 同步
+  applyCardsDealt: (_payload) => {},
 
+  // 新街道：同步公共牌、底池，重置本街下注
   applyStreetStarted: (payload) => {
-    const p = payload as { street: string; community: string[]; pot: number }
     set({
-      street: p.street,
-      community: p.community,
-      pot: p.pot,
+      street: payload.street,
+      community: payload.community,
+      pot: payload.pot,
       current_bet: 0,
       action_seat: -1,
       deadlineTs: null,
@@ -152,76 +222,53 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     })
   },
 
+  // 轮到某玩家行动：更新行动座位、倒计时及跟注/加注参数
   applyActionRequired: (payload) => {
-    const p = payload as {
-      player_id: string
-      seat_index: number
-      deadline_ts: number
-      current_bet: number
-      call_amount: number
-      min_raise: number
-      stack: number
-      pot: number
-    }
     set({
-      action_seat: p.seat_index,
-      current_bet: p.current_bet,
-      pot: p.pot,
-      deadlineTs: p.deadline_ts,
-      callAmount: p.call_amount,
-      minRaiseAmount: p.min_raise,
+      action_seat: payload.seat_index,
+      current_bet: payload.current_bet,
+      pot: payload.pot,
+      deadlineTs: payload.deadline_ts,
+      callAmount: payload.call_amount,
+      minRaiseAmount: payload.min_raise,
     })
   },
 
+  // 玩家已行动：更新底池、该玩家的筹码/下注/状态
   applyActionTaken: (payload) => {
-    const p = payload as {
-      player_id: string
-      action: string
-      amount: number
-      stack: number
-      total_pot: number
-    }
     set((state) => ({
-      pot: p.total_pot,
+      pot: payload.total_pot,
       deadlineTs: null,
       seats: state.seats.map((s) => {
-        if (s.user_id !== p.player_id) return s
+        if (s.user_id !== payload.player_id) return s
         return {
           ...s,
-          stack: p.stack,
-          bet: p.action === 'fold' ? s.bet : p.amount,
-          folded: p.action === 'fold' ? true : s.folded,
-          all_in: p.action === 'all_in' ? true : s.all_in,
+          stack: payload.stack,
+          bet: payload.action === PlayerAction.Fold ? s.bet : payload.amount,
+          folded: payload.action === PlayerAction.Fold ? true : s.folded,
+          all_in: payload.action === PlayerAction.AllIn ? true : s.all_in,
         }
       }),
     }))
   },
 
+  // 摊牌：公开各玩家手牌
   applyShowdown: (payload) => {
-    const reveals = payload as Array<{
-      player_id: string
-      seat_index: number
-      hole: string[]
-      hand_name: string
-    }>
     set((state) => ({
-      street: 'showdown',
+      street: Street.Showdown,
       seats: state.seats.map((s) => {
-        const r = reveals.find((x) => x.player_id === s.user_id)
+        const r = payload.find((x) => x.player_id === s.user_id)
         return r ? { ...s, hole: r.hole } : s
       }),
     }))
   },
 
+  // 本手结算：更新各玩家筹码，记录赢家信息，重置街道为 idle
   applyHandResult: (payload) => {
-    const p = payload as {
-      winners: Array<{ player_id: string; amount: number; hand_name?: string }>
-      seats: Array<{ player_id: string; stack: number }>
-    }
-    if (!p.seats) return
+    if (!payload.seats) return
     set((state) => {
       const lastHandResult: LastHandResult = {
-        winners: p.winners.map((w) => ({
+        winners: payload.winners.map((w) => ({
           player_id: w.player_id,
           display_name: state.seats.find((s) => s.user_id === w.player_id)?.display_name ?? w.player_id,
           amount: w.amount,
@@ -229,53 +276,47 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
         })),
       }
       return {
-        street: 'idle',
+        street: Street.Idle,
         action_seat: -1,
         deadlineTs: null,
         lastHandResult,
         seats: state.seats.map((s) => {
-          const rs = p.seats?.find((x) => x.player_id === s.user_id)
+          const rs = payload.seats?.find((x) => x.player_id === s.user_id)
           return rs ? { ...s, stack: rs.stack } : s
         }),
       }
     })
   },
 
+  // 玩家加入：追加到座位列表（重连不重复添加）
   applyPlayerJoined: (payload) => {
-    const p = payload as {
-      player_id: string
-      display_name: string
-      seat_index: number
-      stack: number
-      is_reconnect: boolean
-      is_bot?: boolean
-    }
-    if (p.seat_index < 0) return
+    if (payload.seat_index < 0) return
     set((state) => {
-      const existing = state.seats.find((s) => s.user_id === p.player_id)
+      const existing = state.seats.find((s) => s.user_id === payload.player_id)
       if (existing) return {}
       const newSeat: SeatSnapshot = {
-        seat_index: p.seat_index,
-        user_id: p.player_id,
-        display_name: p.display_name,
-        stack: p.stack,
+        seat_index: payload.seat_index,
+        user_id: payload.player_id,
+        display_name: payload.display_name,
+        stack: payload.stack,
         bet: 0,
         folded: false,
         all_in: false,
         sit_out: false,
-        is_bot: p.is_bot ?? false,
+        is_bot: payload.is_bot ?? false,
       }
       return { seats: [...state.seats, newSeat] }
     })
   },
 
+  // 玩家离开：从座位列表移除
   applyPlayerLeft: (payload) => {
-    const p = payload as { player_id: string; seat_index: number }
     set((state) => ({
-      seats: state.seats.filter((s) => s.user_id !== p.player_id),
+      seats: state.seats.filter((s) => s.user_id !== payload.player_id),
     }))
   },
 
+  // 离开房间时完整重置
   reset: () =>
     set({
       ...defaultSnapshot,

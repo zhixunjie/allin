@@ -4,6 +4,7 @@ import { roomAPI } from '../../api/http'
 import type { RoomConfig } from '../../api/http'
 import { useAuthStore } from '../../store/auth'
 import { useRoomStore } from '../../store/room'
+import { BotStyle } from '../../types/enums'
 import styles from './LobbyPage.module.css'
 
 export default function LobbyPage() {
@@ -11,22 +12,22 @@ export default function LobbyPage() {
   const { user, clearAuth } = useAuthStore()
   const setRoom = useRoomStore((s) => s.setRoom)
 
-  // create room form
+  // 创建房间表单
   const [smallBlind, setSmallBlind] = useState('1')
   const [bigBlind, setBigBlind] = useState('2')
   const [minBuyIn, setMinBuyIn] = useState('40')
   const [maxBuyIn, setMaxBuyIn] = useState('200')
-  const [maxPlayers, setMaxPlayers] = useState('9')
-  const [botCount, setBotCount] = useState('0')
-  const [botStyle, setBotStyle] = useState('mixed')
+  const [maxPlayers, setMaxPlayers] = useState('3')
+  const [botCount, setBotCount] = useState('2')
+  const [botStyle, setBotStyle] = useState<BotStyle>(BotStyle.Mixed)
 
-  // join room
+  // 加入房间
   const [joinCode, setJoinCode] = useState('')
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // auto fill invite code from URL  /join/XXXXXX
+  // 从 URL /join/XXXXXX 自动填充邀请码
   useEffect(() => {
     const match = location.pathname.match(/\/join\/([A-Z0-9]{6})/i)
     if (match) setJoinCode(match[1].toUpperCase())
@@ -94,7 +95,7 @@ export default function LobbyPage() {
       </header>
 
       <main className={styles.main}>
-        {/* Join room */}
+        {/* 加入房间 */}
         <section className={styles.section}>
           <h2>加入房间</h2>
           <form onSubmit={handleJoin} className={styles.joinForm}>
@@ -114,7 +115,7 @@ export default function LobbyPage() {
 
         <div className={styles.divider}>— 或 —</div>
 
-        {/* Create room */}
+        {/* 创建房间 */}
         <section className={styles.section}>
           <h2>创建房间</h2>
           <form onSubmit={handleCreate} className={styles.createForm}>
@@ -147,7 +148,11 @@ export default function LobbyPage() {
                   min="2"
                   max="9"
                   value={maxPlayers}
-                  onChange={(e) => setMaxPlayers(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setMaxPlayers(v)
+                    setBotCount(String(Math.max(0, Number(v) - 1)))
+                  }}
                 />
               </label>
               <label>
@@ -169,12 +174,12 @@ export default function LobbyPage() {
                 <select
                   className={styles.numInput}
                   value={botStyle}
-                  onChange={(e) => setBotStyle(e.target.value)}
+                  onChange={(e) => setBotStyle(e.target.value as BotStyle)}
                 >
-                  <option value="mixed">混合</option>
-                  <option value="aggressive">激进</option>
-                  <option value="passive">被动</option>
-                  <option value="random">随机</option>
+                  <option value={BotStyle.Mixed}>混合</option>
+                  <option value={BotStyle.Aggressive}>激进</option>
+                  <option value={BotStyle.Passive}>被动</option>
+                  <option value={BotStyle.Random}>随机</option>
                 </select>
               </label>
             </div>

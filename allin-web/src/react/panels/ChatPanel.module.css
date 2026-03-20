@@ -1,10 +1,14 @@
+/* Galactic Casino — Chat Panel */
+
 .root {
   position: absolute;
   bottom: 80px;
   left: 16px;
   width: 260px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 10px;
+  background: rgba(4, 8, 16, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.1);
+  border-radius: 12px;
   overflow: hidden;
   z-index: 20;
 }
@@ -18,23 +22,26 @@
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: #fff;
-  font-size: 14px;
+  color: rgba(175, 205, 189, 0.7);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
+  transition: all 0.3s;
 }
 
-.toggle:hover { background: rgba(255, 255, 255, 0.08); }
+.toggle:hover { background: rgba(212, 175, 55, 0.05); color: #d4af37; }
 
 .badge {
-  background: #e91e63;
-  color: #fff;
+  background: #d4af37;
+  color: #060c14;
   border-radius: 10px;
   padding: 1px 6px;
   font-size: 11px;
+  font-weight: 800;
   margin-left: auto;
 }
 
@@ -50,47 +57,58 @@
 .msg {
   font-size: 13px;
   line-height: 1.4;
-  color: #e0e0e0;
+  color: rgba(223, 226, 235, 0.8);
   word-break: break-word;
+  font-family: 'Manrope', sans-serif;
 }
 
 .name {
-  color: #f0c040;
-  font-weight: 600;
+  color: #d4af37;
+  font-weight: 700;
   margin-right: 4px;
 }
 
 .text {
-  color: #ddd;
+  color: rgba(223, 226, 235, 0.7);
 }
 
 .inputRow {
   display: flex;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(212, 175, 55, 0.1);
   padding: 6px 8px;
   gap: 6px;
 }
 
 .input {
   flex: 1;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  border-radius: 8px;
   padding: 6px 8px;
-  color: #fff;
+  color: #dfe2eb;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   outline: none;
+  transition: border-color 0.3s;
 }
 
-.input::placeholder { color: rgba(255, 255, 255, 0.4); }
+.input:focus { border-color: rgba(212, 175, 55, 0.4); }
+
+.input::placeholder { color: rgba(175, 205, 189, 0.3); }
 
 .sendBtn {
-  background: #f0c040;
-  color: #111;
+  background: linear-gradient(135deg, #d4af37, #b8952c);
+  color: #060c14;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 6px 12px;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
+  transition: all 0.3s;
+}
+
+.sendBtn:hover {
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
 }

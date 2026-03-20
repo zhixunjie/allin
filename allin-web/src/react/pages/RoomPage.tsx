@@ -6,10 +6,10 @@ import { useWebSocket } from '../../hooks/useWebSocket'
 import { useGameState } from '../../hooks/useGameState'
 import { useActionTimer } from '../../hooks/useActionTimer'
 import { ActionPanel } from '../panels/ActionPanel'
-import { ChatPanel } from '../panels/ChatPanel'
+// import { ChatPanel } from '../panels/ChatPanel'
 import { HandHistory } from '../panels/HandHistory'
-import { RoomInfo } from '../panels/RoomInfo'
 import { ConnectionBanner } from '../components/ConnectionBanner'
+import { Street } from '../../types/enums'
 import styles from './RoomPage.module.css'
 
 export default function RoomPage() {
@@ -30,51 +30,67 @@ export default function RoomPage() {
     return () => { cleanup?.() }
   }, [])
 
+  const blindsText = gs.config
+    ? `${gs.config.small_blind}/${gs.config.big_blind}`
+    : ''
+
   return (
     <div className={styles.root}>
       <div className={styles.canvasWrap} ref={canvasRef} />
 
       <div className={styles.overlay}>
-        {/* Top bar */}
+        {/* 顶部信息栏 */}
         <div className={styles.topBar}>
-          <RoomInfo code={code ?? ''} />
-          <span className={styles.streetBadge}>{gs.street !== 'idle' ? gs.street.toUpperCase() : ''}</span>
-          <button className={styles.leaveBtn} onClick={() => navigate('/lobby')}>离开</button>
+          <span className={styles.brand}>GALACTIC ACES</span>
+
+          <div className={styles.topBarRight}>
+            {blindsText && (
+              <div className={styles.tableInfo}>
+                <span className={styles.tableInfoLabel}>牌桌 #{code ?? ''}</span>
+                <span className={styles.tableInfoValue}>盲注 {blindsText}</span>
+              </div>
+            )}
+            {gs.street !== Street.Idle && (
+              <span className={styles.streetBadge}>{gs.street.toUpperCase()}</span>
+            )}
+            <button className={styles.leaveBtn} onClick={() => navigate('/lobby')}>
+              ← 离开
+            </button>
+          </div>
         </div>
 
-        {/* Action timer */}
-        {gs.isMyTurn && secondsLeft > 0 && (
-          <div className={styles.timerBanner}>
-            <span className={styles.timerNum} style={{ color: secondsLeft <= 5 ? '#ff5252' : '#f0c040' }}>
-              {secondsLeft}s
-            </span>
-            &nbsp;轮到你行动
-          </div>
-        )}
+        {/* 行动计时器 */}
+        {/*{gs.isMyTurn && secondsLeft > 0 && (*/}
+        {/*  <div className={styles.timerBanner}>*/}
+        {/*    <span className={styles.timerNum} style={{ color: secondsLeft <= 5 ? '#ff5252' : '#d4af37' }}>*/}
+        {/*      {secondsLeft}s*/}
+        {/*    </span>*/}
+        {/*    &nbsp;轮到你行动*/}
+        {/*  </div>*/}
+        {/*)}*/}
 
-        {/* Waiting messages */}
-        {gs.street === 'idle' && gs.seats.length < 2 && (
+        {/* 等待消息 */}
+        {gs.street === Street.Idle && gs.seats.length < 2 && (
           <div className={styles.waiting}>等待其他玩家加入…</div>
         )}
-        {gs.street === 'idle' && gs.seats.length >= 2 && (
+        {gs.street === Street.Idle && gs.seats.length >= 2 && (
           <div className={styles.waiting}>准备开始下一手…</div>
         )}
 
-        {/* Action panel */}
+        {/* 操作面板 */}
         <div className={styles.actionArea}>
           <ActionPanel gs={gs} />
         </div>
 
-        {/* Connection status */}
+        {/* 连接状态 */}
         <ConnectionBanner />
 
-        {/* Chat */}
-        <ChatPanel />
+        {/* 聊天（暂时屏蔽）*/}
+        {/* <ChatPanel /> */}
 
-        {/* Hand result overlay */}
+        {/* 本手结果浮层 */}
         <HandHistory />
       </div>
     </div>
   )
 }
-

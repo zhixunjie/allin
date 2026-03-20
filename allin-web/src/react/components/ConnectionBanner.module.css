@@ -1,17 +1,21 @@
+/* Galactic Casino — Connection Banner */
+
 .root {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 999;
-  background: #b71c1c;
-  color: #fff;
+  background: linear-gradient(135deg, #93000a, #b71c1c);
+  color: #ffdad6;
   text-align: center;
   padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   animation: slideDown 0.2s ease;
+  backdrop-filter: blur(12px);
 }
 
 @keyframes slideDown {

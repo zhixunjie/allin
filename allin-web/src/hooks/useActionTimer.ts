@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store/game'
 
-/** Returns seconds remaining in the current action timer (0 when expired or not active). */
+/** 返回当前行动计时器的剩余秒数（过期或未激活时返回 0）。 */
 export function useActionTimer(): number {
   const deadlineTs = useGameStore((s) => s.deadlineTs)
   const [remaining, setRemaining] = useState(0)

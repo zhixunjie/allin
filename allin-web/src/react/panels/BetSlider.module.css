@@ -1,7 +1,11 @@
+/* Galactic Casino — Bet Slider */
+
 .root {
-  background: rgba(0, 0, 0, 0.6);
-  border-radius: 10px;
-  padding: 10px 16px;
+  background: rgba(4, 8, 16, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 16px;
+  padding: 12px 16px;
   min-width: 320px;
 }
 
@@ -14,26 +18,32 @@
 
 .slider {
   flex: 1;
-  accent-color: #f0c040;
+  accent-color: #d4af37;
   height: 6px;
   cursor: pointer;
 }
 
 .adj {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  font-size: 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d4af37;
+  font-size: 20px;
+  font-weight: 900;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s;
 }
 
-.adj:hover { background: rgba(255, 255, 255, 0.25); }
+.adj:hover {
+  background: rgba(212, 175, 55, 0.15);
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+}
 
 .presets {
   display: flex;
@@ -44,19 +54,27 @@
 
 .preset {
   padding: 4px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 8px;
   background: transparent;
-  color: #fff;
-  font-size: 13px;
+  color: rgba(175, 205, 189, 0.8);
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s;
 }
 
-.preset:hover { background: rgba(255, 255, 255, 0.1); }
+.preset:hover {
+  background: rgba(212, 175, 55, 0.1);
+  border-color: rgba(212, 175, 55, 0.6);
+  color: #d4af37;
+}
 
 .amount {
   margin-left: auto;
-  color: #f0c040;
-  font-weight: 700;
-  font-size: 15px;
+  color: #d4af37;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 900;
+  font-size: 16px;
 }

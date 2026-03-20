@@ -2,15 +2,14 @@ import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authAPI } from '../../api/http'
 import { useAuthStore } from '../../store/auth'
+import { AuthMode } from '../../types/enums'
 import styles from './LoginPage.module.css'
-
-type Mode = 'login' | 'register'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
 
-  const [mode, setMode] = useState<Mode>('login')
+  const [mode, setMode] = useState<AuthMode>(AuthMode.Login)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -23,7 +22,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       let resp
-      if (mode === 'login') {
+      if (mode === AuthMode.Login) {
         resp = await authAPI.login(username, password)
       } else {
         resp = await authAPI.register(username, password, displayName || username)
@@ -45,14 +44,14 @@ export default function LoginPage() {
 
         <div className={styles.tabs}>
           <button
-            className={mode === 'login' ? styles.tabActive : styles.tab}
-            onClick={() => setMode('login')}
+            className={mode === AuthMode.Login ? styles.tabActive : styles.tab}
+            onClick={() => setMode(AuthMode.Login)}
           >
             登录
           </button>
           <button
-            className={mode === 'register' ? styles.tabActive : styles.tab}
-            onClick={() => setMode('register')}
+            className={mode === AuthMode.Register ? styles.tabActive : styles.tab}
+            onClick={() => setMode(AuthMode.Register)}
           >
             注册
           </button>
@@ -68,7 +67,7 @@ export default function LoginPage() {
             required
             autoComplete="username"
           />
-          {mode === 'register' && (
+          {mode === AuthMode.Register && (
             <input
               className={styles.input}
               type="text"
@@ -84,13 +83,13 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            autoComplete={mode === AuthMode.Login ? 'current-password' : 'new-password'}
           />
 
           {error && <p className={styles.error}>{error}</p>}
 
           <button className={styles.submit} type="submit" disabled={loading}>
-            {loading ? '请稍候...' : mode === 'login' ? '登录' : '注册'}
+            {loading ? '请稍候...' : mode === AuthMode.Login ? '登录' : '注册'}
           </button>
         </form>
       </div>

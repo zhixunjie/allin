@@ -36,7 +36,7 @@ export const http = {
   post: <T>(path: string, body: unknown, auth = false) => request<T>('POST', path, body, auth),
 }
 
-// --- typed API calls ---
+// --- 类型化的 API 调用 ---
 
 export interface User {
   id: number

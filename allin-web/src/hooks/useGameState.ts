@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/game'
+import { Street } from '../types/enums'
 
 export function useGameState() {
   const state = useGameStore()
@@ -16,7 +17,7 @@ export function useGameState() {
   const canRaise = isMyTurn && state.current_bet > 0
 
   const street = state.street
-  const isActive = street !== 'idle' && street !== 'showdown'
+  const isActive = street !== Street.Idle && street !== Street.Showdown
 
   return {
     ...state,

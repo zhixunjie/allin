@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { ConnectionStatus } from '../types/enums'
 
-export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected'
+export { ConnectionStatus }
 
 interface ConnectionStore {
   status: ConnectionStatus
@@ -9,7 +10,7 @@ interface ConnectionStore {
 }
 
 export const useConnectionStore = create<ConnectionStore>()((set) => ({
-  status: 'connected',
+  status: ConnectionStatus.Connected,
   attempt: 0,
   set: (status, attempt = 0) => set({ status, attempt }),
 }))

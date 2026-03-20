@@ -1,7 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { wsClient } from '../api/ws'
 import { useGameStore } from '../store/game'
+import type {
+  ConnectedPayload,
+  GameStartedPayload,
+  HoleCardsPayload,
+  StreetStartedPayload,
+  ActionRequiredPayload,
+  ActionTakenPayload,
+  ShowdownPayload,
+  HandResultPayload,
+  PlayerJoinedPayload,
+  PlayerLeftPayload,
+} from '../store/game'
 import { useChatStore } from '../store/chat'
+import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
 
 export function useWebSocket(roomCode: string | undefined, token: string | null) {
   const store = useGameStore.getState
@@ -19,19 +32,19 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
       offs.push(wsClient.on(type, fn))
     }
 
-    on('connected', (p) => store().applyConnected(p))
-    on('player_joined', (p) => store().applyPlayerJoined(p))
-    on('player_left', (p) => store().applyPlayerLeft(p))
-    on('game_started', (p) => store().applyGameStarted(p))
-    on('hole_cards', (p) => store().applyHoleCards(p))
-    on('cards_dealt', (p) => store().applyCardsDealt(p))
-    on('street_started', (p) => store().applyStreetStarted(p))
-    on('action_required', (p) => store().applyActionRequired(p))
-    on('action_taken', (p) => store().applyActionTaken(p))
-    on('action_timeout', (p) => store().applyActionTaken(p))
-    on('showdown', (p) => store().applyShowdown(p))
-    on('hand_result', (p) => store().applyHandResult(p))
-    on('chat_message', (p) => {
+    on(WSEventType.Connected,       (p) => store().applyConnected(p as ConnectedPayload))
+    on(WSEventType.PlayerJoined,    (p) => store().applyPlayerJoined(p as PlayerJoinedPayload))
+    on(WSEventType.PlayerLeft,      (p) => store().applyPlayerLeft(p as PlayerLeftPayload))
+    on(WSEventType.GameStarted,     (p) => store().applyGameStarted(p as GameStartedPayload))
+    on(WSEventType.HoleCards,       (p) => store().applyHoleCards(p as HoleCardsPayload))
+    on(WSEventType.CardsDealt,      (p) => store().applyCardsDealt(p))
+    on(WSEventType.StreetStarted,   (p) => store().applyStreetStarted(p as StreetStartedPayload))
+    on(WSEventType.ActionRequired,  (p) => store().applyActionRequired(p as ActionRequiredPayload))
+    on(WSEventType.ActionTaken,     (p) => store().applyActionTaken(p as ActionTakenPayload))
+    on(WSEventType.ActionTimeout,   (p) => store().applyActionTaken(p as ActionTakenPayload))
+    on(WSEventType.Showdown,        (p) => store().applyShowdown(p as ShowdownPayload))
+    on(WSEventType.HandResult,      (p) => store().applyHandResult(p as HandResultPayload))
+    on(WSEventType.ChatMessage, (p) => {
       const m = p as { sender_id: string; display_name: string; text: string; ts: number }
       useChatStore.getState().addMessage({
         senderId: m.sender_id,
@@ -41,14 +54,14 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
       })
     })
 
-    // Send join_room after connecting
-    on('__open__', () => {
-      wsClient.send('join_room', { room_code: roomCode })
+    // 连接建立后发送 join_room
+    on(WSInternalEvent.Open, () => {
+      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode })
     })
 
-    // Immediately try to join (ws might already be open if reconnecting)
+    // 立即尝试加入（重连时 ws 可能已经打开）
     if (wsClient.isOpen) {
-      wsClient.send('join_room', { room_code: roomCode })
+      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode })
     }
 
     return () => {
@@ -61,6 +74,6 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
   }, [roomCode, token])
 }
 
-export function sendAction(action: string, amount = 0) {
-  wsClient.send('action', { action, amount })
+export function sendAction(action: PlayerAction, amount = 0) {
+  wsClient.send(WSEventType.Action, { action, amount })
 }
