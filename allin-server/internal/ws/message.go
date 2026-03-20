@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// ---- Message types ----
-// Server → Client (events)
+// ---- 消息类型 ----
+// 服务端 → 客户端（事件）
 const (
 	TypeConnected      = "connected"
 	TypePlayerJoined   = "player_joined"
@@ -25,7 +25,7 @@ const (
 	TypeStackUpdated   = "stack_updated"
 )
 
-// Client → Server (commands)
+// 客户端 → 服务端（命令）
 const (
 	CmdJoinRoom = "join_room"
 	CmdAction   = "action"
@@ -34,15 +34,15 @@ const (
 	CmdSitOut   = "sit_out"
 )
 
-// Envelope is the common wrapper for all WebSocket messages.
+// Envelope 是所有 WebSocket 消息的通用包装。
 type Envelope struct {
 	Type    string          `json:"type"`
 	Seq     int64           `json:"seq"`
-	Ts      int64           `json:"ts"` // unix milliseconds
+	Ts      int64           `json:"ts"` // Unix 毫秒时间戳
 	Payload json.RawMessage `json:"payload"`
 }
 
-// NewEvent builds a server-sent event envelope with the current timestamp.
+// NewEvent 构建一个带当前时间戳的服务端事件信封。
 func NewEvent(msgType string, payload any) (Envelope, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -55,7 +55,7 @@ func NewEvent(msgType string, payload any) (Envelope, error) {
 	}, nil
 }
 
-// MustEvent is like NewEvent but panics on marshal error (safe for known types).
+// MustEvent 类似 NewEvent，但在序列化错误时 panic（对已知类型安全）。
 func MustEvent(msgType string, payload any) Envelope {
 	e, err := NewEvent(msgType, payload)
 	if err != nil {
@@ -64,11 +64,11 @@ func MustEvent(msgType string, payload any) Envelope {
 	return e
 }
 
-// ---- Payload structs ----
+// ---- 载荷结构体 ----
 
-// ConnectedPayload is sent to a client upon successful WebSocket connection.
-// GameSnapshot is a pointer to avoid import cycle: game → ws → game.
-// The ws package accepts any value; the game package fills it.
+// ConnectedPayload 在 WebSocket 连接成功后发送给客户端。
+// GameSnapshot 使用指针以避免循环导入：game → ws → game。
+// ws 包接受任意值；game 包负责填充。
 type ConnectedPayload struct {
 	PlayerID     string      `json:"player_id"`
 	DisplayName  string      `json:"display_name"`
@@ -76,9 +76,9 @@ type ConnectedPayload struct {
 	GameSnapshot interface{} `json:"game_snapshot,omitempty"`
 }
 
-// ---- Game event payloads (Server → Client) ----
+// ---- 游戏事件载荷（服务端 → 客户端） ----
 
-// GameStartedPayload is broadcast when a new hand begins.
+// GameStartedPayload 在新一手牌开始时广播。
 type GameStartedPayload struct {
 	HandNum    int   `json:"hand_num"`
 	DealerSeat int   `json:"dealer_seat"`
@@ -88,29 +88,29 @@ type GameStartedPayload struct {
 	BigBlind   int64 `json:"big_blind"`
 }
 
-// HoleCardsPayload is sent privately to one player with their hole cards.
+// HoleCardsPayload 私密发送给玩家，包含其手牌。
 type HoleCardsPayload struct {
 	PlayerID string   `json:"player_id"`
 	Hole     []string `json:"hole"` // e.g. ["Ac","Kd"]
 }
 
-// CardsDealtPayload notifies all players which seats received hole cards.
+// CardsDealtPayload 通知所有玩家哪些座位收到了手牌。
 type CardsDealtPayload struct {
 	Seats []int `json:"seats"`
 }
 
-// StreetStartedPayload is broadcast when a new betting street begins.
+// StreetStartedPayload 在新的下注回合开始时广播。
 type StreetStartedPayload struct {
 	Street    string   `json:"street"`
 	Community []string `json:"community"`
 	Pot       int64    `json:"pot"`
 }
 
-// ActionRequiredPayload is broadcast to prompt a player to act.
+// ActionRequiredPayload 广播以提示玩家行动。
 type ActionRequiredPayload struct {
 	PlayerID   string `json:"player_id"`
 	SeatIndex  int    `json:"seat_index"`
-	DeadlineTs int64  `json:"deadline_ts"` // unix milliseconds
+	DeadlineTs int64  `json:"deadline_ts"` // Unix 毫秒时间戳
 	CurrentBet int64  `json:"current_bet"`
 	CallAmount int64  `json:"call_amount"`
 	MinRaise   int64  `json:"min_raise"`
@@ -118,7 +118,7 @@ type ActionRequiredPayload struct {
 	Pot        int64  `json:"pot"`
 }
 
-// ActionTakenPayload is broadcast after a player acts.
+// ActionTakenPayload 在玩家行动后广播。
 type ActionTakenPayload struct {
 	PlayerID string `json:"player_id"`
 	Action   string `json:"action"`
@@ -127,13 +127,13 @@ type ActionTakenPayload struct {
 	TotalPot int64  `json:"total_pot"`
 }
 
-// ActionTimeoutPayload is broadcast when a player's clock runs out.
+// ActionTimeoutPayload 在玩家计时器耗尽时广播。
 type ActionTimeoutPayload struct {
 	PlayerID string `json:"player_id"`
 	Action   string `json:"action"` // "fold" or "check"
 }
 
-// PlayerJoinedPayload is broadcast when a player joins or reconnects.
+// PlayerJoinedPayload 在玩家加入或重连时广播。
 type PlayerJoinedPayload struct {
 	PlayerID    string `json:"player_id"`
 	DisplayName string `json:"display_name"`
@@ -143,13 +143,13 @@ type PlayerJoinedPayload struct {
 	IsBot       bool   `json:"is_bot,omitempty"`
 }
 
-// PlayerLeftPayload is broadcast when a player disconnects.
+// PlayerLeftPayload 在玩家断开连接时广播。
 type PlayerLeftPayload struct {
 	PlayerID  string `json:"player_id"`
 	SeatIndex int    `json:"seat_index"`
 }
 
-// ChatPayload carries a chat message.
+// ChatPayload 承载一条聊天消息。
 type ChatPayload struct {
 	SenderID    string `json:"sender_id"`
 	DisplayName string `json:"display_name"`
@@ -157,45 +157,45 @@ type ChatPayload struct {
 	Ts          int64  `json:"ts"`
 }
 
-// ErrorPayload carries an error response to a client command.
+// ErrorPayload 承载对客户端命令的错误响应。
 type ErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	RefSeq  int64  `json:"ref_seq"`
 }
 
-// StackUpdatedPayload is broadcast when a player's stack changes outside of hand play.
+// StackUpdatedPayload 在手牌外玩家筹码变化时广播。
 type StackUpdatedPayload struct {
 	PlayerID string `json:"player_id"`
 	Stack    int64  `json:"stack"`
 	Delta    int64  `json:"delta"`
 }
 
-// ---- Incoming command payloads ----
+// ---- 传入命令载荷 ----
 
-// JoinRoomCmd is the payload for CmdJoinRoom.
+// JoinRoomCmd 是 CmdJoinRoom 的载荷。
 type JoinRoomCmd struct {
 	RoomCode  string `json:"room_code"`
-	SeatIndex *int   `json:"seat_index"` // optional preferred seat
+	SeatIndex *int   `json:"seat_index"` // 可选的首选座位
 }
 
-// ActionCmd is the payload for CmdAction.
+// ActionCmd 是 CmdAction 的载荷。
 type ActionCmd struct {
 	Action string `json:"action"` // fold/check/call/bet/raise/all_in
 	Amount int64  `json:"amount"`
 }
 
-// ChatCmd is the payload for CmdChat.
+// ChatCmd 是 CmdChat 的载荷。
 type ChatCmd struct {
 	Text string `json:"text"`
 }
 
-// AddChipsCmd is the payload for CmdAddChips.
+// AddChipsCmd 是 CmdAddChips 的载荷。
 type AddChipsCmd struct {
 	Amount int64 `json:"amount"`
 }
 
-// SitOutCmd is the payload for CmdSitOut.
+// SitOutCmd 是 CmdSitOut 的载荷。
 type SitOutCmd struct {
 	SitOut bool `json:"sit_out"`
 }

@@ -16,7 +16,7 @@ const (
 	maxMessageSize = 4096
 )
 
-// Client is a single WebSocket connection associated with a room hub.
+// Client 是与房间 hub 关联的单个 WebSocket 连接。
 type Client struct {
 	hub         *Hub
 	conn        *websocket.Conn
@@ -29,12 +29,12 @@ var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
-		// Origin validation is handled at the HTTP server level via CORS.
+		// Origin 验证在 HTTP 服务器层通过 CORS 处理。
 		return true
 	},
 }
 
-// NewClient upgrades an HTTP connection to WebSocket and registers it with the hub.
+// NewClient 将 HTTP 连接升级为 WebSocket 并注册到 hub。
 func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -51,8 +51,8 @@ func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request, userID, display
 	return c, nil
 }
 
-// ReadPump reads messages from the WebSocket connection and forwards them to the hub.
-// This method should be called in its own goroutine.
+// ReadPump 从 WebSocket 连接读取消息并转发到 hub。
+// 此方法应在独立的 goroutine 中调用。
 func (c *Client) ReadPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -89,8 +89,8 @@ func (c *Client) ReadPump() {
 	}
 }
 
-// WritePump pumps outbound messages to the WebSocket connection.
-// This method should be called in its own goroutine.
+// WritePump 将出站消息推送到 WebSocket 连接。
+// 此方法应在独立的 goroutine 中调用。
 func (c *Client) WritePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -103,7 +103,7 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub closed the channel.
+				// Hub 关闭了通道。
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -120,7 +120,7 @@ func (c *Client) WritePump() {
 	}
 }
 
-// jsonUnmarshal wraps json.Unmarshal for readability.
+// jsonUnmarshal 包装 json.Unmarshal 以提高可读性。
 func jsonUnmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
 }

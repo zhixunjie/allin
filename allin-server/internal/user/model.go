@@ -2,7 +2,7 @@ package user
 
 import "time"
 
-// User represents a registered player.
+// User 表示一个已注册的玩家。
 type User struct {
 	ID           string    `json:"id"`
 	Username     string    `json:"username"`

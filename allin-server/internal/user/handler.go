@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Handler bundles the HTTP handlers for user endpoints.
+// Handler 封装了用户相关端点的 HTTP 处理器。
 type Handler struct {
 	jwtSecret string
 }
@@ -20,7 +20,7 @@ func NewHandler(jwtSecret string) *Handler {
 	return &Handler{jwtSecret: jwtSecret}
 }
 
-// Register handles POST /api/auth/register
+// Register 处理 POST /api/auth/register
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username    string `json:"username"`
@@ -70,7 +70,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"token": token, "user": u})
 }
 
-// Login handles POST /api/auth/login
+// Login 处理 POST /api/auth/login
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
@@ -99,7 +99,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "user": u})
 }
 
-// Me handles GET /api/me
+// Me 处理 GET /api/me
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromCtx(r.Context())
 	u, err := GetByID(userID)
@@ -110,7 +110,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
-// --- helpers ---
+// --- 辅助函数 ---
 
 func validateRegister(username, password, displayName string) error {
 	if len(username) < 3 || len(username) > 32 {

@@ -9,14 +9,14 @@ import (
 
 const tokenTTL = 7 * 24 * time.Hour
 
-// Claims is the JWT payload.
+// Claims 是 JWT 的有效载荷。
 type Claims struct {
 	UserID      string `json:"uid"`
 	DisplayName string `json:"name"`
 	jwt.RegisteredClaims
 }
 
-// IssueToken creates a signed JWT for the given user.
+// IssueToken 为指定用户创建一个签名的 JWT。
 func IssueToken(secret, userID, displayName string) (string, error) {
 	claims := Claims{
 		UserID:      userID,
@@ -30,7 +30,7 @@ func IssueToken(secret, userID, displayName string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-// ParseToken validates a JWT string and returns the embedded claims.
+// ParseToken 验证 JWT 字符串并返回其中包含的 claims。
 func ParseToken(secret, tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {

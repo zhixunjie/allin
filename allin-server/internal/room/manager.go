@@ -18,18 +18,18 @@ var (
 	ErrCodeConflict = errors.New("code generation conflict, retry")
 )
 
-// Manager holds all active rooms in memory and handles persistence.
+// Manager 在内存中保存所有活跃房间并处理持久化。
 type Manager struct {
 	mu    sync.RWMutex
-	rooms map[string]*Room // key = room code
+	rooms map[string]*Room // 键 = 房间码
 }
 
-// NewManager creates a new RoomManager.
+// NewManager 创建一个新的 RoomManager。
 func NewManager() *Manager {
 	return &Manager{rooms: make(map[string]*Room)}
 }
 
-// Create creates a new room, persists it, and registers it in memory.
+// Create 创建新房间，持久化并注册到内存。
 func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 		CreatedAt:  time.Now(),
 	}
 
-	// Persist to room_history
+	// 持久化到 room_history
 	cfgJSON, _ := json.Marshal(cfg)
 	if _, err := store.DB.Exec(
 		`INSERT INTO room_history (id, room_code, host_user_id, config_json, started_at)
@@ -66,7 +66,7 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	return r, nil
 }
 
-// Get returns the room with the given code.
+// Get 返回给定房间码的房间。
 func (m *Manager) Get(code string) (*Room, error) {
 	m.mu.RLock()
 	r, ok := m.rooms[code]
@@ -77,7 +77,7 @@ func (m *Manager) Get(code string) (*Room, error) {
 	return r, nil
 }
 
-// Close marks a room as ended and removes it from memory.
+// Close 将房间标记为已结束并从内存中移除。
 func (m *Manager) Close(code string) {
 	m.mu.Lock()
 	delete(m.rooms, code)
@@ -88,7 +88,7 @@ func (m *Manager) Close(code string) {
 	)
 }
 
-// generateUniqueCode generates a code not already in use (up to 10 attempts).
+// generateUniqueCode 生成一个未被使用的房间码（最多尝试 10 次）。
 func (m *Manager) generateUniqueCode() (string, error) {
 	for i := 0; i < 10; i++ {
 		code, err := GenerateCode()
@@ -105,9 +105,8 @@ func (m *Manager) generateUniqueCode() (string, error) {
 	return "", ErrCodeConflict
 }
 
-// StartGC starts a background goroutine that removes rooms which have had
-// no connected clients for longer than idleTimeout.
-// clientCount(code) must return the number of live WS clients for that room.
+// StartGC 启动后台 goroutine，移除超过 idleTimeout 时间没有连接客户端的房间。
+// clientCount(code) 必须返回该房间的实时 WS 客户端数量。
 func (m *Manager) StartGC(interval, idleTimeout time.Duration, clientCount func(string) int) {
 	go func() {
 		ticker := time.NewTicker(interval)

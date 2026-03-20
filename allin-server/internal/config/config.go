@@ -5,13 +5,13 @@ import (
 	"strings"
 )
 
-// Config holds all application configuration loaded from environment variables.
+// Config 保存从环境变量加载的所有应用配置。
 type Config struct {
-	// Server
-	ServerAddr string // e.g. ":8080"
+	// 服务器
+	ServerAddr string // 例如 ":8080"
 
 	// MySQL
-	MySQLDSN string // e.g. user:pass@tcp(127.0.0.1:3306)/allin?parseTime=true&charset=utf8mb4
+	MySQLDSN string // 例如 user:pass@tcp(127.0.0.1:3306)/allin?parseTime=true&charset=utf8mb4
 
 	// JWT
 	JWTSecret string
@@ -20,7 +20,7 @@ type Config struct {
 	AllowOrigins []string
 }
 
-// Load reads configuration from environment variables with sensible defaults.
+// Load 从环境变量读取配置，提供合理的默认值。
 func Load() *Config {
 	return &Config{
 		ServerAddr:   getEnv("SERVER_ADDR", ":8080"),

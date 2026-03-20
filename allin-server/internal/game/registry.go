@@ -2,19 +2,19 @@ package game
 
 import "sync"
 
-// Registry tracks all active engines for graceful shutdown.
+// Registry 跟踪所有活跃引擎以支持优雅关闭。
 type Registry struct {
 	mu      sync.Mutex
 	engines map[*Engine]struct{}
 	wg      sync.WaitGroup
 }
 
-// NewRegistry creates an empty engine registry.
+// NewRegistry 创建一个空的引擎注册表。
 func NewRegistry() *Registry {
 	return &Registry{engines: make(map[*Engine]struct{})}
 }
 
-// track registers an engine before starting it.
+// track 在引擎启动前注册它。
 func (r *Registry) track(e *Engine) {
 	r.mu.Lock()
 	r.engines[e] = struct{}{}
@@ -22,7 +22,7 @@ func (r *Registry) track(e *Engine) {
 	r.wg.Add(1)
 }
 
-// done removes an engine after it exits.
+// done 在引擎退出后移除它。
 func (r *Registry) done(e *Engine) {
 	r.mu.Lock()
 	delete(r.engines, e)
@@ -30,7 +30,7 @@ func (r *Registry) done(e *Engine) {
 	r.wg.Done()
 }
 
-// StopAll signals every running engine to stop and blocks until all exit.
+// StopAll 通知所有运行中的引擎停止并阻塞直到全部退出。
 func (r *Registry) StopAll() {
 	r.mu.Lock()
 	for e := range r.engines {

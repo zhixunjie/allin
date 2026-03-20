@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-const codeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no O/0/1/I to avoid confusion
+const codeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // 排除 O/0/1/I 以避免混淆
 const codeLen = 6
 
-// GenerateCode creates a random 6-character room code.
+// GenerateCode 创建一个随机的 6 位房间码。
 func GenerateCode() (string, error) {
 	var b strings.Builder
 	b.Grow(codeLen)

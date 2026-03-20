@@ -10,29 +10,29 @@ import (
 )
 
 const (
-	handStartDelay = 3 * time.Second // delay between hands
+	handStartDelay = 3 * time.Second // 手牌之间的延迟
 )
 
-const chatRateLimit = time.Second // minimum interval between chat messages per player
+const chatRateLimit = time.Second // 每个玩家聊天消息的最小间隔
 
 const emptyGracePeriod = 30 * time.Second
 
-// Engine drives the game state machine for one room.
-// All mutations to GameState happen in the single Run() goroutine.
+// Engine 驱动一个房间的游戏状态机。
+// 所有对 GameState 的修改都在单一的 Run() goroutine 中发生。
 type Engine struct {
 	hub         *ws.Hub
 	room        *room.Room
 	gs          *GameState
 	deck        []Card
 	quit        chan struct{}
-	chatLimiter map[string]time.Time // last chat time per userID
+	chatLimiter map[string]time.Time // 每个 userID 的上次聊天时间
 	registry    *Registry
-	onEmpty     func() // called when all players have left
+	onEmpty     func() // 所有玩家离开时调用
 	emptyTimer  *time.Timer
-	botsSeated  bool // bots are seated on first human join
+	botsSeated  bool // 首次有人类玩家加入时安排 bot 入座
 }
 
-// NewEngine creates an engine for the given hub and room.
+// NewEngine 为给定的 hub 和房间创建引擎。
 func NewEngine(hub *ws.Hub, rm *room.Room, registry *Registry) *Engine {
 	cfg := rm.Config
 	if cfg.ActionTimeSec == 0 {
@@ -57,13 +57,13 @@ func NewEngine(hub *ws.Hub, rm *room.Room, registry *Registry) *Engine {
 	return e
 }
 
-// Stop signals the engine goroutine to exit.
+// Stop 通知引擎 goroutine 退出。
 func (e *Engine) Stop() { close(e.quit) }
 
-// SetOnEmpty registers a callback invoked when the last player leaves.
+// SetOnEmpty 注册最后一个玩家离开时调用的回调。
 func (e *Engine) SetOnEmpty(fn func()) { e.onEmpty = fn }
 
-// Run is the engine's event loop. Call in a dedicated goroutine.
+// Run 是引擎的事件循环。应在专用 goroutine 中调用。
 func (e *Engine) Run() {
 	if e.registry != nil {
 		defer e.registry.done(e)
@@ -122,15 +122,15 @@ func (e *Engine) handleMessage(
 	}
 }
 
-// ---- Join ----
+// ---- 加入 ----
 
 func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Duration)) {
-	// If already seated, ignore.
+	// 如果已入座，忽略。
 	if e.gs.FindPlayer(msg.SenderID) != nil {
 		return
 	}
 	e.room.Touch()
-	// Cancel any pending room-close timer when a player joins.
+	// 当有玩家加入时取消待执行的房间关闭计时器。
 	if e.emptyTimer != nil {
 		e.emptyTimer.Stop()
 		e.emptyTimer = nil
@@ -158,27 +158,27 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		IsReconnect: false,
 	}))
 
-	// Seat bots on first human join.
+	// 首次有人类玩家加入时安排 bot 入座。
 	if !e.botsSeated {
 		e.botsSeated = true
 		e.seatBots()
 	}
 
-	// Send current snapshot to the joining player.
+	// 向加入的玩家发送当前快照。
 	e.sendSnapshot(msg.SenderID)
 
-	// Auto-start if ≥2 eligible players and no hand running.
+	// 如果有 ≥2 个合格玩家且没有正在进行的手牌，则自动开始。
 	if e.gs.Street == StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 		resetTimer(handStartDelay)
 	}
 }
 
-// seatBots places AI players into available seats.
+// seatBots 将 AI 玩家安排到可用座位。
 func (e *Engine) seatBots() {
 	for i := 0; i < e.room.Config.BotCount; i++ {
 		uid := botUserID(e.room.Code, i)
 		if e.gs.FindPlayer(uid) != nil {
-			continue // already seated
+			continue // 已入座
 		}
 		p := &Player{
 			UserID:      uid,
@@ -188,7 +188,7 @@ func (e *Engine) seatBots() {
 			BotStyle:    assignBotStyle(e.room.Config.BotStyle, i),
 		}
 		if !e.gs.SeatPlayer(p) {
-			break // no more seats
+			break // 没有更多座位
 		}
 		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
 			PlayerID:    p.UserID,
@@ -200,10 +200,10 @@ func (e *Engine) seatBots() {
 	}
 }
 
-// ---- Disconnect ----
+// ---- 断开连接 ----
 
 func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
-	// Bot IDs never have a real WS connection; ignore spurious disconnect messages.
+	// Bot ID 从没有真实的 WS 连接；忽略虚假的断开连接消息。
 	if IsBotID(msg.SenderID) {
 		return
 	}
@@ -222,7 +222,7 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 		e.gs.UnseatPlayer(msg.SenderID)
 		e.room.Touch()
 
-		// Count remaining human players.
+		// 统计剩余的人类玩家。
 		humanCount := 0
 		for _, sp := range e.gs.Seats {
 			if sp != nil && !IsBotID(sp.UserID) {
@@ -230,20 +230,20 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 			}
 		}
 		if humanCount == 0 && e.onEmpty != nil {
-			// Remove bot seats so the room starts fresh if a human reconnects.
+			// 移除 bot 座位，以便人类玩家重新连接时房间重新开始。
 			for _, sp := range e.gs.Seats {
 				if sp != nil && IsBotID(sp.UserID) {
 					e.gs.UnseatPlayer(sp.UserID)
 				}
 			}
 			e.botsSeated = false
-			// Grace period: give players 30s to reconnect before closing the room.
+			// 宽限期：给玩家 30 秒时间重新连接，之后关闭房间。
 			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
 		}
 		return
 	}
 
-	// In an active hand: fold for them if it's their turn, mark sit-out otherwise.
+	// 在活跃手牌中：如果轮到他们则代为弃牌，否则标记为离座。
 	if e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
 		e.gs.UnseatPlayer(msg.SenderID)
@@ -255,7 +255,7 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 	}
 }
 
-// ---- Action ----
+// ---- 行动 ----
 
 func (e *Engine) handleAction(
 	msg ws.InboundMessage,
@@ -293,10 +293,10 @@ func (e *Engine) handleAction(
 	e.advanceOrEnd(resetTimer, stopTimer)
 }
 
-// ---- Chat ----
+// ---- 聊天 ----
 
 func (e *Engine) handleChat(msg ws.InboundMessage) {
-	// Rate limit: 1 message per second per player
+	// 频率限制：每个玩家每秒 1 条消息
 	if last, ok := e.chatLimiter[msg.SenderID]; ok && time.Since(last) < chatRateLimit {
 		return
 	}
@@ -317,7 +317,7 @@ func (e *Engine) handleChat(msg ws.InboundMessage) {
 	}))
 }
 
-// ---- Add chips ----
+// ---- 加注筹码 ----
 
 func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 	if e.gs.Street != StreetIdle {
@@ -353,7 +353,7 @@ func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 	slog.Info("game: chips added", "room", e.room.Code, "player", p.UserID, "added", added, "stack", p.Stack)
 }
 
-// ---- Sit out ----
+// ---- 离座 ----
 
 func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
 	var cmd ws.SitOutCmd
@@ -374,7 +374,7 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 		IsReconnect: true,
 	}))
 
-	// If sit-out during active hand and it's their turn, auto-fold.
+	// 如果在活跃手牌中离座且轮到他们，自动弃牌。
 	if cmd.SitOut && e.gs.Street != StreetIdle && e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
 		stopTimer()
@@ -382,18 +382,18 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 	}
 }
 
-// ---- Timeout ----
+// ---- 超时 ----
 
 func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	if e.gs.Street == StreetIdle {
-		// Hand start timer fired.
+		// 开始手牌计时器触发。
 		if len(e.gs.EligibleToStart()) >= 2 {
 			e.startHand(resetTimer)
 		}
 		return
 	}
 
-	// Action timeout: auto fold or check.
+	// 行动超时：自动弃牌或过牌。
 	if e.gs.ActionSeat == -1 {
 		return
 	}
@@ -416,7 +416,7 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	e.advanceOrEnd(resetTimer, func() {})
 }
 
-// ---- Hand flow ----
+// ---- 手牌流程 ----
 
 func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.gs.HandNum++
@@ -425,12 +425,12 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 
 	eligible := e.gs.EligibleToStart()
 
-	// Advance dealer button.
+	// 移动庄家按钮。
 	e.gs.DealerSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
 
-	// Assign SB and BB.
+	// 分配小盲和大盲。
 	if len(eligible) == 2 {
-		// Heads-up: dealer = SB, other = BB.
+		// 单挑：庄家 = 小盲，对方 = 大盲。
 		e.gs.SBSeat = e.gs.DealerSeat
 		e.gs.BBSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
 	} else {
@@ -438,7 +438,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		e.gs.BBSeat = e.nextEligibleSeatAfter(e.gs.SBSeat, eligible)
 	}
 
-	// Reset player state.
+	// 重置玩家状态。
 	for _, p := range e.gs.Seats {
 		if p != nil {
 			p.Bet = 0
@@ -450,7 +450,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		}
 	}
 
-	// Post blinds.
+	// 下盲注。
 	sb := e.gs.Seats[e.gs.SBSeat]
 	bb := e.gs.Seats[e.gs.BBSeat]
 
@@ -460,11 +460,11 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.gs.CurrentBet = e.gs.Config.BigBlind
 	e.gs.MinRaise = e.gs.Config.BigBlind
 
-	// Shuffle and deal.
+	// 洗牌并发牌。
 	e.deck = newDeck()
 	e.dealHoleCards()
 
-	// Broadcast game_started.
+	// 广播 game_started 事件。
 	e.hub.Broadcast(ws.MustEvent(ws.TypeGameStarted, ws.GameStartedPayload{
 		HandNum:    e.gs.HandNum,
 		DealerSeat: e.gs.DealerSeat,
@@ -474,7 +474,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		BigBlind:   e.gs.Config.BigBlind,
 	}))
 
-	// Send private hole cards.
+	// 发送私密手牌。
 	for _, p := range e.gs.Seats {
 		if p == nil || p.SitOut {
 			continue
@@ -485,7 +485,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		}))
 	}
 
-	// Broadcast cards_dealt (opaque — just seat indices).
+	// 广播 cards_dealt（不透明 — 仅座位索引）。
 	var dealtSeats []int
 	for _, p := range e.gs.Seats {
 		if p != nil && !p.SitOut {
@@ -494,10 +494,10 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	}
 	e.hub.Broadcast(ws.MustEvent(ws.TypeCardsDealt, ws.CardsDealtPayload{Seats: dealtSeats}))
 
-	// Pre-flop: action starts left of BB.
+	// 翻牌前：行动从大盲左边开始。
 	var firstActor int
 	if len(eligible) == 2 {
-		firstActor = e.gs.DealerSeat // HU: dealer (SB) acts first preflop
+		firstActor = e.gs.DealerSeat // 单挑：庄家（小盲）翻牌前先行动
 	} else {
 		firstActor = e.nextEligibleSeatAfter(e.gs.BBSeat, eligible)
 	}
@@ -541,26 +541,26 @@ func (e *Engine) dealCommunity(n int) {
 	}
 }
 
-// advanceOrEnd: after an action, determine next step.
+// advanceOrEnd：行动后，确定下一步。
 func (e *Engine) advanceOrEnd(resetTimer func(time.Duration), stopTimer func()) {
 	active := e.gs.ActivePlayers()
 
-	// Only 1 player left → award pot immediately.
+	// 只剩 1 个玩家 → 立即颁发底池。
 	if len(active) == 1 {
 		e.awardUncontested(active[0], resetTimer)
 		return
 	}
 
-	// Betting round over?
+	// 下注回合结束？
 	if e.gs.BettingRoundOver() {
 		e.nextStreet(resetTimer)
 		return
 	}
 
-	// Find next player who can act.
+	// 查找下一个可以行动的玩家。
 	next := e.gs.nextActableSeat(e.gs.ActionSeat)
 	if next == -1 {
-		// All remaining players are all-in → run out the board.
+		// 所有剩余玩家都已全押 → 发完公共牌。
 		e.nextStreet(resetTimer)
 		return
 	}
@@ -569,7 +569,7 @@ func (e *Engine) advanceOrEnd(resetTimer func(time.Duration), stopTimer func()) 
 }
 
 func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
-	// Reset bets for new street.
+	// 为新回合重置下注。
 	for _, p := range e.gs.Seats {
 		if p != nil {
 			p.Bet = 0
@@ -600,20 +600,20 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 		Pot:       e.gs.TotalPot(),
 	}))
 
-	// Check if everyone is all-in (skip action, go to next street).
+	// 检查是否所有人都已全押（跳过行动，进入下一回合）。
 	if len(e.gs.CanAct()) == 0 {
 		e.gs.ActionSeat = -1
-		resetTimer(2 * time.Second) // short delay then auto-advance
+		resetTimer(2 * time.Second) // 短延迟后自动推进
 		return
 	}
 
-	// Post-flop: action starts left of dealer.
+	// 翻牌后：行动从庄家左边开始。
 	eligible := e.gs.ActivePlayers()
 	e.gs.ActionSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
 	e.broadcastActionRequired(resetTimer)
 }
 
-// CanAct returns players who are active and not all-in.
+// CanAct 返回活跃且未全押的玩家。
 func (gs *GameState) CanAct() []*Player {
 	var out []*Player
 	for _, p := range gs.Seats {
@@ -649,13 +649,13 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 	resetTimer(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 }
 
-// ---- Showdown ----
+// ---- 摊牌 ----
 
 func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	e.gs.Street = StreetShowdown
 	e.gs.ActionSeat = -1
 
-	// Reveal all non-folded hands.
+	// 展示所有未弃牌的手牌。
 	type reveal struct {
 		PlayerID    string `json:"player_id"`
 		SeatIndex   int    `json:"seat_index"`
@@ -678,7 +678,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	rawReveals, _ := json.Marshal(reveals)
 	e.hub.Broadcast(ws.MustEvent(ws.TypeShowdown, json.RawMessage(rawReveals)))
 
-	// Build pots and award winners.
+	// 构建底池并颁发给赢家。
 	pots := BuildPots(e.gs.Seats)
 	type winEntry struct {
 		PlayerID string `json:"player_id"`
@@ -687,7 +687,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	var winners []winEntry
 
 	for _, pot := range pots {
-		// Find best hand among eligible players.
+		// 在有资格的玩家中找到最佳手牌。
 		bestRank := uint32(0xFFFFFFFF)
 		var bestPlayers []string
 		for _, uid := range pot.Eligible {
@@ -703,13 +703,13 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 				bestPlayers = append(bestPlayers, uid)
 			}
 		}
-		// Split pot among ties.
+		// 平局时平分底池。
 		share := pot.Amount / int64(len(bestPlayers))
 		remainder := pot.Amount % int64(len(bestPlayers))
 		for i, uid := range bestPlayers {
 			award := share
 			if i == 0 {
-				award += remainder // give remainder to first winner
+				award += remainder // 将余数给第一个赢家
 			}
 			p := e.gs.FindPlayer(uid)
 			if p != nil {
@@ -719,7 +719,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		}
 	}
 
-	// Build hand_result seats.
+	// 构建 hand_result 座位信息。
 	type resultSeat struct {
 		PlayerID string `json:"player_id"`
 		Stack    int64  `json:"stack"`
@@ -739,7 +739,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
-	// Schedule next hand.
+	// 安排下一手牌。
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
 	if len(e.gs.EligibleToStart()) >= 2 {
@@ -747,9 +747,9 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	}
 }
 
-// awardUncontested gives the pot to the last active player (everyone else folded).
+// awardUncontested 将底池颁发给最后一个活跃玩家（其他人都弃牌了）。
 func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)) {
-	// Return uncalled bet if winner's bet exceeds the second-highest bet.
+	// 如果赢家的下注超过第二高下注，退回未被跟注的部分。
 	maxOther := int64(0)
 	for _, p := range e.gs.Seats {
 		if p != nil && p.UserID != winner.UserID && p.TotalBet > maxOther {
@@ -791,7 +791,7 @@ func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)
 	}
 }
 
-// checkHandOver checks if the hand ended after a disconnect-fold.
+// checkHandOver 检查断线弃牌后手牌是否结束。
 func (e *Engine) checkHandOver(resetTimer func(time.Duration), stopTimer func()) {
 	active := e.gs.ActivePlayers()
 	if len(active) == 1 {
@@ -799,7 +799,7 @@ func (e *Engine) checkHandOver(resetTimer func(time.Duration), stopTimer func())
 	}
 }
 
-// ---- Helpers ----
+// ---- 辅助函数 ----
 
 func (e *Engine) nextEligibleSeatAfter(from int, eligible []*Player) int {
 	if from == -1 {

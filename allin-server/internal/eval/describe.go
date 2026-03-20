@@ -1,15 +1,15 @@
 package eval
 
-// Category returns 1–9 (1=Straight Flush/Royal, …, 9=High Card) from a pure-Go rank.
+// Category 从纯 Go 等级值返回 1–9（1=皇家同花顺/同花顺，…，9=高牌）。
 func Category(rank uint32) int {
 	return int(rank>>20) + 1
 }
 
-// Describe returns the hand category name for a pure-Go rank.
+// Describe 根据纯 Go 等级值返回手牌类别名称。
 func Describe(rank uint32) string {
 	cat := rank >> 20
 	if cat == 0 {
-		// Royal Flush: A-high straight flush → encodeRank(0, 14) → top nibble = 15-14=1
+		// 皇家同花顺：A 为最高的同花顺 → encodeRank(0, 14) → 最高半字节 = 15-14=1
 		if (rank>>16)&0xF == 1 {
 			return "Royal Flush"
 		}

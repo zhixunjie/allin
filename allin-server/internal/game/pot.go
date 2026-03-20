@@ -2,8 +2,8 @@ package game
 
 import "sort"
 
-// BuildPots computes main pot and side pots from all players' TotalBet amounts.
-// Call this after all betting is complete (uncalled bets already returned to stacks).
+// BuildPots 根据所有玩家的 TotalBet 金额计算主池和边池。
+// 应在所有下注完成后调用（未被跟注的下注已退回筹码）。
 func BuildPots(seats [9]*Player) []Pot {
 	type contrib struct {
 		userID   string

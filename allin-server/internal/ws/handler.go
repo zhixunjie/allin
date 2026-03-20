@@ -10,8 +10,8 @@ import (
 	"github.com/allin/server/internal/room"
 )
 
-// EngineStarter is a function called when a new hub is created for a room.
-// The game engine should be created and started inside this callback.
+// EngineStarter 是在为房间创建新 hub 时调用的函数。
+// 游戏引擎应在此回调中创建和启动。
 type EngineStarter func(hub *Hub, rm *room.Room)
 
 // Handler handles WebSocket upgrade requests.

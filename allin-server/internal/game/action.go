@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Action names (must match ws.ActionCmd.Action values).
+// 行动名称（必须与 ws.ActionCmd.Action 的值匹配）。
 const (
 	ActionFold  = "fold"
 	ActionCheck = "check"
@@ -22,7 +22,7 @@ var (
 	ErrGameNotActive  = errors.New("game not active")
 )
 
-// ValidateAction checks whether the given action is legal for the player.
+// ValidateAction 检查给定的行动对该玩家是否合法。
 func ValidateAction(gs *GameState, userID, action string, amount int64) error {
 	if gs.Street == StreetIdle || gs.Street == StreetShowdown {
 		return ErrGameNotActive
@@ -49,7 +49,7 @@ func ValidateAction(gs *GameState, userID, action string, amount int64) error {
 		return nil
 
 	case ActionCall:
-		// Calling is always legal when there's a bet to call.
+		// 有下注可跟时，跟注始终合法。
 		if p.Bet >= gs.CurrentBet {
 			return fmt.Errorf("%w: no bet to call, use check", ErrInvalidAction)
 		}
@@ -71,7 +71,7 @@ func ValidateAction(gs *GameState, userID, action string, amount int64) error {
 		if gs.CurrentBet == 0 {
 			return fmt.Errorf("%w: no bet to raise, use bet", ErrInvalidAction)
 		}
-		// Total amount player will have in (their current bet + raise amount from stack)
+		// 玩家的总投入额（当前下注 + 从筹码中加注的金额）
 		toCall := gs.CurrentBet - p.Bet
 		minRaiseTotal := gs.CurrentBet + gs.MinRaise
 		if amount < minRaiseTotal && amount != p.Stack+p.Bet {
@@ -93,8 +93,8 @@ func ValidateAction(gs *GameState, userID, action string, amount int64) error {
 	}
 }
 
-// ApplyAction mutates gs to apply the validated action.
-// Returns true if the action was an aggression (bet/raise) requiring others to re-act.
+// ApplyAction 修改 gs 以应用已验证的行动。
+// 如果行动是激进行为（下注/加注）需要其他人重新行动，则返回 true。
 func ApplyAction(gs *GameState, userID, action string, amount int64) bool {
 	p := gs.FindPlayer(userID)
 	if p == nil {
@@ -113,7 +113,7 @@ func ApplyAction(gs *GameState, userID, action string, amount int64) bool {
 	case ActionCall:
 		toCall := gs.CurrentBet - p.Bet
 		if toCall > p.Stack {
-			// All-in call
+			// 全押跟注
 			toCall = p.Stack
 			p.AllIn = true
 		}
@@ -167,7 +167,7 @@ func ApplyAction(gs *GameState, userID, action string, amount int64) bool {
 		}
 	}
 
-	// If aggression: reset ActedThisStreet for all other active non-all-in players.
+	// 如果是激进行为：重置所有其他活跃非全押玩家的 ActedThisStreet。
 	if aggression {
 		for _, op := range gs.Seats {
 			if op != nil && op.UserID != userID && !op.Folded && !op.SitOut && !op.AllIn {

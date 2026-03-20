@@ -11,7 +11,7 @@ import (
 var ErrNotFound = errors.New("user not found")
 var ErrUsernameTaken = errors.New("username already taken")
 
-// Create inserts a new user.
+// Create 插入一个新用户。
 func Create(u *User) error {
 	_, err := store.DB.Exec(
 		`INSERT INTO users (id, username, password_hash, display_name, chip_balance, created_at)
@@ -19,7 +19,7 @@ func Create(u *User) error {
 		u.ID, u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt,
 	)
 	if err != nil {
-		// MySQL duplicate entry error code 1062
+		// MySQL 重复条目错误码 1062
 		if isDuplicateEntry(err) {
 			return ErrUsernameTaken
 		}
@@ -28,7 +28,7 @@ func Create(u *User) error {
 	return nil
 }
 
-// GetByUsername returns the user with the given username.
+// GetByUsername 根据用户名返回用户。
 func GetByUsername(username string) (*User, error) {
 	u := &User{}
 	err := store.DB.QueryRow(
@@ -44,7 +44,7 @@ func GetByUsername(username string) (*User, error) {
 	return u, nil
 }
 
-// GetByID returns the user with the given ID.
+// GetByID 根据 ID 返回用户。
 func GetByID(id string) (*User, error) {
 	u := &User{}
 	err := store.DB.QueryRow(
@@ -60,8 +60,8 @@ func GetByID(id string) (*User, error) {
 	return u, nil
 }
 
-// AdjustChips atomically adds delta to a user's chip_balance.
-// Use negative delta to deduct chips.
+// AdjustChips 原子性地将 delta 加到用户的 chip_balance 上。
+// 使用负数 delta 来扣除筹码。
 func AdjustChips(userID string, delta int64, reason, refID string) error {
 	tx, err := store.DB.Begin()
 	if err != nil {
@@ -83,7 +83,7 @@ func AdjustChips(userID string, delta int64, reason, refID string) error {
 	return tx.Commit()
 }
 
-// isDuplicateEntry detects MySQL error 1062 (duplicate key).
+// isDuplicateEntry 检测 MySQL 错误 1062（重复键）。
 func isDuplicateEntry(err error) bool {
 	if err == nil {
 		return false

@@ -9,10 +9,10 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// DB is the global database connection pool.
+// DB 是全局数据库连接池。
 var DB *sql.DB
 
-// Connect initialises the MySQL connection pool and verifies connectivity.
+// Connect 初始化 MySQL 连接池并验证连通性。
 func Connect(dsn string) error {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -31,7 +31,7 @@ func Connect(dsn string) error {
 	return nil
 }
 
-// AutoMigrate creates all tables if they do not already exist.
+// AutoMigrate 创建所有尚不存在的表。
 func AutoMigrate() error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (

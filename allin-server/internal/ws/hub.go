@@ -6,32 +6,32 @@ import (
 	"sync"
 )
 
-// Hub manages all WebSocket clients for a single room.
-// It is the sole writer to client send channels, preventing data races.
+// Hub 管理单个房间的所有 WebSocket 客户端。
+// 它是客户端 send 通道的唯一写入者，防止数据竞争。
 type Hub struct {
 	roomCode string
 
-	// Registered clients keyed by userID.
+	// 以 userID 为键的已注册客户端。
 	clients map[string]*Client
 
-	// Inbound messages from clients (processed by the game engine).
+	// 来自客户端的入站消息（由游戏引擎处理）。
 	Inbound chan InboundMessage
 
-	// Channels for registration management.
+	// 注册管理通道。
 	register   chan *Client
 	unregister chan *Client
 
 	mu sync.RWMutex
 }
 
-// InboundMessage wraps a client command with sender metadata.
+// InboundMessage 将客户端命令与发送者元数据包装在一起。
 type InboundMessage struct {
 	SenderID    string
 	DisplayName string
 	Env         Envelope
 }
 
-// NewHub creates a new Hub for the given room.
+// NewHub 为给定房间创建一个新的 Hub。
 func NewHub(roomCode string) *Hub {
 	return &Hub{
 		roomCode:   roomCode,
@@ -42,7 +42,7 @@ func NewHub(roomCode string) *Hub {
 	}
 }
 
-// Run starts the hub event loop. Call in a dedicated goroutine.
+// Run 启动 hub 事件循环。应在专用 goroutine 中调用。
 func (h *Hub) Run() {
 	for {
 		select {
@@ -61,7 +61,7 @@ func (h *Hub) Run() {
 			h.mu.Unlock()
 			slog.Info("ws: client unregistered", "room", h.roomCode, "user", client.UserID)
 
-			// Notify game engine that a player disconnected.
+			// 通知游戏引擎有玩家断开连接。
 			h.Inbound <- InboundMessage{
 				SenderID: client.UserID,
 				Env:      Envelope{Type: "disconnect"},
@@ -70,7 +70,7 @@ func (h *Hub) Run() {
 	}
 }
 
-// Broadcast sends a message to all connected clients in the room.
+// Broadcast 向房间内所有已连接的客户端发送消息。
 func (h *Hub) Broadcast(env Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
@@ -88,7 +88,7 @@ func (h *Hub) Broadcast(env Envelope) {
 	}
 }
 
-// SendTo sends a message to one specific client (e.g., hole cards).
+// SendTo 向一个特定客户端发送消息（例如手牌）。
 func (h *Hub) SendTo(userID string, env Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
@@ -108,14 +108,14 @@ func (h *Hub) SendTo(userID string, env Envelope) {
 	}
 }
 
-// ClientCount returns the number of connected clients.
+// ClientCount 返回已连接的客户端数量。
 func (h *Hub) ClientCount() int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return len(h.clients)
 }
 
-// IsConnected reports whether a user currently has an active connection.
+// IsConnected 报告用户当前是否有活跃连接。
 func (h *Hub) IsConnected(userID string) bool {
 	h.mu.RLock()
 	_, ok := h.clients[userID]
@@ -123,7 +123,7 @@ func (h *Hub) IsConnected(userID string) bool {
 	return ok
 }
 
-// DisplayName returns the display name of a connected user, or empty string.
+// DisplayName 返回已连接用户的显示名称，未连接则返回空字符串。
 func (h *Hub) DisplayName(userID string) string {
 	h.mu.RLock()
 	c, ok := h.clients[userID]

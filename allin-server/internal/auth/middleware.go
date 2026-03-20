@@ -13,8 +13,8 @@ const (
 	ContextDisplayName contextKey = "display_name"
 )
 
-// Middleware returns an HTTP middleware that validates a Bearer JWT.
-// On success it stores user_id and display_name into the request context.
+// Middleware 返回一个验证 Bearer JWT 的 HTTP 中间件。
+// 验证成功后将 user_id 和 display_name 存入请求上下文。
 func Middleware(secret string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,7 @@ func Middleware(secret string) func(http.Handler) http.Handler {
 	}
 }
 
-// extractToken pulls the JWT from Authorization header or ?token= query param.
+// extractToken 从 Authorization 请求头或 ?token= 查询参数中提取 JWT。
 func extractToken(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimPrefix(h, "Bearer ")
@@ -43,13 +43,13 @@ func extractToken(r *http.Request) string {
 	return r.URL.Query().Get("token")
 }
 
-// UserIDFromCtx retrieves the authenticated user ID from a request context.
+// UserIDFromCtx 从请求上下文中获取已认证的用户 ID。
 func UserIDFromCtx(ctx context.Context) string {
 	v, _ := ctx.Value(ContextUserID).(string)
 	return v
 }
 
-// DisplayNameFromCtx retrieves the display name from a request context.
+// DisplayNameFromCtx 从请求上下文中获取显示名称。
 func DisplayNameFromCtx(ctx context.Context) string {
 	v, _ := ctx.Value(ContextDisplayName).(string)
 	return v

@@ -8,7 +8,7 @@ import (
 	"github.com/allin/server/internal/auth"
 )
 
-// Handler bundles HTTP handlers for room endpoints.
+// Handler 打包房间端点的 HTTP 处理函数。
 type Handler struct {
 	manager *Manager
 }
@@ -17,7 +17,7 @@ func NewHandler(manager *Manager) *Handler {
 	return &Handler{manager: manager}
 }
 
-// Create handles POST /api/rooms
+// Create 处理 POST /api/rooms
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	hostUserID := auth.UserIDFromCtx(r.Context())
 
@@ -38,7 +38,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, room)
 }
 
-// Get handles GET /api/rooms/{code}
+// Get 处理 GET /api/rooms/{code}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	code := strings.ToUpper(strings.TrimSpace(r.PathValue("code")))
 	room, err := h.manager.Get(code)
@@ -49,7 +49,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, room)
 }
 
-// --- helpers ---
+// --- 辅助函数 ---
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

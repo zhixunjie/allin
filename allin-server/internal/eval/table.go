@@ -6,13 +6,13 @@ import (
 	"os"
 )
 
-// HR is the Two Plus Two hand rank lookup table.
-// Load via Load() before calling Evaluate7 for the fast path.
+// HR 是 Two Plus Two 手牌等级查找表。
+// 在调用 Evaluate7 之前通过 Load() 加载以启用快速路径。
 var HR []int32
 
-// Load reads HandRanks.dat from path and populates HR.
-// Must be called once before any evaluation if T+2 performance is desired.
-// If not called, Evaluate7 falls back to pure Go evaluation.
+// Load 从指定路径读取 HandRanks.dat 并填充 HR。
+// 如需 T+2 性能，必须在任何评估之前调用一次。
+// 如果未调用，Evaluate7 将回退到纯 Go 评估。
 func Load(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -32,5 +32,5 @@ func Load(path string) error {
 	return nil
 }
 
-// Loaded reports whether the T+2 lookup table has been loaded.
+// Loaded 报告 T+2 查找表是否已加载。
 func Loaded() bool { return len(HR) > 0 }

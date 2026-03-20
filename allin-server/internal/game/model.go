@@ -7,7 +7,7 @@ import (
 	"github.com/allin/server/internal/room"
 )
 
-// Street represents a betting round phase.
+// Street 表示下注回合阶段。
 type Street uint8
 
 const (
@@ -38,7 +38,7 @@ func (s Street) String() string {
 	}
 }
 
-// Card is a playing card.
+// Card 是一张扑克牌。
 type Card struct {
 	Rank byte // '2'…'A'
 	Suit byte // 'c','d','h','s'
@@ -48,51 +48,51 @@ func (c Card) String() string { return string([]byte{c.Rank, c.Suit}) }
 
 func (c Card) toEval() eval.Card { return eval.Card{Rank: c.Rank, Suit: c.Suit} }
 
-// Player represents a seated player.
+// Player 表示已入座的玩家。
 type Player struct {
 	UserID      string
 	DisplayName string
 	SeatIndex   int
-	Stack       int64 // chips not in play
-	Bet         int64 // current street bet
-	TotalBet    int64 // total bet this hand (for side-pot calc)
+	Stack       int64 // 未参与下注的筹码
+	Bet         int64 // 当前回合下注额
+	TotalBet    int64 // 本手牌总下注额（用于边池计算）
 
 	Hole   [2]Card
 	Folded bool
 	AllIn  bool
 	SitOut bool
 	IsBot    bool
-	BotStyle string // tag|lag|station|rock (only set when IsBot=true)
+	BotStyle string // tag|lag|station|rock（仅在 IsBot=true 时设置）
 
-	// ActedThisStreet is reset to false when the current bet is raised above the player's bet.
+	// ActedThisStreet 在当前下注被加注超过玩家下注额时重置为 false。
 	ActedThisStreet bool
 }
 
-// Pot represents a main or side pot.
+// Pot 表示主池或边池。
 type Pot struct {
 	Amount   int64
-	Eligible []string // UserIDs
+	Eligible []string // 有资格的用户 ID
 }
 
-// GameState is the complete in-memory game state for one room.
+// GameState 是一个房间的完整内存游戏状态。
 type GameState struct {
 	Street     Street
 	HandNum    int
 	Community  []Card
-	Seats      [9]*Player // nil = empty seat
+	Seats      [9]*Player // nil = 空座位
 
-	DealerSeat int // button
+	DealerSeat int // 庄家按钮
 	SBSeat     int
 	BBSeat     int
-	ActionSeat int // -1 when no action pending
+	ActionSeat int // -1 表示无待行动
 
-	CurrentBet int64 // highest bet this street
-	MinRaise   int64 // minimum raise increment
+	CurrentBet int64 // 本回合最高下注额
+	MinRaise   int64 // 最低加注增量
 
 	Config room.RoomConfig
 }
 
-// SeatPlayer places a player in the first available seat.
+// SeatPlayer 将玩家安排到第一个空座位。
 func (gs *GameState) SeatPlayer(p *Player) bool {
 	for i := range gs.Seats {
 		if gs.Seats[i] == nil {
@@ -104,7 +104,7 @@ func (gs *GameState) SeatPlayer(p *Player) bool {
 	return false
 }
 
-// UnseatPlayer removes a player by userID.
+// UnseatPlayer 根据 userID 移除玩家。
 func (gs *GameState) UnseatPlayer(userID string) {
 	for i, p := range gs.Seats {
 		if p != nil && p.UserID == userID {
@@ -114,7 +114,7 @@ func (gs *GameState) UnseatPlayer(userID string) {
 	}
 }
 
-// FindPlayer returns the player with the given userID.
+// FindPlayer 返回指定 userID 的玩家。
 func (gs *GameState) FindPlayer(userID string) *Player {
 	for _, p := range gs.Seats {
 		if p != nil && p.UserID == userID {
@@ -124,7 +124,7 @@ func (gs *GameState) FindPlayer(userID string) *Player {
 	return nil
 }
 
-// ActivePlayers returns non-folded, non-sitting-out players.
+// ActivePlayers 返回未弃牌、未离座的玩家。
 func (gs *GameState) ActivePlayers() []*Player {
 	var out []*Player
 	for _, p := range gs.Seats {
@@ -135,7 +135,7 @@ func (gs *GameState) ActivePlayers() []*Player {
 	return out
 }
 
-// SeatedCount returns the number of occupied seats.
+// SeatedCount 返回已入座的玩家数量。
 func (gs *GameState) SeatedCount() int {
 	n := 0
 	for _, p := range gs.Seats {
@@ -146,7 +146,7 @@ func (gs *GameState) SeatedCount() int {
 	return n
 }
 
-// EligibleToStart returns players who can participate in a new hand.
+// EligibleToStart 返回可以参与新一手牌的玩家。
 func (gs *GameState) EligibleToStart() []*Player {
 	var out []*Player
 	for _, p := range gs.Seats {
@@ -157,8 +157,8 @@ func (gs *GameState) EligibleToStart() []*Player {
 	return out
 }
 
-// nextActiveSeat returns the next non-folded, non-sitout seat after 'from' (wraps around).
-// Returns -1 if none found.
+// nextActiveSeat 返回 'from' 之后下一个未弃牌、未离座的座位（循环查找）。
+// 如果没有找到则返回 -1。
 func (gs *GameState) nextActiveSeat(from int) int {
 	for i := 1; i <= 9; i++ {
 		idx := (from + i) % 9
@@ -170,7 +170,7 @@ func (gs *GameState) nextActiveSeat(from int) int {
 	return -1
 }
 
-// nextActableSeat returns the next seat that can still bet/raise/call (not all-in/folded/sitout).
+// nextActableSeat 返回下一个仍可下注/加注/跟注的座位（非全押/弃牌/离座）。
 func (gs *GameState) nextActableSeat(from int) int {
 	for i := 1; i <= 9; i++ {
 		idx := (from + i) % 9
@@ -182,7 +182,7 @@ func (gs *GameState) nextActableSeat(from int) int {
 	return -1
 }
 
-// BettingRoundOver returns true when no active player needs to act further.
+// BettingRoundOver 当没有活跃玩家需要继续行动时返回 true。
 func (gs *GameState) BettingRoundOver() bool {
 	for _, p := range gs.Seats {
 		if p == nil || p.Folded || p.SitOut || p.AllIn {
@@ -198,7 +198,7 @@ func (gs *GameState) BettingRoundOver() bool {
 	return true
 }
 
-// TotalPot returns the sum of all bets across all players.
+// TotalPot 返回所有玩家下注的总和。
 func (gs *GameState) TotalPot() int64 {
 	var total int64
 	for _, p := range gs.Seats {
@@ -209,9 +209,9 @@ func (gs *GameState) TotalPot() int64 {
 	return total
 }
 
-// ---- Snapshot types (sent over WS) ----
+// ---- 快照类型（通过 WS 发送） ----
 
-// GameSnapshot is the full state sent to a client.
+// GameSnapshot 是发送给客户端的完整状态。
 type GameSnapshot struct {
 	Street     string         `json:"street"`
 	HandNum    int            `json:"hand_num"`
@@ -225,7 +225,7 @@ type GameSnapshot struct {
 	Config     room.RoomConfig `json:"config"`
 }
 
-// SeatSnapshot is one seat's state in a GameSnapshot.
+// SeatSnapshot 是 GameSnapshot 中单个座位的状态。
 type SeatSnapshot struct {
 	SeatIndex   int      `json:"seat_index"`
 	UserID      string   `json:"user_id"`
@@ -236,10 +236,10 @@ type SeatSnapshot struct {
 	AllIn       bool     `json:"all_in"`
 	SitOut      bool     `json:"sit_out"`
 	IsBot       bool     `json:"is_bot,omitempty"`
-	Hole        []string `json:"hole,omitempty"` // only for the requesting player
+	Hole        []string `json:"hole,omitempty"` // 仅对请求的玩家可见
 }
 
-// Snapshot builds a GameSnapshot, filling hole cards only for viewerID.
+// Snapshot 构建 GameSnapshot，仅为 viewerID 填充手牌。
 func (gs *GameState) Snapshot(viewerID string) GameSnapshot {
 	snap := GameSnapshot{
 		Street:     gs.Street.String(),
@@ -286,7 +286,7 @@ func cardsToStrings(cards []Card) []string {
 	return out
 }
 
-// EvaluateHand returns the eval rank for a player's best 7-card hand.
+// EvaluateHand 返回玩家最佳 7 张牌手牌的评估等级。
 func EvaluateHand(hole [2]Card, community []Card) (uint32, string) {
 	if len(community) < 3 {
 		return 0xFFFFFFFF, ""

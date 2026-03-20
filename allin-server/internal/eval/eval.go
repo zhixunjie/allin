@@ -2,8 +2,8 @@ package eval
 
 import "sort"
 
-// Evaluate7 returns the best 5-card hand rank from 7 cards (lower = better).
-// Uses Two Plus Two lookup table if loaded via Load(); otherwise pure Go.
+// Evaluate7 从 7 张牌中返回最佳 5 张牌的手牌等级（值越小越好）。
+// 如果通过 Load() 加载了 Two Plus Two 查找表则使用快速路径，否则使用纯 Go 实现。
 func Evaluate7(cards [7]Card) uint32 {
 	if Loaded() {
 		return evaluate7Table(cards)
@@ -11,7 +11,7 @@ func Evaluate7(cards [7]Card) uint32 {
 	return evaluate7Pure(cards)
 }
 
-// Card is a playing card for the evaluator.
+// Card 是评估器使用的扑克牌。
 type Card struct {
 	Rank byte // '2'…'A'
 	Suit byte // 'c','d','h','s'
@@ -19,7 +19,7 @@ type Card struct {
 
 func (c Card) String() string { return string([]byte{c.Rank, c.Suit}) }
 
-// ToEvalInt converts Card to Two Plus Two index (1–52).
+// ToEvalInt 将 Card 转换为 Two Plus Two 索引（1–52）。
 func (c Card) ToEvalInt() int {
 	var rank int
 	switch c.Rank {
@@ -64,7 +64,7 @@ func (c Card) ToEvalInt() int {
 	return rank*4 + suit + 1
 }
 
-// evaluate7Table uses the Two Plus Two lookup table.
+// evaluate7Table 使用 Two Plus Two 查找表进行评估。
 func evaluate7Table(cards [7]Card) uint32 {
 	p := int(HR[53+cards[0].ToEvalInt()])
 	p = int(HR[p+cards[1].ToEvalInt()])
@@ -75,7 +75,7 @@ func evaluate7Table(cards [7]Card) uint32 {
 	return uint32(HR[p+cards[6].ToEvalInt()])
 }
 
-// All C(7,5)=21 index combinations for 7-card best-of-5 selection.
+// 所有 C(7,5)=21 种索引组合，用于从 7 张牌中选出最佳 5 张。
 var combos21 = [21][5]int{
 	{0, 1, 2, 3, 4}, {0, 1, 2, 3, 5}, {0, 1, 2, 3, 6},
 	{0, 1, 2, 4, 5}, {0, 1, 2, 4, 6}, {0, 1, 2, 5, 6},
@@ -101,7 +101,7 @@ func evaluate7Pure(cards [7]Card) uint32 {
 	return best
 }
 
-// rankVal maps card rank byte to integer value (2=2…A=14).
+// rankVal 将牌面字节映射为整数值（2=2…A=14）。
 func rankVal(r byte) uint8 {
 	switch r {
 	case '2':
@@ -134,15 +134,15 @@ func rankVal(r byte) uint8 {
 	return 0
 }
 
-// encodeRank encodes a hand to uint32 where lower = better.
-// cat: 0=SF…8=HighCard. values: card ranks, highest importance first.
+// encodeRank 将手牌编码为 uint32，值越小越好。
+// cat: 0=同花顺…8=高牌。values: 牌面值，按重要性从高到低排列。
 func encodeRank(cat uint8, values ...uint8) uint32 {
 	var t uint32
 	for i, v := range values {
 		if i >= 5 {
 			break
 		}
-		// (15-v) so that higher card value → smaller bit field → lower rank
+		// (15-v) 使得牌面值越大 → 位域越小 → 等级越低（越好）
 		t |= uint32(15-v) << uint(4*(4-i))
 	}
 	return uint32(cat)<<20 | t
@@ -162,7 +162,7 @@ func evaluateFive(cards [5]Card) uint32 {
 	sorted := vals
 	sort.Slice(sorted[:], func(i, j int) bool { return sorted[i] > sorted[j] })
 
-	// Uniqueness check (needed for straight detection)
+	// 唯一性检查（顺子检测所需）
 	unique := sorted[0] != sorted[1] && sorted[1] != sorted[2] &&
 		sorted[2] != sorted[3] && sorted[3] != sorted[4]
 
@@ -173,7 +173,7 @@ func evaluateFive(cards [5]Card) uint32 {
 			straight = true
 			straightHigh = sorted[0]
 		}
-		// Wheel: A-2-3-4-5
+		// 最小顺子（轮子）：A-2-3-4-5
 		if sorted[0] == 14 && sorted[1] == 5 && sorted[2] == 4 && sorted[3] == 3 && sorted[4] == 2 {
 			straight = true
 			straightHigh = 5
@@ -184,7 +184,7 @@ func evaluateFive(cards [5]Card) uint32 {
 		return encodeRank(0, straightHigh)
 	}
 
-	// Frequency analysis
+	// 频率分析
 	freq := [15]int{}
 	for _, v := range vals {
 		freq[v]++
@@ -202,7 +202,7 @@ func evaluateFive(cards [5]Card) uint32 {
 			singles = append(singles, v)
 		}
 	}
-	// quads/trips/pairs/singles are already sorted descending (we iterate 14→2)
+	// quads/trips/pairs/singles 已按降序排列（我们从 14 迭代到 2）
 
 	if len(quads) > 0 {
 		kicker := singles[0]
