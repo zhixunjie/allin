@@ -50,46 +50,47 @@ func (c Card) toEval() eval.Card { return eval.Card{Rank: c.Rank, Suit: c.Suit} 
 
 // Player 表示已入座的玩家。
 type Player struct {
-	UserID      string
-	DisplayName string
-	SeatIndex   int
-	Stack       int64 // 未参与下注的筹码
-	Bet         int64 // 当前回合下注额
-	TotalBet    int64 // 本手牌总下注额（用于边池计算）
+	UserID      string // 玩家唯一 ID（bot 以 "bot_" 开头）
+	DisplayName string // 显示名称
+	SeatIndex   int    // 座位号 0–8
+	Stack       int64  // 未参与下注的筹码余额
+	Bet         int64  // 当前回合累计下注额
+	TotalBet    int64  // 本手牌总下注额（用于边池计算）
 
-	Hole   [2]Card
-	Folded bool
-	AllIn  bool
-	SitOut bool
-	IsBot    bool
-	BotStyle string // tag|lag|station|rock（仅在 IsBot=true 时设置）
+	Hole     [2]Card  // 手牌（两张底牌）
+	Folded   bool     // 是否已弃牌
+	AllIn    bool     // 是否全押
+	SitOut   bool     // 是否离座等待
+	IsBot    bool     // 是否为 AI 机器人
+	BotStyle BotStyle // bot 风格（tag/lag/station/rock；仅 IsBot=true 时有效）
 
-	// ActedThisStreet 在当前下注被加注超过玩家下注额时重置为 false。
+	// ActedThisStreet 标记本街道内该玩家是否已行动；
+	// 当有玩家加注超过其下注额时重置为 false，迫使其重新决策。
 	ActedThisStreet bool
 }
 
 // Pot 表示主池或边池。
 type Pot struct {
-	Amount   int64
-	Eligible []string // 有资格的用户 ID
+	Amount   int64    // 池中筹码总额
+	Eligible []string // 有资格赢得该池的用户 ID 列表
 }
 
 // GameState 是一个房间的完整内存游戏状态。
 type GameState struct {
-	Street     Street
-	HandNum    int
-	Community  []Card
-	Seats      [9]*Player // nil = 空座位
+	Street    Street     // 当前游戏阶段
+	HandNum   int        // 本局手牌编号（从 1 开始递增）
+	Community []Card     // 公共牌（0–5 张）
+	Seats     [9]*Player // 座位数组，nil 表示空座
 
-	DealerSeat int // 庄家按钮
-	SBSeat     int
-	BBSeat     int
-	ActionSeat int // -1 表示无待行动
+	DealerSeat int // 庄家按钮所在座位号
+	SBSeat     int // 小盲所在座位号
+	BBSeat     int // 大盲所在座位号
+	ActionSeat int // 当前待行动的座位号；-1 表示无待行动
 
-	CurrentBet int64 // 本回合最高下注额
-	MinRaise   int64 // 最低加注增量
+	CurrentBet int64 // 本回合当前最高下注额
+	MinRaise   int64 // 最低加注增量（上次加注幅度）
 
-	Config room.RoomConfig
+	Config room.RoomConfig // 房间配置（盲注/买入等）
 }
 
 // SeatPlayer 将玩家安排到第一个空座位。
@@ -213,15 +214,15 @@ func (gs *GameState) TotalPot() int64 {
 
 // GameSnapshot 是发送给客户端的完整状态。
 type GameSnapshot struct {
-	Street     string         `json:"street"`
-	HandNum    int            `json:"hand_num"`
-	Community  []string       `json:"community"`
-	Seats      []SeatSnapshot `json:"seats"`
-	Pot        int64          `json:"pot"`
-	DealerSeat int            `json:"dealer_seat"`
-	ActionSeat int            `json:"action_seat"`
-	CurrentBet int64          `json:"current_bet"`
-	MinRaise   int64          `json:"min_raise"`
+	Street     string          `json:"street"`
+	HandNum    int             `json:"hand_num"`
+	Community  []string        `json:"community"`
+	Seats      []SeatSnapshot  `json:"seats"`
+	Pot        int64           `json:"pot"`
+	DealerSeat int             `json:"dealer_seat"`
+	ActionSeat int             `json:"action_seat"`
+	CurrentBet int64           `json:"current_bet"`
+	MinRaise   int64           `json:"min_raise"`
 	Config     room.RoomConfig `json:"config"`
 }
 

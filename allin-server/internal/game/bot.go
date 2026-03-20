@@ -32,6 +32,20 @@ func IsBotID(userID string) bool {
 
 // ---- 风格人设 ----
 
+// BotStyle 表示 bot 的风格流派（值必须与 room.RoomConfig.BotStyle 的 JSON 字段匹配）。
+type BotStyle string
+
+const (
+	BotStyleTag        BotStyle = "tag"       // 紧凶（TAG）
+	BotStyleLag        BotStyle = "lag"       // 松凶（LAG）
+	BotStyleStation    BotStyle = "station"   // 松被动（Calling Station）
+	BotStyleRock       BotStyle = "rock"      // 紧被动（Rock）
+	BotStyleMixed      BotStyle = "mixed"     // 混合（循环分配四种风格）
+	BotStyleAggressive BotStyle = "aggressive" // 激进主题（TAG+LAG 交替）
+	BotStylePassive    BotStyle = "passive"   // 被动主题（Rock+Station 交替）
+	BotStyleRandom     BotStyle = "random"    // 随机（每个 bot 独立随机）
+)
+
 // BotPersonality 定义某种风格 bot 的决策阈值。
 type BotPersonality struct {
 	PreflopEnterThreshold float64 // 主动入局所需最低 preflop 强度
@@ -47,15 +61,15 @@ type BotPersonality struct {
 //	LAG（松凶）：宽松入局，频繁加注/虚张声势
 //	Station（松被动）：几乎不弃牌，喜欢跟注，很少主动下注
 //	Rock（紧被动）：极度保守，只玩超强牌，见注则缩
-var personalities = map[string]BotPersonality{
-	"tag":     {0.65, 0.80, 0.55, 0.30, 0.08},
-	"lag":     {0.35, 0.50, 0.35, 0.15, 0.22},
-	"station": {0.30, 0.85, 0.70, 0.05, 0.02},
-	"rock":    {0.78, 0.92, 0.72, 0.48, 0.02},
+var personalities = map[BotStyle]BotPersonality{
+	BotStyleTag:     {0.65, 0.80, 0.55, 0.30, 0.08},
+	BotStyleLag:     {0.35, 0.50, 0.35, 0.15, 0.22},
+	BotStyleStation: {0.30, 0.85, 0.70, 0.05, 0.02},
+	BotStyleRock:    {0.78, 0.92, 0.72, 0.48, 0.02},
 }
 
 // styleOrder 用于按序号循环分配风格（混合主题）。
-var styleOrder = []string{"tag", "lag", "station", "rock"}
+var styleOrder = []BotStyle{BotStyleTag, BotStyleLag, BotStyleStation, BotStyleRock}
 
 // assignBotStyle 根据房间风格主题和 bot 序号，返回具体风格名。
 //
@@ -63,13 +77,13 @@ var styleOrder = []string{"tag", "lag", "station", "rock"}
 //	aggressive:    TAG→LAG 交替
 //	passive:       Rock→Station 交替
 //	random:        每个 bot 独立随机
-func assignBotStyle(roomStyle string, index int) string {
+func assignBotStyle(roomStyle string, index int) BotStyle {
 	switch roomStyle {
-	case "aggressive":
-		return []string{"tag", "lag"}[index%2]
-	case "passive":
-		return []string{"rock", "station"}[index%2]
-	case "random":
+	case string(BotStyleAggressive):
+		return []BotStyle{BotStyleTag, BotStyleLag}[index%2]
+	case string(BotStylePassive):
+		return []BotStyle{BotStyleRock, BotStyleStation}[index%2]
+	case string(BotStyleRandom):
 		return styleOrder[rand.Intn(len(styleOrder))]
 	default: // "mixed" 或空字符串
 		return styleOrder[index%len(styleOrder)]
@@ -205,7 +219,7 @@ func decideBotAction(
 	hole [2]Card,
 	community []Card,
 	currentBet, playerBet, stack, bigBlind, pot int64,
-) (string, int64) {
+) (Action, int64) {
 	strength := handStrength(street, hole, community)
 	toCall := currentBet - playerBet
 	r := rand.Float64()
@@ -264,7 +278,7 @@ func decideBotAction(
 }
 
 // safeRaise 计算合法的 raise 总额：不低于 minRaise 增量，不超过 stack 则 all-in。
-func safeRaise(currentBet, playerBet, stack, target, minRaise int64) (string, int64) {
+func safeRaise(currentBet, playerBet, stack, target, minRaise int64) (Action, int64) {
 	minTotal := currentBet + minRaise
 	if target < minTotal {
 		target = minTotal
@@ -286,11 +300,11 @@ func (e *Engine) scheduleAIAction(p *Player) {
 	// 确定风格人设
 	style := p.BotStyle
 	if style == "" {
-		style = "tag"
+		style = BotStyleTag
 	}
 	personality, ok := personalities[style]
 	if !ok {
-		personality = personalities["tag"]
+		personality = personalities[BotStyleTag]
 	}
 
 	// 捕获局面快照（不可变）
@@ -313,7 +327,7 @@ func (e *Engine) scheduleAIAction(p *Player) {
 			&personality, street, hole, community,
 			currentBet, playerBet, stack, bigBlind, pot,
 		)
-		payload, _ := json.Marshal(ws.ActionCmd{Action: action, Amount: amount})
+		payload, _ := json.Marshal(ws.ActionCmd{Action: string(action), Amount: amount})
 
 		select {
 		case e.hub.Inbound <- ws.InboundMessage{

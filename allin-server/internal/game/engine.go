@@ -268,12 +268,12 @@ func (e *Engine) handleAction(
 		return
 	}
 
-	if err := ValidateAction(e.gs, msg.SenderID, cmd.Action, cmd.Amount); err != nil {
+	if err := ValidateAction(e.gs, msg.SenderID, Action(cmd.Action), cmd.Amount); err != nil {
 		e.sendError(msg.SenderID, "invalid_action", err.Error(), msg.Env.Seq)
 		return
 	}
 
-	ApplyAction(e.gs, msg.SenderID, cmd.Action, cmd.Amount)
+	ApplyAction(e.gs, msg.SenderID, Action(cmd.Action), cmd.Amount)
 
 	p := e.gs.FindPlayer(msg.SenderID)
 	var displayAmount int64
@@ -409,7 +409,7 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 
 	e.hub.Broadcast(ws.MustEvent(ws.TypeActionTimeout, ws.ActionTimeoutPayload{
 		PlayerID: p.UserID,
-		Action:   action,
+		Action:   string(action),
 	}))
 
 	ApplyAction(e.gs, p.UserID, action, 0)

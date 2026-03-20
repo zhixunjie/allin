@@ -5,14 +5,16 @@ import (
 	"fmt"
 )
 
-// 行动名称（必须与 ws.ActionCmd.Action 的值匹配）。
+// Action 表示玩家行动类型（值必须与 ws.ActionCmd.Action 的 JSON 字段匹配）。
+type Action string
+
 const (
-	ActionFold  = "fold"
-	ActionCheck = "check"
-	ActionCall  = "call"
-	ActionBet   = "bet"
-	ActionRaise = "raise"
-	ActionAllIn = "all_in"
+	ActionFold  Action = "fold"
+	ActionCheck Action = "check"
+	ActionCall  Action = "call"
+	ActionBet   Action = "bet"
+	ActionRaise Action = "raise"
+	ActionAllIn Action = "all_in"
 )
 
 var (
@@ -23,7 +25,7 @@ var (
 )
 
 // ValidateAction 检查给定的行动对该玩家是否合法。
-func ValidateAction(gs *GameState, userID, action string, amount int64) error {
+func ValidateAction(gs *GameState, userID string, action Action, amount int64) error {
 	if gs.Street == StreetIdle || gs.Street == StreetShowdown {
 		return ErrGameNotActive
 	}
@@ -95,7 +97,7 @@ func ValidateAction(gs *GameState, userID, action string, amount int64) error {
 
 // ApplyAction 修改 gs 以应用已验证的行动。
 // 如果行动是激进行为（下注/加注）需要其他人重新行动，则返回 true。
-func ApplyAction(gs *GameState, userID, action string, amount int64) bool {
+func ApplyAction(gs *GameState, userID string, action Action, amount int64) bool {
 	p := gs.FindPlayer(userID)
 	if p == nil {
 		return false
