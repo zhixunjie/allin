@@ -17,8 +17,8 @@ export const TABLE_CY = 385
 export const TABLE_RX = 630
 /** 椭圆 Y 半轴（毛毡外边缘） */
 export const TABLE_RY = 270
-/** 木质边框厚度（含金色描边） */
-export const RAIL_W = 18
+/** 木质边框厚度（变得更细莹） */
+export const RAIL_W = 12
 
 // ── 座位 ─────────────────────────────────────────────
 /** 本地玩家头像半径（底部大头像） */
@@ -51,10 +51,10 @@ export const SEAT_POSITIONS: { x: number; y: number }[] = [
  * 九宫格牌桌纹理生成的参数配置
  */
 export const TABLE_TEX_CONFIG = {
-  /** 纹理基础矩形的大小（需保证大于边缘切片宽度的两倍） */
-  SIZE: 350,
-  /** 牌桌圆角半径，同时作为九宫格图片保留拉伸比例的边缘尺寸 */
-  CORNER_RADIUS: 150,
+  /** 纹理基础矩形的大小（增大基础画布以支持更大的圆角半径） */
+  SIZE: 600,
+  /** 牌桌圆角半径，加大此值可让牌桌两端显得更圆（280已经能达到标准牌桌高度的近乎正半圆形） */
+  CORNER_RADIUS: 280,
   /** 毛毡渐变多层叠加的内缩偏移量 */
   GRADIENTS: {
     /** 基础偏移 */
