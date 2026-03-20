@@ -204,14 +204,15 @@ export class TableScene {
         ctx.fillStyle = `rgb(${hexToRgb(C.FELT_EDGE)})`
         ctx.fillRect(0, 0, size, size)
 
-        const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+        // 增大径向渐变的半径 (size*0.75)，让中间的高光扩散得更自然，避免边缘衰减得太快形成全黑
+        const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size * 0.75)
         const centerColor = hexToRgb(C.FELT_CENTER)
         
-        gradient.addColorStop(0, `rgba(${centerColor}, 0.8)`)
-        gradient.addColorStop(0.25, `rgba(${centerColor}, 0.6)`)
-        gradient.addColorStop(0.5, `rgba(${centerColor}, 0.4)`)
-        gradient.addColorStop(0.75, `rgba(${centerColor}, 0.15)`)
-        gradient.addColorStop(1, `rgba(${centerColor}, 0)`)
+        gradient.addColorStop(0, `rgba(${centerColor}, 0.9)`)
+        gradient.addColorStop(0.3, `rgba(${centerColor}, 0.7)`)
+        gradient.addColorStop(0.6, `rgba(${centerColor}, 0.4)`)
+        gradient.addColorStop(0.85, `rgba(${centerColor}, 0.15)`)
+        gradient.addColorStop(1, `rgba(${centerColor}, 0.05)`)
 
         ctx.fillStyle = gradient
         ctx.fillRect(0, 0, size, size)
@@ -250,9 +251,14 @@ export class TableScene {
         g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
         g.fill({ texture: feltTex })
 
-        // 施加内阴影，增加桌沿下陷的立体感 (一样使用内描边防止扩散白边)
-        g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
-         .stroke({ color: 0x000000, width: 25, alpha: 0.3, alignment: 1 })
+        // 施加柔和内阴影：利用多层宽度衰减的纯黑内侧描边，代替原有单层 25px 的“粗暴黑眼圈”
+        const shadowSteps = 6
+        const maxShadowWidth = 16
+        for (let i = 1; i <= shadowSteps; i++) {
+            // 从最宽(最浅层)画到最窄(最深层)，靠边的位置会叠加6层变得暗沉，内部分布变浅
+            g.roundRect(feltEdge, feltEdge, innerSize, innerSize, innerRadius)
+             .stroke({ color: 0x000000, width: (maxShadowWidth * i) / shadowSteps, alpha: 0.05, alignment: 1 })
+        }
     }
 
     /** 9 个座位精灵，displayIdx=0 为本地玩家（大头像） */
