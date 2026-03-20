@@ -55,17 +55,4 @@ export const TABLE_TEX_CONFIG = {
   SIZE: 600,
   /** 牌桌圆角半径，加大此值可让牌桌两端显得更圆（280已经能达到标准牌桌高度的近乎正半圆形） */
   CORNER_RADIUS: 280,
-  /** 毛毡渐变多层叠加的内缩偏移量 */
-  GRADIENTS: {
-    /** 基础偏移 */
-    OUTER: 15,
-    /** 中圈偏移 */
-    MID: 40,
-    /** 内圈光亮区偏移 */
-    CENTER: 75,
-    /** 边缘内阴影宽度 */
-    SHADOW_WIDTH: 25,
-    /** 内侧装饰金线位置 */
-    INNER_GOLD: 25,
-  }
 } as const

@@ -215,24 +215,13 @@ export class TableScene {
         g.fill({color: C.WOOD_FRAME})
 
         // 3. 金边
-        g.roundRect(2, 2, size - 4, size - 4, radius - 2)
-        g.stroke({color: C.GOLD, width: 3, alpha: 0.6})
-        g.roundRect(5, 5, size - 10, size - 10, radius - 5)
-        g.stroke({color: C.GOLD, width: 1, alpha: 0.15})
+        g.roundRect(2, 2, size - 4, size - 4, radius - 2).stroke({color: C.GOLD, width: 3, alpha: 0.6})
+        g.roundRect(5, 5, size - 10, size - 10, radius - 5).stroke({color: C.GOLD, width: 1, alpha: 0.15})
 
         // 4. 绿毛毡渐变层 (填充刚创建的无缝渐变贴图)
         const feltEdge = RAIL_W
         g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
         g.fill({texture: feltTexture})
-
-        // 5. 毛毡内侧边缘阴影
-        g.roundRect(feltEdge, feltEdge, size - feltEdge * 2, size - feltEdge * 2, radius - feltEdge)
-        g.stroke({color: 0x000000, width: TABLE_TEX_CONFIG.GRADIENTS.SHADOW_WIDTH, alpha: 0.3})
-
-        // 6. 毛毡内侧金色细环
-        const innerG = feltEdge + TABLE_TEX_CONFIG.GRADIENTS.INNER_GOLD
-        g.roundRect(innerG, innerG, size - innerG * 2, size - innerG * 2, radius - innerG)
-        g.stroke({color: C.GOLD, width: 1, alpha: 0.1})
 
         return this.app.renderer.generateTexture(g)
     }
