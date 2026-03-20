@@ -508,7 +508,7 @@ export class SeatSprite extends Container {
 
     /**
      * 布局下注徽章 — 通过向量计算从座位朝牌桌中心方向放置。
-     * 计算座位到桌心的单位向量，沿该方向偏移 R+40 距离放置徽章。
+     * 计算座位到桌心的单位向量，由于头像目前大幅度压入牌桌，我们缩短偏移量至 R+25 避免下注徽章深陷牌桌中央。
      */
     private layoutBetBadge() {
         const R = this.avatarR
@@ -520,8 +520,8 @@ export class SeatSprite extends Container {
         const dirX = dx / len
         const dirY = dy / len
 
-        // 沿方向向量偏移放置徽章
-        const dist = R + 40
+        // 沿方向向量偏移放置徽章 (由原来的 +40 减缩到 +25，因为大头像已经很靠近桌心)
+        const dist = R + 25
         this.betBadge.position.set(dirX * dist, dirY * dist)
 
         // 动态宽度药丸背景：[🪙图标] [下注金额文字]
