@@ -304,9 +304,11 @@ export class SeatSprite extends Container {
         }
 
         const fallback = () => setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
-        const avatarUrl = seat.avatar
-            ?? `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(seat.user_id)}`
-        Assets.load(avatarUrl).then(setTex).catch(fallback)
+        if (seat.avatar) {
+            Assets.load(seat.avatar).then(setTex).catch(fallback)
+        } else {
+            loadDiceBearTexture(seat.user_id).then(setTex).catch(fallback)
+        }
 
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
     }
@@ -659,6 +661,42 @@ export class SeatSprite extends Container {
 }
 
 // ── 默认头像生成 ─────────────────────────────────────────────────────────────
+
+// ── DiceBear 卡通头像加载 ──────────────────────────────────────────────────────
+
+/** 缓存：相同 userId 只请求一次 */
+const _diceBearCache = new Map<string, Promise<Texture>>()
+
+/**
+ * 从 DiceBear API 加载 fun-emoji 风格 SVG，渲染到离屏 Canvas 后转为 PixiJS Texture。
+ * PixiJS 不支持直接渲染 SVG，需要中间经过 Canvas 步骤。
+ * 同一 userId 的请求会被 Promise 缓存，不会重复发起网络请求。
+ */
+function loadDiceBearTexture(userId: string): Promise<Texture> {
+    const cached = _diceBearCache.get(userId)
+    if (cached) return cached
+
+    const url = `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(userId)}`
+    const promise = fetch(url)
+        .then(r => r.text())
+        .then(svgText => new Promise<Texture>((resolve, reject) => {
+            const SIZE = 128
+            const canvas = document.createElement('canvas')
+            canvas.width = SIZE
+            canvas.height = SIZE
+            const ctx = canvas.getContext('2d')!
+            const img = new Image()
+            img.onload = () => {
+                ctx.drawImage(img, 0, 0, SIZE, SIZE)
+                resolve(Texture.from(canvas))
+            }
+            img.onerror = reject
+            img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText)
+        }))
+
+    _diceBearCache.set(userId, promise)
+    return promise
+}
 
 /** 缓存：相同 userId 只生成一次 */
 const _defaultAvatarCache = new Map<string, Texture>()
