@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { initPixiApp } from '../../pixi/app'
 import { useAuthStore } from '../../store/auth'
 import { useWebSocket } from '../../hooks/useWebSocket'
+import { wsClient } from '../../api/ws'
 import { useGameState } from '../../hooks/useGameState'
 // import { useActionTimer } from '../../hooks/useActionTimer'
 import { ActionPanel } from '../panels/ActionPanel'
@@ -68,12 +69,21 @@ export default function RoomPage() {
           <div className={styles.topBarRight}>
             {gs.mySeat && (
               <div className={styles.tableInfo}>
-                <span className={styles.tableInfoLabel}>筹码</span>
+                <span className={styles.tableInfoLabel}>桌面筹码</span>
                 <span className={styles.tableInfoValue}>${gs.mySeat.stack.toLocaleString()}</span>
               </div>
             )}
+            {user?.chip_balance != null && (
+              <div className={styles.tableInfo}>
+                <span className={styles.tableInfoLabel}>账户余额</span>
+                <span className={styles.tableInfoValue}>${user.chip_balance.toLocaleString()}</span>
+              </div>
+            )}
             <span className={styles.navLink}>{user?.display_name ?? user?.username}</span>
-            <button className={styles.leaveBtn} onClick={() => navigate('/lobby')}>
+            <button className={styles.leaveBtn} onClick={() => {
+              wsClient.send('leave_table', {})
+              navigate('/lobby')
+            }}>
               离开牌桌
             </button>
           </div>
@@ -92,9 +102,31 @@ export default function RoomPage() {
         {/* 等待消息 */}
         {gs.street === Street.Idle && (() => {
           const eligible = gs.seats.filter(s => !s.sit_out && s.stack > 0).length
-          return eligible < 2
-            ? <div className={styles.waiting}>等待其他玩家加入…</div>
-            : <div className={styles.waiting}>准备开始下一手…</div>
+          const isWaiting = eligible < 2
+          return (
+            <div className="absolute bottom-44 left-1/2 -translate-x-1/2 pointer-events-none">
+              <div className={[
+                'flex items-center gap-2.5 px-5 py-2.5 rounded-full',
+                'bg-[#040810]/85 backdrop-blur-md',
+                'border text-sm font-semibold whitespace-nowrap',
+                isWaiting
+                  ? 'border-white/10 text-white/50'
+                  : 'border-amber-500/25 text-amber-400/80',
+              ].join(' ')}>
+                {isWaiting ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30 animate-pulse" />
+                    等待其他玩家加入…
+                  </>
+                ) : (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    准备开始下一手…
+                  </>
+                )}
+              </div>
+            </div>
+          )
         })()}
 
         {/* 操作面板 */}

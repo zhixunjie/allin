@@ -12,6 +12,8 @@ import type {
   HandResultPayload,
   PlayerJoinedPayload,
   PlayerLeftPayload,
+  SitOutPayload,
+  StackUpdatedPayload,
 } from '../store/game'
 import { useChatStore } from '../store/chat'
 import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
@@ -51,6 +53,8 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     on(WSEventType.ActionTimeout,  (p) => store().applyActionTaken(p as ActionTakenPayload)) // 超时视同自动行动
     on(WSEventType.Showdown,       (p) => store().applyShowdown(p as ShowdownPayload))
     on(WSEventType.HandResult,     (p) => store().applyHandResult(p as HandResultPayload))
+    on(WSEventType.SitOutStatus,   (p) => store().applySitOut(p as SitOutPayload))
+    on('stack_updated',            (p) => store().applyStackUpdated(p as StackUpdatedPayload))
 
     // ── 服务端 → 客户端（聊天） ──────────────────────────────────────
     on(WSEventType.ChatMessage, (p) => {

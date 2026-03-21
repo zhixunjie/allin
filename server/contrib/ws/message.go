@@ -6,44 +6,60 @@ import (
 )
 
 // ---- 消息类型 ----
-// 服务端 → 客户端（事件）
+
+// MsgType 是服务端 → 客户端的事件类型。
+type MsgType string
+
 const (
-	TypeConnected      = "connected"
-	TypePlayerJoined   = "player_joined"
-	TypePlayerLeft     = "player_left"
-	TypeGameStarted    = "game_started"
-	TypeHoleCards      = "hole_cards"
-	TypeCardsDealt     = "cards_dealt"
-	TypeStreetStarted  = "street_started"
-	TypeActionRequired = "action_required"
-	TypeActionTaken    = "action_taken"
-	TypeActionTimeout  = "action_timeout"
-	TypeShowdown       = "showdown"
-	TypeHandResult     = "hand_result"
-	TypeChatMessage    = "chat_message"
-	TypeError          = "error"
-	TypeStackUpdated   = "stack_updated"
+	TypeConnected      MsgType = "connected"
+	TypePlayerJoined   MsgType = "player_joined"
+	TypePlayerLeft     MsgType = "player_left"
+	TypeGameStarted    MsgType = "game_started"
+	TypeHoleCards      MsgType = "hole_cards"
+	TypeCardsDealt     MsgType = "cards_dealt"
+	TypeStreetStarted  MsgType = "street_started"
+	TypeActionRequired MsgType = "action_required"
+	TypeActionTaken    MsgType = "action_taken"
+	TypeActionTimeout  MsgType = "action_timeout"
+	TypeShowdown       MsgType = "showdown"
+	TypeHandResult     MsgType = "hand_result"
+	TypeChatMessage    MsgType = "chat_message"
+	TypeError          MsgType = "error"
+	TypeStackUpdated   MsgType = "stack_updated"
+	TypeSitOut         MsgType = "sit_out_status"
 )
 
-// 客户端 → 服务端（命令）
+// CmdType 是客户端 → 服务端的命令类型。
+type CmdType string
+
 const (
-	CmdJoinRoom = "join_room"
-	CmdAction   = "action"
-	CmdChat     = "chat"
-	CmdAddChips = "add_chips"
-	CmdSitOut   = "sit_out"
+	CmdJoinRoom    CmdType = "join_room"
+	CmdAction      CmdType = "action"
+	CmdChat        CmdType = "chat"
+	CmdAddChips    CmdType = "add_chips"
+	CmdSitOut      CmdType = "sit_out"
+	CmdLeaveTable  CmdType = "leave_table"
+	CmdDisconnect  CmdType = "disconnect"
 )
 
 // Envelope 是所有 WebSocket 消息的通用包装。
 type Envelope struct {
-	Type    string          `json:"type"`
+	Type    MsgType         `json:"type"`
 	Seq     int64           `json:"seq"`
 	Ts      int64           `json:"ts"` // Unix 毫秒时间戳
 	Payload json.RawMessage `json:"payload"`
 }
 
+// CmdEnvelope 是客户端发来的命令包装（Type 为 CmdType）。
+type CmdEnvelope struct {
+	Type    CmdType         `json:"type"`
+	Seq     int64           `json:"seq"`
+	Ts      int64           `json:"ts"`
+	Payload json.RawMessage `json:"payload"`
+}
+
 // NewEvent 构建一个带当前时间戳的服务端事件信封。
-func NewEvent(msgType string, payload any) (Envelope, error) {
+func NewEvent(msgType MsgType, payload any) (Envelope, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return Envelope{}, err
@@ -56,7 +72,7 @@ func NewEvent(msgType string, payload any) (Envelope, error) {
 }
 
 // MustEvent 类似 NewEvent，但在序列化错误时 panic（对已知类型安全）。
-func MustEvent(msgType string, payload any) Envelope {
+func MustEvent(msgType MsgType, payload any) Envelope {
 	e, err := NewEvent(msgType, payload)
 	if err != nil {
 		panic(err)
@@ -162,6 +178,13 @@ type ErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	RefSeq  int64  `json:"ref_seq"`
+}
+
+// SitOutPayload 在玩家离座/归座时广播。
+type SitOutPayload struct {
+	PlayerID  string `json:"player_id"`
+	SeatIndex int    `json:"seat_index"`
+	SitOut    bool   `json:"sit_out"`
 }
 
 // StackUpdatedPayload 在手牌外玩家筹码变化时广播。

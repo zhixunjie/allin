@@ -332,7 +332,7 @@ func (e *Engine) scheduleAIAction(p *Player) {
 		select {
 		case e.hub.Inbound <- ws.InboundMessage{
 			SenderID: botID,
-			Env: ws.Envelope{
+			Env: ws.CmdEnvelope{
 				Type:    ws.CmdAction,
 				Payload: payload,
 			},

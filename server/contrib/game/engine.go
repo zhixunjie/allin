@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	handStartDelay = 10 * time.Second // 手牌之间的延迟
+	handStartDelay = 5 * time.Second // 手牌之间的延迟
 )
 
 const chatRateLimit = time.Second // 每个玩家聊天消息的最小间隔
@@ -32,7 +32,16 @@ type Engine struct {
 	registry    *Registry
 	onEmpty     func() // 所有玩家离开时调用
 	emptyTimer  *time.Timer
-	botsSeated  bool // 首次有人类玩家加入时安排 bot 入座
+	botsSeated  bool              // 首次有人类玩家加入时安排 bot 入座
+	handActions []actionLogEntry  // 当前手牌行动序列（用于写入历史）
+}
+
+// actionLogEntry 记录单次行动，用于写入 hand_history.actions_json。
+type actionLogEntry struct {
+	PlayerID string `json:"player_id"`
+	Action   string `json:"action"`
+	Amount   int64  `json:"amount"`
+	Street   string `json:"street"`
 }
 
 // NewEngine 为给定的 hub 和房间创建引擎。
@@ -120,7 +129,9 @@ func (e *Engine) handleMessage(
 		e.handleAddChips(msg)
 	case ws.CmdSitOut:
 		e.handleSitOut(msg, resetTimer, stopTimer)
-	case "disconnect":
+	case ws.CmdLeaveTable:
+		e.handleLeaveTable(msg)
+	case ws.CmdDisconnect:
 		e.handleDisconnect(msg, resetTimer, stopTimer)
 	}
 }
@@ -128,8 +139,19 @@ func (e *Engine) handleMessage(
 // ---- 加入 ----
 
 func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Duration)) {
-	// 如果已入座，忽略。
-	if e.gs.FindPlayer(msg.SenderID) != nil {
+	// 断线重连：若玩家仍在座位（Disconnected=true），直接恢复。
+	if existing := e.gs.FindPlayer(msg.SenderID); existing != nil {
+		if existing.Disconnected {
+			existing.Disconnected = false
+			e.sendSnapshot(msg.SenderID)
+			e.hub.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+				PlayerID:    existing.UserID,
+				DisplayName: existing.DisplayName,
+				SeatIndex:   existing.SeatIndex,
+				Stack:       existing.Stack,
+				IsReconnect: true,
+			}))
+		}
 		return
 	}
 	e.room.Touch()
@@ -263,49 +285,28 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 		return
 	}
 
-	e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
-		PlayerID:  p.UserID,
-		SeatIndex: p.SeatIndex,
-	}))
-
 	if e.gs.Street == StreetIdle {
+		// 手牌间隙断线：立即离座并返还筹码。
+		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+			PlayerID:  p.UserID,
+			SeatIndex: p.SeatIndex,
+		}))
 		stack := p.Stack
 		e.gs.UnseatPlayer(msg.SenderID)
-		e.cashOut(msg.SenderID, stack) // 返还剩余筹码到账户
+		e.cashOut(msg.SenderID, stack)
 		e.room.Touch()
-
-		// 统计剩余的人类玩家。
-		humanCount := 0
-		for _, sp := range e.gs.Seats {
-			if sp != nil && !IsBotID(sp.UserID) {
-				humanCount++
-			}
-		}
-		if humanCount == 0 && e.onEmpty != nil {
-			// 移除 bot 座位，以便人类玩家重新连接时房间重新开始。
-			for _, sp := range e.gs.Seats {
-				if sp != nil && IsBotID(sp.UserID) {
-					e.gs.UnseatPlayer(sp.UserID)
-				}
-			}
-			e.botsSeated = false
-			// 宽限期：给玩家 30 秒时间重新连接，之后关闭房间。
-			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
-		}
+		e.maybeStartEmptyTimer()
 		return
 	}
 
-	// 在活跃手牌中断线：返还未投入底池的剩余筹码，已下注部分（p.Bet）留在底池正常结算。
-	stack := p.Stack
+	// 活跃手牌中断线：保留座位，标记断线，自动弃牌。
+	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
-		e.gs.UnseatPlayer(msg.SenderID)
-		e.cashOut(msg.SenderID, stack)
+		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
 	} else {
 		p.Folded = true
-		e.gs.UnseatPlayer(msg.SenderID)
-		e.cashOut(msg.SenderID, stack)
 		e.checkHandOver(resetTimer, stopTimer)
 	}
 }
@@ -350,6 +351,14 @@ func (e *Engine) handleAction(
 	if p != nil {
 		displayAmount = p.Bet
 	}
+
+	// 记录到行动日志。
+	e.handActions = append(e.handActions, actionLogEntry{
+		PlayerID: msg.SenderID,
+		Action:   cmd.Action,
+		Amount:   cmd.Amount,
+		Street:   e.gs.Street.String(),
+	})
 
 	e.hub.Broadcast(ws.MustEvent(ws.TypeActionTaken, ws.ActionTakenPayload{
 		PlayerID:  msg.SenderID,
@@ -413,8 +422,33 @@ func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 		newStack = e.gs.Config.MaxBuyIn
 	}
 	added := newStack - p.Stack
-	p.Stack = newStack
+	if added == 0 {
+		return
+	}
 
+	// 从 DB 账户余额扣除（bot 跳过）。
+	uid, err := strconv.ParseInt(msg.SenderID, 10, 64)
+	if err != nil {
+		e.sendError(msg.SenderID, "server_error", "invalid user id", msg.Env.Seq)
+		return
+	}
+	u, err := bizdao.UserDao.GetByID(uid)
+	if err != nil {
+		e.sendError(msg.SenderID, "user_not_found", "user not found", msg.Env.Seq)
+		return
+	}
+	if u.ChipBalance < added {
+		e.sendError(msg.SenderID, "insufficient_chips",
+			fmt.Sprintf("insufficient chips: need $%d, have $%d", added, u.ChipBalance), msg.Env.Seq)
+		return
+	}
+	if err := bizdao.UserDao.AdjustChips(uid, -added, "add_chips", e.room.Code); err != nil {
+		slog.Error("game: failed to deduct add_chips", "user", msg.SenderID, "err", err)
+		e.sendError(msg.SenderID, "server_error", "failed to process add chips", msg.Env.Seq)
+		return
+	}
+
+	p.Stack = newStack
 	e.hub.Broadcast(ws.MustEvent(ws.TypeStackUpdated, ws.StackUpdatedPayload{
 		PlayerID: p.UserID,
 		Stack:    p.Stack,
@@ -436,19 +470,85 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 	}
 	p.SitOut = cmd.SitOut
 
-	e.hub.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
-		PlayerID:    p.UserID,
-		DisplayName: p.DisplayName,
-		SeatIndex:   p.SeatIndex,
-		Stack:       p.Stack,
-		IsReconnect: true,
+	e.hub.Broadcast(ws.MustEvent(ws.TypeSitOut, ws.SitOutPayload{
+		PlayerID:  p.UserID,
+		SeatIndex: p.SeatIndex,
+		SitOut:    p.SitOut,
 	}))
 
-	// 如果在活跃手牌中离座且轮到他们，自动弃牌。
+	// 离座：若在活跃手牌中且轮到该玩家，自动弃牌。
 	if cmd.SitOut && e.gs.Street != StreetIdle && e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
 		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
+		return
+	}
+	// 归座：若处于空闲且满足开局条件，启动计时器。
+	if !cmd.SitOut && e.gs.Street == StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+		resetTimer(handStartDelay)
+	}
+}
+
+// ---- 主动离桌 ----
+
+func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
+	if e.gs.Street != StreetIdle {
+		e.sendError(msg.SenderID, "hand_in_progress", "can only leave between hands", msg.Env.Seq)
+		return
+	}
+	p := e.gs.FindPlayer(msg.SenderID)
+	if p == nil {
+		return
+	}
+	stack := p.Stack
+	seatIdx := p.SeatIndex
+	e.gs.UnseatPlayer(msg.SenderID)
+	e.cashOut(msg.SenderID, stack)
+	e.room.Touch()
+	e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		PlayerID:  msg.SenderID,
+		SeatIndex: seatIdx,
+	}))
+	e.maybeStartEmptyTimer()
+}
+
+// maybeStartEmptyTimer 在所有人类玩家离开时清场 bot 并启动宽限期。
+func (e *Engine) maybeStartEmptyTimer() {
+	humanCount := 0
+	for _, sp := range e.gs.Seats {
+		if sp != nil && !IsBotID(sp.UserID) {
+			humanCount++
+		}
+	}
+	if humanCount == 0 && e.onEmpty != nil {
+		for _, sp := range e.gs.Seats {
+			if sp != nil && IsBotID(sp.UserID) {
+				e.gs.UnseatPlayer(sp.UserID)
+			}
+		}
+		e.botsSeated = false
+		if e.emptyTimer == nil {
+			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
+		}
+	}
+}
+
+// cleanupDisconnected 在手牌结束后移除所有仍处于断线状态的玩家并返还筹码。
+func (e *Engine) cleanupDisconnected() {
+	for _, p := range e.gs.Seats {
+		if p == nil || !p.Disconnected {
+			continue
+		}
+		uid := p.UserID
+		seatIdx := p.SeatIndex
+		stack := p.Stack
+		e.gs.UnseatPlayer(uid)
+		e.cashOut(uid, stack)
+		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+			PlayerID:  uid,
+			SeatIndex: seatIdx,
+		}))
+		slog.Info("game: disconnected player cleaned up", "room", e.room.Code, "player", uid)
 	}
 }
 
@@ -486,12 +586,19 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	}))
 
 	ApplyAction(e.gs, p.UserID, action, 0)
+	e.handActions = append(e.handActions, actionLogEntry{
+		PlayerID: p.UserID,
+		Action:   string(action),
+		Amount:   0,
+		Street:   e.gs.Street.String(),
+	})
 	e.advanceOrEnd(resetTimer, func() {})
 }
 
 // ---- 手牌流程 ----
 
 func (e *Engine) startHand(resetTimer func(time.Duration)) {
+	e.handActions = e.handActions[:0] // 清空行动日志
 	e.gs.HandNum++
 	e.gs.Street = StreetPreFlop
 	e.gs.Community = nil
@@ -860,7 +967,9 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
+	e.saveHandHistory(json.RawMessage(rawResult))
 	e.kickBrokePlayers()
+	e.cleanupDisconnected()
 
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
@@ -916,18 +1025,21 @@ func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)
 			IsWinner:    p.UserID == winner.UserID,
 		})
 	}
-	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, struct {
+	rawResult, _ := json.Marshal(struct {
 		Winners    []uWinner `json:"winners"`
 		AllPlayers []uPlayer `json:"all_players"`
 	}{
 		Winners:    []uWinner{{winner.UserID, total}},
 		AllPlayers: uPlayers,
-	}))
+	})
+	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)
 
+	e.saveHandHistory(json.RawMessage(rawResult))
 	// 移除筹码归零的玩家。
 	e.kickBrokePlayers()
+	e.cleanupDisconnected()
 
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
@@ -959,24 +1071,46 @@ func (e *Engine) kickBrokePlayers() {
 			SeatIndex: seatIdx,
 		}))
 	}
-	// 若人类玩家全部离开，清场 bot 并启动宽限期。
-	humanCount := 0
+	e.maybeStartEmptyTimer()
+}
+
+// saveHandHistory 异步将手牌结果写入 DB，不阻塞引擎 goroutine。
+func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
+	type playerSnap struct {
+		PlayerID    string `json:"player_id"`
+		DisplayName string `json:"display_name"`
+		SeatIndex   int    `json:"seat_index"`
+		Stack       int64  `json:"stack"`
+	}
+	var players []playerSnap
 	for _, p := range e.gs.Seats {
-		if p != nil && !IsBotID(p.UserID) {
-			humanCount++
+		if p != nil {
+			players = append(players, playerSnap{
+				PlayerID:    p.UserID,
+				DisplayName: p.DisplayName,
+				SeatIndex:   p.SeatIndex,
+				Stack:       p.Stack,
+			})
 		}
 	}
-	if humanCount == 0 {
-		for _, p := range e.gs.Seats {
-			if p != nil && IsBotID(p.UserID) {
-				e.gs.UnseatPlayer(p.UserID)
-			}
+	playersJSON, _ := json.Marshal(players)
+	actionsJSON, _ := json.Marshal(e.handActions)
+	roomID := e.room.ID
+	handNum := e.gs.HandNum
+
+	go func() {
+		err := bizdao.HandHistoryDao.Save(bizdao.HandHistoryRecord{
+			RoomID:      roomID,
+			HandNum:     handNum,
+			PlayersJSON: playersJSON,
+			ActionsJSON: actionsJSON,
+			ResultJSON:  resultJSON,
+			PlayedAt:    time.Now(),
+		})
+		if err != nil {
+			slog.Error("game: failed to save hand history", "room", e.room.Code, "hand", handNum, "err", err)
 		}
-		e.botsSeated = false
-		if e.onEmpty != nil && e.emptyTimer == nil {
-			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
-		}
-	}
+	}()
 }
 
 // ---- 辅助函数 ----

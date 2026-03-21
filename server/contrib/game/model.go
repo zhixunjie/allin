@@ -67,6 +67,8 @@ type Player struct {
 	// ActedThisStreet 标记本街道内该玩家是否已行动；
 	// 当有玩家加注超过其下注额时重置为 false，迫使其重新决策。
 	ActedThisStreet bool
+
+	Disconnected bool // 是否因断线而暂时离开（手牌进行中保留座位）
 }
 
 // Pot 表示主池或边池。
@@ -151,7 +153,7 @@ func (gs *GameState) SeatedCount() int {
 func (gs *GameState) EligibleToStart() []*Player {
 	var out []*Player
 	for _, p := range gs.Seats {
-		if p != nil && !p.SitOut && p.Stack > 0 {
+		if p != nil && !p.SitOut && !p.Disconnected && p.Stack > 0 {
 			out = append(out, p)
 		}
 	}
@@ -235,9 +237,10 @@ type SeatSnapshot struct {
 	Bet         int64    `json:"bet"`
 	Folded      bool     `json:"folded"`
 	AllIn       bool     `json:"all_in"`
-	SitOut      bool     `json:"sit_out"`
-	IsBot       bool     `json:"is_bot,omitempty"`
-	Hole        []string `json:"hole,omitempty"` // 仅对请求的玩家可见
+	SitOut       bool     `json:"sit_out"`
+	Disconnected bool     `json:"disconnected,omitempty"`
+	IsBot        bool     `json:"is_bot,omitempty"`
+	Hole         []string `json:"hole,omitempty"` // 仅对请求的玩家可见
 }
 
 // Snapshot 构建 GameSnapshot，仅为 viewerID 填充手牌。
@@ -258,15 +261,16 @@ func (gs *GameState) Snapshot(viewerID string) GameSnapshot {
 			continue
 		}
 		ss := SeatSnapshot{
-			SeatIndex:   p.SeatIndex,
-			UserID:      p.UserID,
-			DisplayName: p.DisplayName,
-			Stack:       p.Stack,
-			Bet:         p.Bet,
-			Folded:      p.Folded,
-			AllIn:       p.AllIn,
-			SitOut:      p.SitOut,
-			IsBot:       p.IsBot,
+			SeatIndex:    p.SeatIndex,
+			UserID:       p.UserID,
+			DisplayName:  p.DisplayName,
+			Stack:        p.Stack,
+			Bet:          p.Bet,
+			Folded:       p.Folded,
+			AllIn:        p.AllIn,
+			SitOut:       p.SitOut,
+			Disconnected: p.Disconnected,
+			IsBot:        p.IsBot,
 		}
 		if p.UserID == viewerID && gs.Street != StreetIdle {
 			ss.Hole = []string{p.Hole[0].String(), p.Hole[1].String()}

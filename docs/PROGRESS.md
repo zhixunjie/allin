@@ -1,7 +1,7 @@
 # 实现进度
 
 > 最后更新：2026-03-22
-> 当前阶段：Phase 10 完成
+> 当前阶段：Phase 12 完成
 
 ---
 
@@ -158,8 +158,58 @@
 
 ---
 
+## Phase 12：服务端功能完善 ✅
+
+### 断线重连（保留座位）
+
+- [x] `Player.Disconnected bool`：手牌进行中断线时保留座位，标记为 Disconnected
+- [x] `handleDisconnect`：手牌间隙断线立即离座 cashOut；手牌中断线仅自动弃牌（当前轮）或标记弃牌，保留座位等待重连
+- [x] `handleJoinRoom` 重连路径：检测到 `Disconnected==true` 时直接恢复（清除标记、发送快照、广播 `player_joined` IsReconnect）
+- [x] `cleanupDisconnected()`：手牌结束后统一清理仍处于断线状态的玩家并 cashOut，广播 `player_left`
+- [x] `SeatSnapshot.Disconnected` 字段下发前端，前端 `SeatSnapshot` 类型同步更新
+- [x] `EligibleToStart()` 排除 Disconnected 玩家（不参与下一手计数）
+
+### `add_chips` DB 校验
+
+- [x] `handleAddChips`：从 DB 查询 `chip_balance`，验证余额充足后调用 `AdjustChips(-added, "add_chips", roomCode)` 扣除，防止无限补充
+- [x] 余额不足时返回 `insufficient_chips` 错误给客户端
+
+### `sit_out` 事件类型修正
+
+- [x] 新增 `TypeSitOut = "sit_out_status"` 及 `SitOutPayload{PlayerID, SeatIndex, SitOut}`
+- [x] `handleSitOut` 改为广播 `TypeSitOut`（原错误地广播 `player_joined`）
+- [x] 前端新增 `WSEventType.SitOutStatus`、`SitOutPayload` 类型、`applySitOut` store 方法
+- [x] `useWebSocket` 订阅 `sit_out_status` 事件，正确更新座位 `sit_out` 字段
+
+### 主动离桌（leave_table）
+
+- [x] 新增 `CmdLeaveTable = "leave_table"` 命令
+- [x] `handleLeaveTable`：仅允许手牌间隙，离座 cashOut，广播 `player_left`
+- [x] 提取公共逻辑 `maybeStartEmptyTimer()`，统一处理「人类全离场 → 清 bot → 宽限期」
+- [x] `kickBrokePlayers()` 复用同一逻辑，消除重复代码
+- [x] 前端「离开牌桌」按钮先发送 `leave_table` 命令，再跳转 `/lobby`
+- [x] 前端 `WSEventType.LeaveTable` 枚举值补充
+
+### 手牌历史持久化
+
+- [x] 新建 `server/base/biz/dao/hand_history_dao.go`：`HandHistoryRecord` 结构体 + `Save()` 方法
+- [x] `dao/init.go` 注册 `HandHistoryDao`
+- [x] `saveHandHistory(resultJSON)`：异步 goroutine 写库，不阻塞引擎主循环
+- [x] `runShowdown` 和 `awardUncontested` 均在广播 `hand_result` 后调用 `saveHandHistory`
+- [x] 保存字段：`room_id`、`hand_num`、`players_json`（座位快照）、`result_json`（赢家/金额）、`played_at`
+- [x] 数据库四张表均已建立：`users`、`room_history`、`hand_history`、`chip_ledger`
+
+---
+
+## Phase 13：缺口修复 ✅
+
+- [x] **`handleSitOut` 归座触发开局**：玩家从 sit_out 归座时，若 `Street == Idle` 且 `EligibleToStart() >= 2`，自动调用 `resetTimer(handStartDelay)` 开始倒计时
+- [x] **前端订阅 `stack_updated`**：新增 `StackUpdatedPayload` 类型、`applyStackUpdated` store 方法，`useWebSocket` 订阅 `stack_updated` 事件；`add_chips` 后座位筹码实时刷新
+- [x] **`hand_history.actions_json` 完整落库**：Engine 新增 `handActions []actionLogEntry`，`startHand` 时清空，`handleAction` 和 `handleTimeout` 追加记录（含 PlayerID / Action / Amount / Street）；`saveHandHistory` 将序列化后的完整行动日志写入 DB
+- [x] **多赢家（平分底池）正确展示**：`RoundResultModal` 改为遍历 `winners` 数组，每位赢家单独一行；最佳五张牌仅首位赢家显示
+
+---
+
 ## TODO：已知缺口
 
-### 游戏引擎
-
-- [ ] 手牌历史持久化：无 `hand_history` 表，牌局结果只广播不落库
+（暂无已知功能缺口）

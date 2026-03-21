@@ -66,6 +66,18 @@ export interface HandResultPayload {
   }>
 }
 
+export interface SitOutPayload {
+  player_id: string
+  seat_index: number
+  sit_out: boolean
+}
+
+export interface StackUpdatedPayload {
+  player_id: string
+  stack: number
+  delta: number
+}
+
 export interface PlayerJoinedPayload {
   player_id: string    // 加入的玩家 ID
   display_name: string // 显示名
@@ -84,17 +96,18 @@ export interface PlayerLeftPayload {
 
 /** 单个座位的实时快照 */
 export interface SeatSnapshot {
-  seat_index: number   // 服务端座位索引（0-8）
-  user_id: string      // 玩家 ID
-  display_name: string // 显示名
-  stack: number        // 当前筹码
-  bet: number          // 本街已下注金额
-  folded: boolean      // 是否已弃牌
-  all_in: boolean      // 是否全押
-  sit_out: boolean     // 是否暂离
-  is_bot?: boolean     // 是否 AI 机器人
-  hole?: string[]      // 手牌（showdown 时服务端下发）
-  avatar?: string      // 玩家头像图片链接
+  seat_index: number    // 服务端座位索引（0-8）
+  user_id: string       // 玩家 ID
+  display_name: string  // 显示名
+  stack: number         // 当前筹码
+  bet: number           // 本街已下注金额
+  folded: boolean       // 是否已弃牌
+  all_in: boolean       // 是否全押
+  sit_out: boolean      // 是否暂离
+  disconnected?: boolean // 是否断线（手牌中保留座位）
+  is_bot?: boolean      // 是否 AI 机器人
+  hole?: string[]       // 手牌（showdown 时服务端下发）
+  avatar?: string       // 玩家头像图片链接
 }
 
 /** 房间配置 */
@@ -168,6 +181,8 @@ interface GameStoreState extends GameSnapshot {
   applyHandResult: (payload: HandResultPayload) => void
   applyPlayerJoined: (payload: PlayerJoinedPayload) => void
   applyPlayerLeft: (payload: PlayerLeftPayload) => void
+  applySitOut: (payload: SitOutPayload) => void
+  applyStackUpdated: (payload: StackUpdatedPayload) => void
   reset: () => void
 }
 
@@ -319,7 +334,14 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
         lastHandResult,
         seats: state.seats.map((s) => {
           const rs = payload.seats?.find((x) => x.player_id === s.user_id)
-          return rs ? { ...s, stack: rs.stack } : s
+          return {
+            ...s,
+            stack: rs ? rs.stack : s.stack,
+            bet: 0,
+            folded: false,
+            all_in: false,
+            hole: undefined,
+          }
         }),
       }
     })
@@ -350,6 +372,24 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   applyPlayerLeft: (payload) => {
     set((state) => ({
       seats: state.seats.filter((s) => s.user_id !== payload.player_id),
+    }))
+  },
+
+  // 筹码补充：更新指定座位的 stack
+  applyStackUpdated: (payload) => {
+    set((state) => ({
+      seats: state.seats.map((s) =>
+        s.user_id === payload.player_id ? { ...s, stack: payload.stack } : s
+      ),
+    }))
+  },
+
+  // 玩家离座/归座状态变更
+  applySitOut: (payload) => {
+    set((state) => ({
+      seats: state.seats.map((s) =>
+        s.user_id === payload.player_id ? { ...s, sit_out: payload.sit_out } : s
+      ),
     }))
   },
 

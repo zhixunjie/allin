@@ -14,8 +14,9 @@ import (
 var DBM *sqlx.DB
 
 var (
-	UserDao = &userDao{}
-	RoomDao = &roomDao{}
+	UserDao        = &userDao{}
+	RoomDao        = &roomDao{}
+	HandHistoryDao = &handHistoryDao{}
 )
 
 // Init connects to MySQL using config from Viper.

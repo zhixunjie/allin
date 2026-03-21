@@ -43,9 +43,11 @@ export enum WSEventType {
     Showdown = 'showdown',             // 摊牌阶段，公开各玩家手牌
     HandResult = 'hand_result',        // 本手结算，包含赢家和筹码变动
     ChatMessage = 'chat_message',      // 聊天消息（双向）
+    SitOutStatus = 'sit_out_status',   // 玩家离座/归座状态变更
     // ── 客户端 → 服务端（上行） ──
     JoinRoom = 'join_room',            // 请求加入房间
     Action = 'action',                 // 提交玩家操作（fold/check/call/bet/raise/all_in）
+    LeaveTable = 'leave_table',        // 主动离桌（仅限手牌间隙）
 }
 
 /** 登录/注册模式 */

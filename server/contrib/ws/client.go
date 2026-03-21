@@ -75,7 +75,7 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var env Envelope
+		var env CmdEnvelope
 		if err := jsonUnmarshal(data, &env); err != nil {
 			slog.Warn("ws: invalid envelope", "user", c.UserID, "err", err)
 			continue

@@ -28,7 +28,7 @@ type Hub struct {
 type InboundMessage struct {
 	SenderID    string
 	DisplayName string
-	Env         Envelope
+	Env         CmdEnvelope
 }
 
 // NewHub 为给定房间创建一个新的 Hub。
@@ -64,7 +64,7 @@ func (h *Hub) Run() {
 			// 通知游戏引擎有玩家断开连接。
 			h.Inbound <- InboundMessage{
 				SenderID: client.UserID,
-				Env:      Envelope{Type: "disconnect"},
+				Env:      CmdEnvelope{Type: CmdDisconnect},
 			}
 		}
 	}
