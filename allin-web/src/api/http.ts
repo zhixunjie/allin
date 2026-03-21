@@ -39,10 +39,10 @@ export const http = {
 // --- 类型化的 API 调用 ---
 
 export interface User {
-  id: number
+  id: string
   username: string
   display_name: string
-  chips: number
+  chip_balance: number
 }
 
 export interface AuthResponse {
@@ -56,6 +56,7 @@ export interface RoomConfig {
   min_buy_in: number
   max_buy_in: number
   max_players: number
+  action_time_sec?: number
   bot_count?: number
   bot_style?: string
 }

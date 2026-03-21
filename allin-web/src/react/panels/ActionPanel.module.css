@@ -172,6 +172,53 @@
   white-space: nowrap;
 }
 
+/* 滑条（raiseRow 内弹性拉伸） */
+.slider {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  border-radius: 2px;
+  cursor: pointer;
+  /* 轨道渐变：用 CSS 变量 + background-size 实现已填充部分高亮 */
+  background: linear-gradient(
+    to right,
+    #d4af37 0%,
+    #d4af37 var(--fill, 0%),
+    rgba(212, 175, 55, 0.18) var(--fill, 0%),
+    rgba(212, 175, 55, 0.18) 100%
+  );
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #d4af37;
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.7);
+  cursor: grab;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.25);
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.9);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: #d4af37;
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.7);
+  cursor: grab;
+}
+
 /* 微调 + 确认 行 */
 .raiseRow {
   display: flex;

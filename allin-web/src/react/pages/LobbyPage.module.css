@@ -1,162 +1,323 @@
+/* ── 整体容器 ─────────────────────────────────────── */
+
 .container {
   min-height: 100vh;
-  background: #0f1923;
+  background: #0a0f18;
   color: #e0e8f0;
 }
+
+/* ── 顶部栏 ──────────────────────────────────────── */
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 32px;
-  background: #1a2535;
-  border-bottom: 1px solid #2a3545;
+  padding: 10px 24px;
+  background: #111820;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
 }
 
 .logo {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #f0c040;
-  letter-spacing: 3px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #d4af37;
+  letter-spacing: 4px;
+  font-style: italic;
 }
 
 .userInfo {
   display: flex;
   align-items: center;
   gap: 16px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+}
+
+.userName {
+  color: #c8d8e8;
 }
 
 .chips {
-  color: #f0c040;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-weight: 700;
+  color: #d4af37;
+  font-size: 0.88rem;
+}
+
+.chipIcon {
+  font-size: 0.9rem;
 }
 
 .logoutBtn {
-  background: #2a3545;
+  background: rgba(255, 255, 255, 0.05);
   color: #8a9bb0;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 5px 14px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.83rem;
+  transition: all 0.2s;
 }
 
 .logoutBtn:hover {
-  background: #3a4555;
+  background: rgba(255, 255, 255, 0.1);
+  color: #c8d8e8;
 }
+
+/* ── 主内容区 ─────────────────────────────────────── */
 
 .main {
-  max-width: 520px;
-  margin: 48px auto;
-  padding: 0 16px;
+  max-width: 560px;
+  margin: 16px auto;
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
+
+/* ── 卡片区块 ─────────────────────────────────────── */
 
 .section {
-  background: #1a2535;
-  border-radius: 14px;
-  padding: 28px;
+  background: #111820;
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.section h2 {
-  margin: 0 0 20px;
-  font-size: 1.1rem;
+.sectionTitle {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #c8d8e8;
+  letter-spacing: 0.03em;
 }
 
 .divider {
   text-align: center;
-  color: #4a5565;
-  margin: 24px 0;
-  font-size: 0.9rem;
+  color: #3a4555;
+  margin: 10px 0;
+  font-size: 0.82rem;
 }
+
+/* ── 加入房间 ─────────────────────────────────────── */
 
 .joinForm {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 
-.input {
+.codeInput {
   flex: 1;
-  background: #0f1923;
-  border: 1px solid #2a3545;
-  border-radius: 8px;
-  padding: 12px 14px;
+  background: #0a0f18;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 11px 14px;
   color: #e0e8f0;
   font-size: 1rem;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
   text-transform: uppercase;
   outline: none;
+  transition: border-color 0.2s;
 }
 
-.input:focus {
-  border-color: #f0c040;
+.codeInput:focus {
+  border-color: #d4af37;
 }
+
+/* ── 创建房间表单 ─────────────────────────────────── */
 
 .createForm {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
+/* 每组（盲注 / 买入 / 房间 / AI） */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.groupLabel {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(212, 175, 55, 0.6);
+}
+
+/* 组内两列布局 */
 .row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
-.row label {
+.field {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: #8a9bb0;
+  gap: 3px;
+  min-width: 0;
 }
 
-.numInput {
-  background: #0f1923;
-  border: 1px solid #2a3545;
-  border-radius: 8px;
-  padding: 10px 12px;
-  color: #e0e8f0;
-  font-size: 0.95rem;
-  outline: none;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.numInput:focus {
-  border-color: #f0c040;
-}
-
-.primaryBtn {
-  padding: 13px;
-  background: #f0c040;
-  color: #0f1923;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity 0.2s;
+.fieldLabel {
+  font-size: 0.8rem;
+  color: #7a8da0;
   white-space: nowrap;
 }
 
+.hint {
+  font-size: 0.7rem;
+  color: #4a5a6a;
+  font-weight: 400;
+}
+
+/* 金额输入（带 $ 前缀） */
+.moneyInput {
+  display: flex;
+  align-items: center;
+  background: #0a0f18;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.moneyInput:focus-within {
+  border-color: #d4af37;
+}
+
+.moneyInput.readOnly {
+  opacity: 0.45;
+}
+
+.dollar {
+  padding: 0 8px;
+  color: #d4af37;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: rgba(212, 175, 55, 0.08);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+/* 带后缀输入（行动时限的"秒"） */
+.suffixInput {
+  display: flex;
+  align-items: center;
+  background: #0a0f18;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.suffixInput:focus-within {
+  border-color: #d4af37;
+}
+
+.suffix {
+  padding: 0 10px;
+  color: #4a5a6a;
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 1px solid rgba(255, 255, 255, 0.07);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+}
+
+/* 通用数字 / select 输入 */
+.numInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #e0e8f0;
+  font-size: 0.88rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+/* moneyInput / suffixInput 内部的 numInput 去掉外层边框 */
+.moneyInput .numInput,
+.suffixInput .numInput {
+  border: none;
+  border-radius: 0;
+  padding: 6px 10px;
+}
+
+.numInput:focus {
+  border-color: #d4af37;
+}
+
+select.numInput {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a5a6a'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* ── 按钮 ──────────────────────────────────────────── */
+
+.primaryBtn {
+  width: 100%;
+  padding: 10px;
+  background: #d4af37;
+  color: #0a0f18;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
 .primaryBtn:hover:not(:disabled) {
-  opacity: 0.88;
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.primaryBtn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .primaryBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
+/* ── 错误提示 ────────────────────────────────────────── */
+
 .error {
-  color: #ff6b6b;
-  font-size: 0.85rem;
+  color: #f87171;
+  font-size: 0.83rem;
   margin: 0;
+  padding: 8px 12px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 8px;
 }
 
 .fieldError {
-  color: #ff6b6b;
-  font-size: 0.78rem;
+  color: #f87171;
+  font-size: 0.75rem;
+  margin-top: 2px;
 }

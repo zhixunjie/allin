@@ -2,10 +2,12 @@ package game
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/allin/server/internal/room"
+	userPkg "github.com/allin/server/internal/user"
 	"github.com/allin/server/internal/ws"
 )
 
@@ -143,10 +145,34 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		return
 	}
 
+	// 从用户账户扣除买入金额
+	buyIn := e.room.Config.MaxBuyIn
+	u, err := userPkg.GetByID(msg.SenderID)
+	if err != nil {
+		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+			Code: "user_not_found", Message: "user not found",
+		}))
+		return
+	}
+	if u.ChipBalance < buyIn {
+		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+			Code: "insufficient_chips",
+			Message: fmt.Sprintf("insufficient chips: need $%d, have $%d", buyIn, u.ChipBalance),
+		}))
+		return
+	}
+	if err := userPkg.AdjustChips(msg.SenderID, -buyIn, "buy_in", e.room.Code); err != nil {
+		slog.Error("game: failed to deduct buy-in", "user", msg.SenderID, "err", err)
+		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+			Code: "server_error", Message: "failed to process buy-in",
+		}))
+		return
+	}
+
 	p := &Player{
 		UserID:      msg.SenderID,
 		DisplayName: msg.DisplayName,
-		Stack:       e.room.Config.MaxBuyIn,
+		Stack:       buyIn,
 	}
 	e.gs.SeatPlayer(p)
 
@@ -219,7 +245,9 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 	}))
 
 	if e.gs.Street == StreetIdle {
+		stack := p.Stack
 		e.gs.UnseatPlayer(msg.SenderID)
+		e.cashOut(msg.SenderID, stack) // 返还剩余筹码到账户
 		e.room.Touch()
 
 		// 统计剩余的人类玩家。
@@ -243,15 +271,28 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 		return
 	}
 
-	// 在活跃手牌中：如果轮到他们则代为弃牌，否则标记为离座。
+	// 在活跃手牌中断线：返还未投入底池的剩余筹码，已下注部分（p.Bet）留在底池正常结算。
+	stack := p.Stack
 	if e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
 		e.gs.UnseatPlayer(msg.SenderID)
+		e.cashOut(msg.SenderID, stack)
 		e.advanceOrEnd(resetTimer, stopTimer)
 	} else {
 		p.Folded = true
 		e.gs.UnseatPlayer(msg.SenderID)
+		e.cashOut(msg.SenderID, stack)
 		e.checkHandOver(resetTimer, stopTimer)
+	}
+}
+
+// cashOut 将玩家剩余筹码返还到账户余额（bot 跳过）。
+func (e *Engine) cashOut(userID string, stack int64) {
+	if IsBotID(userID) || stack == 0 {
+		return
+	}
+	if err := userPkg.AdjustChips(userID, stack, "cash_out", e.room.Code); err != nil {
+		slog.Error("game: failed to cash out", "user", userID, "stack", stack, "err", err)
 	}
 }
 

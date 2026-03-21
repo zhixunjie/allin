@@ -13,18 +13,21 @@ export default function LobbyPage() {
   const setRoom = useRoomStore((s) => s.setRoom)
 
   // 创建房间表单
-  const [smallBlind, setSmallBlind] = useState('1')
-  const [bigBlind, setBigBlind] = useState('2')
-  const [minBuyIn, setMinBuyIn] = useState('40')
-  const [maxBuyIn, setMaxBuyIn] = useState('200')
-  const [maxPlayers, setMaxPlayers] = useState('3')
-  const [botCount, setBotCount] = useState('2')
-  const [botStyle, setBotStyle] = useState<BotStyle>(BotStyle.Mixed)
+  const [smallBlind,     setSmallBlind]     = useState('1')
+  const [minBuyIn,       setMinBuyIn]       = useState('20')
+  const [maxBuyIn,       setMaxBuyIn]       = useState('200')
+  const [maxPlayers,     setMaxPlayers]     = useState('3')
+  const [actionTimeSec,  setActionTimeSec]  = useState('30')
+  const [botCount,       setBotCount]       = useState('2')
+  const [botStyle,       setBotStyle]       = useState<BotStyle>(BotStyle.Mixed)
+
+  // 大盲 = 小盲 × 2（自动联动）
+  const bigBlind = Number(smallBlind) * 2
 
   // 加入房间
   const [joinCode, setJoinCode] = useState('')
 
-  const [error, setError] = useState('')
+  const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
   // 从 URL /join/XXXXXX 自动填充邀请码
@@ -40,16 +43,28 @@ export default function LobbyPage() {
       setError('AI 玩家数必须小于最大人数，至少留 1 个座位给真人')
       return
     }
+    const buyIn = Number(maxBuyIn)
+    const balance = user?.chip_balance ?? 0
+    if (balance < buyIn) {
+      setError(`余额不足：需要 $${buyIn.toLocaleString()}，当前余额 $${balance.toLocaleString()}`)
+      return
+    }
+    const confirmed = window.confirm(
+      `确认买入 $${buyIn.toLocaleString()} 筹码并创建房间？\n当前余额：$${balance.toLocaleString()}\n买入后剩余：$${(balance - buyIn).toLocaleString()}`
+    )
+    if (!confirmed) return
+
     setLoading(true)
     try {
       const config: RoomConfig = {
-        small_blind: Number(smallBlind),
-        big_blind: Number(bigBlind),
-        min_buy_in: Number(minBuyIn),
-        max_buy_in: Number(maxBuyIn),
-        max_players: Number(maxPlayers),
-        bot_count: Number(botCount),
-        bot_style: botStyle,
+        small_blind:     Number(smallBlind),
+        big_blind:       bigBlind,
+        min_buy_in:      Number(minBuyIn),
+        max_buy_in:      Number(maxBuyIn),
+        max_players:     Number(maxPlayers),
+        action_time_sec: Number(actionTimeSec),
+        bot_count:       Number(botCount),
+        bot_style:       botStyle,
       }
       const room = await roomAPI.create(config)
       setRoom(room)
@@ -72,6 +87,16 @@ export default function LobbyPage() {
     setLoading(true)
     try {
       const room = await roomAPI.get(code)
+      const buyIn = room.config.max_buy_in
+      const balance = user?.chip_balance ?? 0
+      if (balance < buyIn) {
+        setError(`余额不足：需要 $${buyIn.toLocaleString()}，当前余额 $${balance.toLocaleString()}`)
+        return
+      }
+      const confirmed = window.confirm(
+        `确认买入 $${buyIn.toLocaleString()} 筹码并进入房间？\n当前余额：$${balance.toLocaleString()}\n买入后剩余：$${(balance - buyIn).toLocaleString()}`
+      )
+      if (!confirmed) return
       setRoom(room)
       navigate(`/room/${room.code}`)
     } catch (err: unknown) {
@@ -86,21 +111,23 @@ export default function LobbyPage() {
       <header className={styles.header}>
         <span className={styles.logo}>AllIn</span>
         <div className={styles.userInfo}>
-          <span>{user?.display_name ?? user?.username}</span>
-          <span className={styles.chips}>🪙 {user?.chips?.toLocaleString()}</span>
-          <button className={styles.logoutBtn} onClick={clearAuth}>
-            退出
-          </button>
+          <span className={styles.userName}>{user?.display_name ?? user?.username}</span>
+          <span className={styles.chips}>
+            <span className={styles.chipIcon}>$</span>
+            {user?.chip_balance?.toLocaleString() ?? '—'}
+          </span>
+          <button className={styles.logoutBtn} onClick={clearAuth}>退出</button>
         </div>
       </header>
 
       <main className={styles.main}>
-        {/* 加入房间 */}
+
+        {/* ── 加入房间 ── */}
         <section className={styles.section}>
-          <h2>加入房间</h2>
+          <h2 className={styles.sectionTitle}>加入房间</h2>
           <form onSubmit={handleJoin} className={styles.joinForm}>
             <input
-              className={styles.input}
+              className={styles.codeInput}
               type="text"
               placeholder="输入 6 位房间码"
               value={joinCode}
@@ -115,102 +142,139 @@ export default function LobbyPage() {
 
         <div className={styles.divider}>— 或 —</div>
 
-        {/* 创建房间 */}
+        {/* ── 创建房间 ── */}
         <section className={styles.section}>
-          <h2>创建房间</h2>
+          <h2 className={styles.sectionTitle}>创建房间</h2>
           <form onSubmit={handleCreate} className={styles.createForm}>
-            <div className={styles.row}>
-              <label>
-                小盲
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="1"
-                  value={smallBlind}
-                  onChange={(e) => setSmallBlind(e.target.value)}
-                />
-              </label>
-              <label>
-                大盲
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="1"
-                  value={bigBlind}
-                  onChange={(e) => setBigBlind(e.target.value)}
-                />
-              </label>
-              <label>
-                最大人数
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="2"
-                  max="9"
-                  value={maxPlayers}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setMaxPlayers(v)
-                    setBotCount(String(Math.max(0, Number(v) - 1)))
-                  }}
-                />
-              </label>
-              <label>
-                AI 玩家数
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="0"
-                  max={Number(maxPlayers) - 1}
-                  value={botCount}
-                  onChange={(e) => setBotCount(e.target.value)}
-                />
-                {Number(botCount) >= Number(maxPlayers) && (
-                  <span className={styles.fieldError}>AI 数量不能占满所有座位，至少留 1 个给真人</span>
-                )}
-              </label>
-              <label>
-                AI 风格
-                <select
-                  className={styles.numInput}
-                  value={botStyle}
-                  onChange={(e) => setBotStyle(e.target.value as BotStyle)}
-                >
-                  <option value={BotStyle.Mixed}>混合</option>
-                  <option value={BotStyle.Aggressive}>激进</option>
-                  <option value={BotStyle.Passive}>被动</option>
-                  <option value={BotStyle.Random}>随机</option>
-                </select>
-              </label>
+
+            {/* 盲注 */}
+            <div className={styles.fieldGroup}>
+              <p className={styles.groupLabel}>盲注</p>
+              <div className={styles.row}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>小盲</span>
+                  <div className={styles.moneyInput}>
+                    <span className={styles.dollar}>$</span>
+                    <input
+                      className={styles.numInput}
+                      type="number" min="1"
+                      value={smallBlind}
+                      onChange={(e) => setSmallBlind(e.target.value)}
+                    />
+                  </div>
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>大盲 <span className={styles.hint}>（= 小盲 × 2）</span></span>
+                  <div className={`${styles.moneyInput} ${styles.readOnly}`}>
+                    <span className={styles.dollar}>$</span>
+                    <input className={styles.numInput} type="number" value={bigBlind} readOnly />
+                  </div>
+                </label>
+              </div>
             </div>
-            <div className={styles.row}>
-              <label>
-                最小买入
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="1"
-                  value={minBuyIn}
-                  onChange={(e) => setMinBuyIn(e.target.value)}
-                />
-              </label>
-              <label>
-                最大买入
-                <input
-                  className={styles.numInput}
-                  type="number"
-                  min="1"
-                  value={maxBuyIn}
-                  onChange={(e) => setMaxBuyIn(e.target.value)}
-                />
-              </label>
+
+            {/* 买入 */}
+            <div className={styles.fieldGroup}>
+              <p className={styles.groupLabel}>买入金额</p>
+              <div className={styles.row}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>最低买入 <span className={styles.hint}>（≥ 大盲 × 10）</span></span>
+                  <div className={styles.moneyInput}>
+                    <span className={styles.dollar}>$</span>
+                    <input
+                      className={styles.numInput}
+                      type="number" min="1"
+                      value={minBuyIn}
+                      onChange={(e) => setMinBuyIn(e.target.value)}
+                    />
+                  </div>
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>最高买入 <span className={styles.hint}>（入桌初始筹码）</span></span>
+                  <div className={styles.moneyInput}>
+                    <span className={styles.dollar}>$</span>
+                    <input
+                      className={styles.numInput}
+                      type="number" min="1"
+                      value={maxBuyIn}
+                      onChange={(e) => setMaxBuyIn(e.target.value)}
+                    />
+                  </div>
+                </label>
+              </div>
             </div>
+
+            {/* 房间设置 */}
+            <div className={styles.fieldGroup}>
+              <p className={styles.groupLabel}>房间设置</p>
+              <div className={styles.row}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>最大人数</span>
+                  <input
+                    className={styles.numInput}
+                    type="number" min="2" max="9"
+                    value={maxPlayers}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setMaxPlayers(v)
+                      setBotCount(String(Math.max(0, Number(v) - 1)))
+                    }}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>行动时限</span>
+                  <div className={styles.suffixInput}>
+                    <input
+                      className={styles.numInput}
+                      type="number" min="5" max="120"
+                      value={actionTimeSec}
+                      onChange={(e) => setActionTimeSec(e.target.value)}
+                    />
+                    <span className={styles.suffix}>秒</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* AI 设置 */}
+            <div className={styles.fieldGroup}>
+              <p className={styles.groupLabel}>AI 玩家</p>
+              <div className={styles.row}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>数量 <span className={styles.hint}>（0 = 纯真人）</span></span>
+                  <input
+                    className={styles.numInput}
+                    type="number" min="0" max={Number(maxPlayers) - 1}
+                    value={botCount}
+                    onChange={(e) => setBotCount(e.target.value)}
+                  />
+                  {Number(botCount) >= Number(maxPlayers) && (
+                    <span className={styles.fieldError}>AI 数不能占满所有座位</span>
+                  )}
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>风格</span>
+                  <select
+                    className={styles.numInput}
+                    value={botStyle}
+                    onChange={(e) => setBotStyle(e.target.value as BotStyle)}
+                  >
+                    <option value={BotStyle.Mixed}>混合</option>
+                    <option value={BotStyle.Aggressive}>激进</option>
+                    <option value={BotStyle.Passive}>被动</option>
+                    <option value={BotStyle.Random}>随机</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
             {error && <p className={styles.error}>{error}</p>}
             <button className={styles.primaryBtn} type="submit" disabled={loading}>
               {loading ? '请稍候...' : '创建房间'}
             </button>
           </form>
         </section>
+
       </main>
     </div>
   )

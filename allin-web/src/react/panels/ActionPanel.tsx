@@ -78,14 +78,24 @@ export function ActionPanel({ gs }: Props) {
                 <span className={styles.presetAmt}>${fmt(presetAmt(1))}</span>
               </button>
             </div>
-            {/* 微调 + 确认 */}
+            {/* 滑条 + 微调 + 确认（合并一行） */}
             <div className={styles.raiseRow}>
               <button className={styles.adjBtn} onClick={() => setBetAmount(clamp(betAmount - step))}>−</button>
+              <input
+                type="range"
+                className={styles.slider}
+                min={minBet}
+                max={maxBet}
+                step={step}
+                value={betAmount}
+                style={{ '--fill': `${((betAmount - minBet) / Math.max(1, maxBet - minBet) * 100).toFixed(1)}%` } as React.CSSProperties}
+                onChange={(e) => setBetAmount(Number(e.target.value))}
+              />
+              <button className={styles.adjBtn} onClick={() => setBetAmount(clamp(betAmount + step))}>+</button>
               <button className={styles.raiseCenter} onClick={doRaise}>
                 <span className={styles.raiseAction}>{gs.canBet ? '下注' : '加注'}</span>
                 <span className={styles.raiseAmount}>${betAmount.toLocaleString()}</span>
               </button>
-              <button className={styles.adjBtn} onClick={() => setBetAmount(clamp(betAmount + step))}>+</button>
             </div>
           </div>
         )}
