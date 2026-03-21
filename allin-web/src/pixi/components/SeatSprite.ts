@@ -490,12 +490,12 @@ export class SeatSprite extends Container {
             this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 3,   alpha: 0.90})
             this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.30})
         } else {
-            // 普通：外环境散晕（主角光感）+ 内金边
-            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 1,   alpha: 0.05})
-            this.avatarBg.circle(0, 0, R +  6).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
-            this.avatarBg.circle(0, 0, R +  2).stroke({color: C.GOLD, width: 2,   alpha: 0.20})
-            this.avatarBg.circle(0, 0, R     ).stroke({color: C.GOLD, width: 1.5, alpha: 0.75})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.20})
+            // 普通：同款多层扩散，alpha 整体调低，主角常驻光感
+            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1,   alpha: 0.03})
+            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1.5, alpha: 0.07})
+            this.avatarBg.circle(0, 0, R +  4).stroke({color: C.GOLD, width: 2,   alpha: 0.15})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 3,   alpha: 0.55})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.18})
         }
     }
 
