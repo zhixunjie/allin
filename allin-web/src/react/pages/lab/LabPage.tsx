@@ -16,6 +16,7 @@ import { ActionDemo } from './ActionDemo'
 import { ChipDemo } from './ChipDemo'
 import { ActionPanelDemo } from './ActionPanelDemo'
 import { ActionPanel } from '../../panels/ActionPanel'
+import { RoundResultModal } from '../../panels/RoundResultModal'
 import { useGameState } from '../../../hooks/useGameState'
 
 export default function LabPage() {
@@ -50,6 +51,9 @@ export default function LabPage() {
       <main className="absolute inset-0 flex items-center justify-center">
         <div ref={canvasRef} className="w-full h-full flex items-center justify-center" />
       </main>
+
+      {/* 结算弹窗 overlay */}
+      <RoundResultModal />
 
       {/* 行动面板 overlay：仅 actionScenario !== 'hidden' 时出现 */}
       {actionScenario !== 'hidden' && (

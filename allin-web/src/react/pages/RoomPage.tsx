@@ -7,7 +7,7 @@ import { useGameState } from '../../hooks/useGameState'
 // import { useActionTimer } from '../../hooks/useActionTimer'
 import { ActionPanel } from '../panels/ActionPanel'
 // import { ChatPanel } from '../panels/ChatPanel'
-import { HandHistory } from '../panels/HandHistory'
+import { RoundResultModal } from '../panels/RoundResultModal'
 import { ConnectionBanner } from '../components/ConnectionBanner'
 import { Street } from '../../types/enums'
 import styles from './RoomPage.module.css'
@@ -63,8 +63,8 @@ export default function RoomPage() {
         {/* 聊天（暂时屏蔽）*/}
         {/* <ChatPanel /> */}
 
-        {/* 本手结果浮层 */}
-        <HandHistory />
+        {/* 本局结算弹窗 */}
+        <RoundResultModal />
       </div>
     </div>
   )

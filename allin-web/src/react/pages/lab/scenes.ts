@@ -181,6 +181,35 @@ export const SCENE_LIST: SceneEntry[] = [
     label: '动画演示',
     items: [
       {
+        name: '本局结算弹窗',
+        fn: () => {
+          useGameStore.setState({
+            street: Street.Showdown,
+            myUserId: 'player-0',
+            community: ['Ac', 'Ks', '4s'],
+            seats: [
+              makeSeat(0, 'player-0', 'ZorpX', 2400, { hole: ['Ah', 'Ad'], is_bot: false }),
+              makeSeat(1, 'player-1', 'Nova_Commander', 800, { hole: ['Qh', 'Qs'], is_bot: true }),
+              makeSeat(2, 'player-2', 'Nebula_Ghost', 0, { hole: ['Td', 'Jd'], is_bot: true }),
+              makeSeat(3, 'player-3', 'Titan77', 600, { hole: ['5h', '5d'], is_bot: true }),
+              makeSeat(4, 'player-4', 'VoidWalker', 300, { folded: true, is_bot: true }),
+            ],
+            pot: 0, dealer_seat: 2, action_seat: -1,
+            myHole: ['Ah', 'Ad'], deadlineTs: null,
+            lastHandResult: {
+              winners: [{ player_id: 'player-0', display_name: 'ZorpX', amount: 1200, hand_name: 'Full House' }],
+              bestHand: ['Ah', 'Ad', 'Ac', 'Ks', '4s'],
+              allPlayers: [
+                { player_id: 'player-1', display_name: 'Nova_Commander', hole: ['Qh', 'Qs'], hand_name: 'Two Pair',  folded: false, is_winner: false },
+                { player_id: 'player-2', display_name: 'Nebula_Ghost',   hole: ['Td', 'Jd'], hand_name: 'High Card', folded: false, is_winner: false },
+                { player_id: 'player-3', display_name: 'Titan77',        hole: ['5h', '5d'], hand_name: 'One Pair',  folded: false, is_winner: false },
+                { player_id: 'player-4', display_name: 'VoidWalker',     hole: [],           hand_name: undefined,   folded: true,  is_winner: false },
+              ],
+            },
+          })
+        },
+      },
+      {
         name: '筹码飞行',
         fn: () => {
           useGameStore.setState({

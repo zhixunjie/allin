@@ -37,6 +37,7 @@ import {CasinoChip, chipStyleForAmount} from './CasinoChip'
 export class SeatSprite extends Container {
     private avatarBg!: Graphics      // 头像圆形背景 + 描边
     private allInGlow!: Graphics     // ALL-IN 脉冲光晕层（独立图层，仅 tick 时更新）
+    private breathGlow!: Graphics    // 空位呼吸光晕层（缓慢 in/out，吸引玩家入座）
     private avatarImg!: Sprite       // 头像图片
     private nameText!: Text          // 玩家昵称
     private stackText!: Text         // 筹码金额
@@ -58,8 +59,10 @@ export class SeatSprite extends Container {
     private isLocal: boolean        // 是否为本地玩家（底部大头像），false 表示远端玩家
     private avatarR: number         // 头像半径
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
-    private isAllIn = false       // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
+    private isAllIn = false         // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
     private allInTime = 0           // 累计时间（ms），用于 sin 脉冲计算
+    private isEmpty = false         // 当前是否为空座位（驱动呼吸动画）
+    private emptyTime = 0           // 累计时间（ms），用于呼吸 sin 计算
 
     /**
      * @param isLocal 是否为本地玩家座位（displayIdx=0，使用大头像 + 特殊布局）
@@ -88,6 +91,9 @@ export class SeatSprite extends Container {
         this.avatarBg = new Graphics()
         this.addChild(this.avatarBg)
 
+        // 空位呼吸光晕层：最底层，仅 tick 时更新
+        this.breathGlow = new Graphics()
+        this.addChild(this.breathGlow)
         // ALL-IN 脉冲光晕层：位于 avatarBg 之上、avatarImg 之下，仅 tick 时更新
         this.allInGlow = new Graphics()
         this.addChild(this.allInGlow)
@@ -408,6 +414,8 @@ export class SeatSprite extends Container {
     private drawEmpty() {
         const R = this.avatarR
 
+        this.isEmpty = true
+        this.emptyTime = 0
         this.avatarBg.clear()
 
         // 1. 底板填充（微亮）
@@ -458,6 +466,10 @@ export class SeatSprite extends Container {
     private drawFilled(_userId: string, isActive: boolean, _isBot: boolean, isFolded: boolean, isAllIn: boolean) {
         const R = this.avatarR
         this.avatarBg.clear()
+
+        // 关闭空位呼吸动画
+        this.isEmpty = false
+        this.breathGlow.clear()
 
         // 更新 ALL-IN 动画状态（非 ALL-IN 时清空脉冲层，重置计时）
         this.isAllIn = isAllIn && !isFolded
@@ -581,6 +593,24 @@ export class SeatSprite extends Container {
      * 外层光晕半径和 alpha 随 sin 波浮动，制造"能量燃烧"感。
      */
     tick(deltaMS: number) {
+        // ── 空位呼吸动画 ──────────────────────────────────────
+        if (this.isEmpty) {
+            this.emptyTime += deltaMS
+            const R = this.avatarR
+            // 缓慢呼吸：周期 2400ms，0→1→0
+            const breath = (Math.sin((this.emptyTime / 2400) * Math.PI * 2 - Math.PI / 2) + 1) / 2
+            this.breathGlow.clear()
+            // 外晕（扩散 12~20px）：极低透明度，营造隐约氛围
+            this.breathGlow.circle(0, 0, R + 12 + breath * 8)
+            this.breathGlow.fill({ color: 0x4fc3f7, alpha: 0.03 + breath * 0.04 })
+            // 中晕（固定 R+5）：浅蓝细边，稳定可见
+            this.breathGlow.circle(0, 0, R + 5)
+            this.breathGlow.stroke({ color: 0x4fc3f7, width: 1.2, alpha: 0.12 + breath * 0.18 })
+            // 内边（R+1）：贴近圆圈，吸入时最亮
+            this.breathGlow.circle(0, 0, R + 1)
+            this.breathGlow.stroke({ color: 0x7ecfff, width: 2, alpha: 0.18 + breath * 0.28 })
+        }
+
         if (!this.isAllIn) return
 
         this.allInTime += deltaMS

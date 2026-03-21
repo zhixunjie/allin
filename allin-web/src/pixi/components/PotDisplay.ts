@@ -18,6 +18,8 @@ const POT_H = 36    // 药丸高度
  *   potDisplay.setPot(0)     // 隐藏整个组件
  */
 export class PotDisplay extends Container {
+    /** 向外金色晕光层（多层同心 roundRect，最先绘制置于底层） */
+    private glow!: Graphics
     /** 药丸形玻璃底板（半透明毛玻璃 + 金色边框） */
     private bg!: Graphics
     /** 左侧装饰性筹码堆（三列，从左到右：红/青/金，高度不等增加层次感） */
@@ -29,6 +31,7 @@ export class PotDisplay extends Container {
 
     constructor() {
         super()
+        this.buildGlow()
         this.buildBackground()
         this.buildChipStacks()
         this.buildTitleText()
@@ -37,6 +40,12 @@ export class PotDisplay extends Container {
     }
 
     // ─── 构造分解 ──────────────────────────────────────────────
+
+    private buildGlow() {
+        this.glow = new Graphics()
+        this.addChild(this.glow)
+        this.drawGlow()
+    }
 
     private buildBackground() {
         this.bg = new Graphics()
@@ -97,6 +106,7 @@ export class PotDisplay extends Container {
 
     /** 重绘药丸背景（每次 setPot 触发，保持与 visible 同步） */
     private redraw() {
+        this.drawGlow()
         this.bg.clear()
         // 半透明玻璃填充
         this.bg.roundRect(0, 0, POT_W, POT_H, POT_H / 2)
@@ -104,6 +114,32 @@ export class PotDisplay extends Container {
         // 金色描边
         this.bg.roundRect(0, 0, POT_W, POT_H, POT_H / 2)
         this.bg.stroke({color: C.GOLD, width: 1, alpha: 0.4})
+    }
+
+    /**
+     * 向外扩散的多层金色晕光：
+     * 从最外层（扩散 28px，alpha 最低）到最内层（扩散 4px，alpha 最高），
+     * 共 6 层叠加，产生平滑的 glow 渐变效果。
+     */
+    private drawGlow() {
+        this.glow.clear()
+        const r = POT_H / 2
+        const layers = [
+            { expand: 28, alpha: 0.025 },
+            { expand: 20, alpha: 0.045 },
+            { expand: 14, alpha: 0.07  },
+            { expand: 9,  alpha: 0.10  },
+            { expand: 5,  alpha: 0.14  },
+            { expand: 2,  alpha: 0.18  },
+        ]
+        for (const { expand, alpha } of layers) {
+            const x = -expand
+            const y = -expand
+            const w = POT_W + expand * 2
+            const h = POT_H + expand * 2
+            this.glow.roundRect(x, y, w, h, r + expand)
+            this.glow.fill({ color: C.GOLD, alpha })
+        }
     }
 
     /**

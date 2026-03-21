@@ -2,7 +2,7 @@ import type { Application } from 'pixi.js'
 import { CasinoChip, chipStyleForAmount } from '../components/CasinoChip'
 import { TABLE_CX, TABLE_CY } from '../assets'
 
-const CHIP_RADIUS = 16
+const CHIP_RADIUS = 10
 
 /** 飞行中的筹码状态 */
 interface FlyChip {

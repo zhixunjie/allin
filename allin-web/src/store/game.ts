@@ -120,9 +120,21 @@ export interface HandWinner {
   hand_name?: string   // 牌型，如 "Flush"
 }
 
+/** 结算弹窗中每位玩家的详情 */
+export interface RoundPlayerDetail {
+  player_id: string
+  display_name: string
+  hole: string[]       // 两张手牌（弃牌者为 []，未公开者为 ['?','?']）
+  hand_name?: string   // 英文牌型名
+  folded: boolean
+  is_winner: boolean
+}
+
 /** 本手结算结果（用于展示结算弹窗） */
 export interface LastHandResult {
   winners: HandWinner[]
+  bestHand?: string[]              // 赢家最佳五张（用于顶部展示）
+  allPlayers?: RoundPlayerDetail[] // 全场玩家手牌汇总
 }
 
 // ── Store 状态定义 ──
