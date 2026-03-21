@@ -56,7 +56,7 @@ export class SeatSprite extends Container {
     private stackPanel!: Graphics    // 本地玩家玻璃筹码面板
 
     private isLocal: boolean        // 是否为本地玩家（底部大头像），false 表示远端玩家
-    private avatarR: number         // 头像半径（本地 38，远程 38）
+    private avatarR: number         // 头像半径
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
     private isAllIn = false       // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
     private allInTime = 0           // 累计时间（ms），用于 sin 脉冲计算
