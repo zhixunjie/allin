@@ -174,40 +174,8 @@ export const SCENES: Record<string, () => void> = {
 
   // ── 动画演示 ──────────────────────────────────────────────────────────────
 
-  '发牌动画 ① 就位': () => {
-    // 先切到空桌 Idle 状态，再点「② 触发」才会从 Idle→PreFlop 触发发牌动画
-    useGameStore.setState({
-      street: Street.Idle,
-      myUserId: 'player-0',
-      dealer_seat: 0,
-      action_seat: -1,
-      pot: 0,
-      deadlineTs: null,
-      myHole: [],
-      community: [],
-      seats: ['我', 'Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank', 'Grace', 'Hank'].map((name, i) =>
-        makeSeat(i, `player-${i}`, name, 1000, { is_bot: i > 0 }),
-      ),
-    })
-  },
-
-  '发牌动画 ② 触发': () => {
-    // 从 Idle 切到 PreFlop，触发 triggerDealAnimation
-    useGameStore.setState({
-      street: Street.PreFlop,
-      dealer_seat: 0,
-      action_seat: 3,
-      current_bet: 20,
-      callAmount: 20,
-      minRaiseAmount: 40,
-      pot: 30,
-      deadlineTs: Date.now() + 30_000,
-      myHole: ['Ah', 'Kd'],
-    })
-  },
-
-  '筹码飞行 ① 就位': () => {
-    // 设置 Preflop 各玩家有下注，再点「② 触发」切街道触发飞行动画
+  '筹码飞行动画': () => {
+    // 先设 PreFlop+下注，100ms 后切到 Flop，触发 triggerChipAnimation
     useGameStore.setState({
       street: Street.PreFlop,
       myUserId: 'player-0',
@@ -219,27 +187,23 @@ export const SCENES: Record<string, () => void> = {
       myHole: ['Ah', 'Kd'],
       community: [],
       seats: [
-        makeSeat(0, 'player-0', '我',    820, { bet: 180 }),
-        makeSeat(1, 'player-1', 'Alice', 940, { bet: 60,  is_bot: true }),
-        makeSeat(2, 'player-2', 'Bob',   850, { bet: 150, is_bot: true }),
-        makeSeat(3, 'player-3', 'Carol', 950, { bet: 50,  is_bot: true }),
+        makeSeat(0, 'player-0', '我',     820, { bet: 180 }),
+        makeSeat(1, 'player-1', 'Alice',  940, { bet: 60,  is_bot: true }),
+        makeSeat(2, 'player-2', 'Bob',    850, { bet: 150, is_bot: true }),
+        makeSeat(3, 'player-3', 'Carol',  950, { bet: 50,  is_bot: true }),
         makeSeat(4, 'player-4', 'Dave',  1000, { is_bot: true }),
-        makeSeat(5, 'player-5', 'Eve',   900, { bet: 100, is_bot: true }),
+        makeSeat(5, 'player-5', 'Eve',    900, { bet: 100, is_bot: true }),
         makeSeat(6, 'player-6', 'Frank', 1000, { is_bot: true }),
-        makeSeat(7, 'player-7', 'Grace', 960, { bet: 40,  is_bot: true }),
-        makeSeat(8, 'player-8', 'Hank',  990, { bet: 10,  is_bot: true }),
+        makeSeat(7, 'player-7', 'Grace',  960, { bet: 40,  is_bot: true }),
+        makeSeat(8, 'player-8', 'Hank',   990, { bet: 10,  is_bot: true }),
       ],
     })
-  },
-
-  '筹码飞行 ② 触发': () => {
-    // 从 PreFlop 切到 Flop，触发 triggerChipAnimation
-    useGameStore.setState({
+    setTimeout(() => useGameStore.setState({
       street: Street.Flop,
       action_seat: 1,
       deadlineTs: Date.now() + 25_000,
       community: ['Ac', '7d', '2h'],
-    })
+    }), 100)
   },
 
   '满座（9人）': () => {

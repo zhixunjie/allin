@@ -376,9 +376,9 @@ export class SeatSprite extends Container {
             const R = this.avatarR
             const onLeft = this.displayIdx === 6 || this.displayIdx === 7
             const sign = onLeft ? -1 : 1
-            this.card0.position.set(sign * (R + 62), -34)
+            this.card0.position.set(sign * (R + 10), -34)
             this.card0.rotation = onLeft ? 0.08 : -0.08
-            this.card1.position.set(sign * (R + 92), -34)
+            this.card1.position.set(sign * (R + 40), -34)
             this.card1.rotation = onLeft ? -0.08 : 0.08
         } else {
             this.card0.visible = false
