@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { wsClient } from '../api/ws'
 import { useGameStore } from '../store/game'
+import { useAuthStore } from '../store/auth'
 import type {
   ConnectedPayload,
   GameStartedPayload,
@@ -41,7 +42,13 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     }
 
     // ── 服务端 → 客户端（游戏状态更新） ─────────────────────────────
-    on(WSEventType.Connected,      (p) => store().applyConnected(p as ConnectedPayload))
+    on(WSEventType.Connected, (p) => {
+      const payload = p as ConnectedPayload
+      store().applyConnected(payload)
+      if (payload.chip_balance != null) {
+        useAuthStore.getState().updateChipBalance(payload.chip_balance)
+      }
+    })
     on(WSEventType.PlayerJoined,   (p) => store().applyPlayerJoined(p as PlayerJoinedPayload))
     on(WSEventType.PlayerLeft,     (p) => store().applyPlayerLeft(p as PlayerLeftPayload))
     on(WSEventType.GameStarted,    (p) => store().applyGameStarted(p as GameStartedPayload))

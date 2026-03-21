@@ -1135,12 +1135,19 @@ func (e *Engine) nextEligibleSeatAfter(from int, eligible []*Player) int {
 
 func (e *Engine) sendSnapshot(userID string) {
 	snap := e.gs.Snapshot(userID)
-	e.hub.SendTo(userID, ws.MustEvent(ws.TypeConnected, ws.ConnectedPayload{
+	payload := ws.ConnectedPayload{
 		PlayerID:     userID,
 		DisplayName:  e.hub.DisplayName(userID),
 		RoomCode:     e.room.Code,
 		GameSnapshot: &snap,
-	}))
+	}
+	// 查询账户余额（bot 无 int64 ID，跳过）
+	if uid, err := strconv.ParseInt(userID, 10, 64); err == nil {
+		if u, err := bizdao.UserDao.GetByID(uid); err == nil {
+			payload.ChipBalance = u.ChipBalance
+		}
+	}
+	e.hub.SendTo(userID, ws.MustEvent(ws.TypeConnected, payload))
 }
 
 func (e *Engine) sendError(userID, code, msg string, refSeq int64) {

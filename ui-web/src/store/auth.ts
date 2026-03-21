@@ -8,6 +8,7 @@ interface AuthState {
   setAuth: (token: string, user: User) => void
   clearAuth: () => void
   isLoggedIn: () => boolean
+  updateChipBalance: (balance: number) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -24,6 +25,10 @@ export const useAuthStore = create<AuthState>()(
         set({ token: null, user: null })
       },
       isLoggedIn: () => get().token !== null,
+      updateChipBalance: (balance) => {
+        const u = get().user
+        if (u) set({ user: { ...u, chip_balance: balance } })
+      },
     }),
     {
       name: 'allin-auth',

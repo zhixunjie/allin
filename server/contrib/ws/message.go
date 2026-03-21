@@ -89,6 +89,7 @@ type ConnectedPayload struct {
 	PlayerID     string      `json:"player_id"`
 	DisplayName  string      `json:"display_name"`
 	RoomCode     string      `json:"room_code"`
+	ChipBalance  int64       `json:"chip_balance"` // 买入后账户余额
 	GameSnapshot interface{} `json:"game_snapshot,omitempty"`
 }
 

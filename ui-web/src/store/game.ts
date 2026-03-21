@@ -5,6 +5,7 @@ import { Street, PlayerAction } from '../types/enums'
 
 export interface ConnectedPayload {
   player_id: string        // 本次连接对应的用户 ID
+  chip_balance?: number    // 买入后账户余额
   game_snapshot?: GameSnapshot // 若房间已在进行中，附带当前完整快照
 }
 
