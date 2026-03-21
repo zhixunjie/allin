@@ -44,15 +44,17 @@ function drawChip(
     const NOTCH_R_INNER = R - 9
     for (let i = 0; i < NOTCH_COUNT; i++) {
         const angle = (i / NOTCH_COUNT) * Math.PI * 2
-        // 用细弧线模拟 notch 内的白色填充块
-        g.arc(cx, cy, (NOTCH_R_OUTER + NOTCH_R_INNER) / 2,
-            angle - NOTCH_ARC / 2,
-            angle + NOTCH_ARC / 2,
-        ).stroke({ color: spotColor, width: NOTCH_R_OUTER - NOTCH_R_INNER, alpha: 0.92 })
+        const arcR = (NOTCH_R_OUTER + NOTCH_R_INNER) / 2
+        const startAngle = angle - NOTCH_ARC / 2
+        g.moveTo(cx + arcR * Math.cos(startAngle), cy + arcR * Math.sin(startAngle))
+        g.arc(cx, cy, arcR, startAngle, angle + NOTCH_ARC / 2)
+        g.stroke({ color: spotColor, width: NOTCH_R_OUTER - NOTCH_R_INNER, alpha: 0.92 })
     }
 
     // 5. notch 外侧金属细环（压住 notch 边缘）
+    g.moveTo(cx + R - 1, cy)
     g.circle(cx, cy, R - 1).stroke({ color: 0xb0b0bc, width: 1.5, alpha: 0.7 })
+    g.moveTo(cx + R - 9, cy)
     g.circle(cx, cy, R - 9).stroke({ color: 0x888898, width: 1,   alpha: 0.5 })
 
     // 6. 内侧装饰环（齿轮花纹感）
@@ -61,21 +63,26 @@ function drawChip(
     for (let i = 0; i < DECO_COUNT; i++) {
         const angle = (i / DECO_COUNT) * Math.PI * 2
         const isEven = i % 2 === 0
-        g.arc(cx, cy, DECO_R,
-            angle - Math.PI / DECO_COUNT * 0.6,
-            angle + Math.PI / DECO_COUNT * 0.6,
-        ).stroke({ color: 0xffffff, width: isEven ? 2.5 : 1, alpha: isEven ? 0.18 : 0.07 })
+        const startAngle = angle - Math.PI / DECO_COUNT * 0.6
+        g.moveTo(cx + DECO_R * Math.cos(startAngle), cy + DECO_R * Math.sin(startAngle))
+        g.arc(cx, cy, DECO_R, startAngle, angle + Math.PI / DECO_COUNT * 0.6)
+        g.stroke({ color: 0xffffff, width: isEven ? 2.5 : 1, alpha: isEven ? 0.18 : 0.07 })
     }
 
     // 7. 内圈背景（深色中心区）
     const CENTER_R = R - 17
     const centerDark = blendDark(chipColor, 0.35)
+    g.moveTo(cx + CENTER_R, cy)
     g.circle(cx, cy, CENTER_R).fill({ color: centerDark })
+    g.moveTo(cx + CENTER_R, cy)
     g.circle(cx, cy, CENTER_R).stroke({ color: 0xffffff, width: 1, alpha: 0.12 })
 
     // 8. 中心光泽（径向高光模拟）
-    g.circle(cx - CENTER_R * 0.2, cy - CENTER_R * 0.3, CENTER_R * 0.55)
-        .fill({ color: 0xffffff, alpha: 0.04 })
+    const glowX = cx - CENTER_R * 0.2
+    const glowY = cy - CENTER_R * 0.3
+    const glowR = CENTER_R * 0.55
+    g.moveTo(glowX + glowR, glowY)
+    g.circle(glowX, glowY, glowR).fill({ color: 0xffffff, alpha: 0.04 })
 
     // 9. 面值文字
     const textColor = isLight(chipColor) ? 0x111111 : 0xffffff
