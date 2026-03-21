@@ -12,6 +12,7 @@ import { InjectControls } from './InjectControls'
 import { StateMonitor } from './StateMonitor'
 import { FreeZone } from './FreeZone'
 import { ActionDemo } from './ActionDemo'
+import { ChipDemo } from './ChipDemo'
 
 export default function LabPage() {
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -109,6 +110,9 @@ export default function LabPage() {
         </Section>
         <Section title="行动演示">
           <ActionDemo />
+        </Section>
+        <Section title="筹码演示">
+          <ChipDemo />
         </Section>
         <Section title="自由区">
           <FreeZone />

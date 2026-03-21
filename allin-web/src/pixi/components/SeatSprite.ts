@@ -6,6 +6,7 @@ import {
     C,
     FONT_BODY,
     FONT_HEADLINE,
+    HOLE_CARD_W,
     SEAT_POSITIONS,
     TABLE_CX,
     TABLE_CY,
@@ -372,14 +373,21 @@ export class SeatSprite extends Container {
             this.card0.visible = true
             this.card1.visible = true
 
-            // 左侧玩家手牌放左边，避免遮挡朝桌心的下注徽章
+            // 左侧玩家手牌放左边，右边其余玩家放右边
+            // 左侧：卡牌锚点在左上角，需额外偏移 HOLE_CARD_W 使右边缘贴住头像
             const R = this.avatarR
             const onLeft = this.displayIdx === 6 || this.displayIdx === 7
-            const sign = onLeft ? -1 : 1
-            this.card0.position.set(sign * (R + 10), -34)
-            this.card0.rotation = onLeft ? 0.08 : -0.08
-            this.card1.position.set(sign * (R + 40), -34)
-            this.card1.rotation = onLeft ? -0.08 : 0.08
+            if (onLeft) {
+                this.card0.position.set(-(R + 10 + HOLE_CARD_W), -34)
+                this.card0.rotation = 0.08
+                this.card1.position.set(-(R + 40 + HOLE_CARD_W), -34)
+                this.card1.rotation = -0.08
+            } else {
+                this.card0.position.set(R + 10, -34)
+                this.card0.rotation = -0.08
+                this.card1.position.set(R + 40, -34)
+                this.card1.rotation = 0.08
+            }
         } else {
             this.card0.visible = false
             this.card1.visible = false
