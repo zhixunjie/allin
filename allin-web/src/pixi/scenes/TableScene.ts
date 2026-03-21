@@ -352,7 +352,9 @@ export class TableScene {
         if (state.deadlineTs && state.action_seat >= 0) {
             const displayIdx = this.toDisplaySeat(state.action_seat)
             const pos = SEAT_POSITIONS[displayIdx]
-            const r = displayIdx === 0 ? AVATAR_R_LOCAL : AVATAR_R_REMOTE
+            // 本地玩家：弧道放在金色光环外侧的银白轨道上（R+50 → setRadius 内部 +4 → 实际 R+54）
+            // 远端玩家：贴着头像边缘（R+4）
+            const r = displayIdx === 0 ? AVATAR_R_LOCAL + 50 : AVATAR_R_REMOTE
 
             this.timerArc.setRadius(r)
             this.timerArc.position.set(pos.x, pos.y)
