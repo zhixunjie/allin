@@ -17,12 +17,14 @@ import { ChipDemo } from './ChipDemo'
 import { ActionPanelDemo } from './ActionPanelDemo'
 import { ActionPanel } from '../../panels/ActionPanel'
 import { RoundResultModal } from '../../panels/RoundResultModal'
+import { CardGallery } from './CardGallery'
 import { useGameState } from '../../../hooks/useGameState'
 
 export default function LabPage() {
   const canvasRef = useRef<HTMLDivElement>(null)
   const [activeScene, setActiveScene] = useState<string>('')
   const [topOpen, setTopOpen]   = useState(true)
+  const [cardGalleryOpen, setCardGalleryOpen] = useState(false)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(false)
   const [actionScenario, setActionScenario] = useState<'hidden' | 'check_bet' | 'call_raise'>('hidden')
@@ -55,9 +57,12 @@ export default function LabPage() {
       {/* 结算弹窗 overlay */}
       <RoundResultModal />
 
+      {/* 扑克牌展示 overlay */}
+      {cardGalleryOpen && <CardGallery onClose={() => setCardGalleryOpen(false)} />}
+
       {/* 行动面板 overlay：仅 actionScenario !== 'hidden' 时出现 */}
       {actionScenario !== 'hidden' && (
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-full max-w-[720px] px-6 pointer-events-auto">
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 w-full max-w-[720px] px-6 pointer-events-auto">
           <ActionPanel gs={gs} />
         </div>
       )}
@@ -125,6 +130,14 @@ export default function LabPage() {
         </Section>
         <Section title="筹码演示">
           <ChipDemo />
+        </Section>
+        <Section title="扑克牌">
+          <button
+            onClick={() => setCardGalleryOpen(true)}
+            className="text-left text-xs px-3 py-1.5 rounded transition-colors text-white/60 hover:text-white hover:bg-white/5"
+          >
+            展示全部 52 张
+          </button>
         </Section>
         <Section title="自由区">
           <FreeZone />
