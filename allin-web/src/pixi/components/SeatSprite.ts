@@ -594,11 +594,23 @@ function makeDefaultAvatarTexture(userId: string, displayName: string): Texture 
     canvas.height = SIZE
     const ctx = canvas.getContext('2d')!
 
-    // 背景色：基于 userId 的稳定哈希值
-    const hue = Math.abs(userId.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0)) % 360
+    // 精选色板：避免 HSL 全域随机产生的泥黄/黄绿等丑色
+    const PALETTE: [string, string][] = [
+        ['#1e4d7a', '#0d2440'],  // 深海蓝
+        ['#1a5c45', '#0d2e22'],  // 翡翠绿
+        ['#5c1a4a', '#2e0d24'],  // 深玫红
+        ['#4a1e6e', '#250d38'],  // 暗紫
+        ['#1e5c5c', '#0d2e2e'],  // 青碧
+        ['#6e3a1e', '#381d0d'],  // 琥珀棕
+        ['#1e3d6e', '#0d1e38'],  // 宝石蓝
+        ['#5c3a1a', '#2e1d0d'],  // 赤铜
+    ]
+    const idx = Math.abs(userId.split('').reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0)) % PALETTE.length
+    const [light, dark] = PALETTE[idx]
+
     const grad = ctx.createRadialGradient(SIZE / 2, SIZE / 2, 0, SIZE / 2, SIZE / 2, SIZE / 2)
-    grad.addColorStop(0, `hsl(${hue}, 55%, 40%)`)
-    grad.addColorStop(1, `hsl(${hue}, 45%, 22%)`)
+    grad.addColorStop(0, light)
+    grad.addColorStop(1, dark)
     ctx.fillStyle = grad
     ctx.beginPath()
     ctx.arc(SIZE / 2, SIZE / 2, SIZE / 2, 0, Math.PI * 2)
