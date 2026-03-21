@@ -676,7 +676,7 @@ function loadDiceBearTexture(userId: string): Promise<Texture> {
     const cached = _diceBearCache.get(userId)
     if (cached) return cached
 
-    const url = `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(userId)}`
+    const url = `https://api.dicebear.com/9.x/toon-head/svg?seed=${encodeURIComponent(userId)}`
     const promise = fetch(url)
         .then(r => r.text())
         .then(svgText => new Promise<Texture>((resolve, reject) => {
