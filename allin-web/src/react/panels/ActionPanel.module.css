@@ -1,4 +1,4 @@
-/* Galactic Casino — Action Dock */
+/* ── Action Dock ─────────────────────────────────────── */
 
 .root {
   width: 100%;
@@ -8,119 +8,198 @@
 
 .dock {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
-  background: rgba(4, 8, 16, 0.95);
+  background: rgba(4, 8, 16, 0.92);
   backdrop-filter: blur(24px);
-  border-radius: 3rem;
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  box-shadow: 0 -15px 50px rgba(0, 0, 0, 0.8);
-  padding: 14px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+  padding: 10px 12px;
   width: 100%;
   max-width: 700px;
 }
 
-/* ---- Base action button ---- */
+/* ── 通用按钮基底 ─────────────────────────────────────── */
+
 .actionBtn {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 12px 4px;
-  border: none;
-  border-radius: 16px;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border: 1px solid transparent;
+  border-radius: 14px;
   background: transparent;
   cursor: pointer;
-  transition: all 0.3s ease;
-  min-width: 50px;
-}
-
-.actionBtn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  transform: scale(1.05);
+  transition: all 0.18s ease;
+  min-width: 52px;
 }
 
 .actionBtn:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .icon {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .label {
   font-family: 'Manrope', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+/* ── 弃牌 — 红色危险 ─────────────────────────────────── */
+
+.fold {
+  color: rgba(248, 113, 113, 0.55);
+  border-color: rgba(248, 113, 113, 0.1);
+}
+
+.fold:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.28);
+  transform: scale(1.04);
+}
+
+/* ── 过牌 — 中性灰白 ─────────────────────────────────── */
+
+.check {
+  color: rgba(203, 213, 225, 0.55);
+  border-color: rgba(203, 213, 225, 0.08);
+}
+
+.check:hover {
+  color: #e2e8f0;
+  background: rgba(203, 213, 225, 0.08);
+  border-color: rgba(203, 213, 225, 0.22);
+  transform: scale(1.04);
+}
+
+/* ── 跟注 — 绿色正向 ─────────────────────────────────── */
+
+.call {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.28);
+  color: #4ade80;
+}
+
+.call:hover {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: rgba(74, 222, 128, 0.55);
+  transform: scale(1.05);
+  box-shadow: 0 0 18px rgba(74, 222, 128, 0.22);
+}
+
+.callAmount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── 加注组 ─────────────────────────────────────────── */
+
+.raiseGroup {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(212, 175, 55, 0.06);
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 14px;
+  padding: 7px 8px;
+  transition: border-color 0.2s;
+}
+
+.raiseGroup:hover {
+  border-color: rgba(212, 175, 55, 0.42);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.1);
+}
+
+/* 底池比例快捷按钮行 */
+.presets {
+  display: flex;
+  gap: 4px;
+}
+
+.preset {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 7px;
+  padding: 4px 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.preset:hover {
+  background: rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.48);
+}
+
+.preset:hover .presetLabel,
+.preset:hover .presetAmt {
+  color: #d4af37;
+}
+
+.presetLabel {
+  font-family: 'Manrope', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(212, 175, 55, 0.5);
   text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* ---- Fold ---- */
-.fold {
-  color: rgba(175, 205, 189, 0.7);
-}
-.fold:hover {
-  color: #fff;
-}
-
-/* ---- Check ---- */
-.check {
-  color: rgba(175, 205, 189, 0.7);
-}
-.check:hover {
-  color: #fff;
+.presetAmt {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(212, 175, 55, 0.75);
+  white-space: nowrap;
 }
 
-/* ---- Call ---- */
-.call {
-  color: rgba(175, 205, 189, 0.7);
-}
-.call:hover {
-  color: #fff;
-}
-
-/* ---- Raise group (inline -/amount/+) ---- */
-.raiseGroup {
-  flex: 1.8;
+/* 微调 + 确认 行 */
+.raiseRow {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
-  padding: 4px;
   gap: 4px;
-  border: 1px solid rgba(212, 175, 55, 0.2);
-  transition: all 0.3s ease;
-}
-
-.raiseGroup:hover {
-  border-color: rgba(212, 175, 55, 0.4);
-  box-shadow: 0 0 25px rgba(212, 175, 55, 0.15);
 }
 
 .adjBtn {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: none;
-  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  border-radius: 10px;
   color: #d4af37;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   cursor: pointer;
-  transition: all 0.3s;
-  flex-shrink: 0;
+  transition: all 0.15s;
 }
 
 .adjBtn:hover {
   background: rgba(212, 175, 55, 0.15);
+  border-color: rgba(212, 175, 55, 0.4);
   transform: scale(1.1);
-  box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
 }
 
 .raiseCenter {
@@ -128,40 +207,47 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 6px 4px;
+  gap: 1px;
+  padding: 4px;
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: transform 0.3s;
+  transition: transform 0.15s;
 }
 
 .raiseCenter:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
-.raiseCenter .icon {
-  font-size: 16px;
-  color: rgba(175, 205, 189, 0.8);
-}
-
-.raiseLabel {
+.raiseAction {
   font-family: 'Manrope', sans-serif;
-  font-size: 12px;
+  font-size: 9px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(212, 175, 55, 0.55);
+}
+
+.raiseAmount {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
   color: #d4af37;
   white-space: nowrap;
 }
 
-/* ---- All-In — Hero button ---- */
+/* ── 全押 — 金色英雄 ─────────────────────────────────── */
+
 .allIn {
   background: linear-gradient(135deg, #d4af37, #b8952c);
+  border-color: transparent;
   color: #060c14;
-  box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+  animation: pulseGold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .allIn .icon {
   color: #060c14;
+  font-size: 16px;
 }
 
 .allIn .label {
@@ -170,19 +256,11 @@
 }
 
 .allIn:hover {
-  transform: scale(1.1) !important;
-  box-shadow: 0 0 40px rgba(212, 175, 55, 0.8);
+  transform: scale(1.08) !important;
+  box-shadow: 0 0 32px rgba(212, 175, 55, 0.75);
 }
 
 @keyframes pulseGold {
-  0%, 100% {
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(212, 175, 55, 0.7);
-  }
-}
-
-.allIn {
-  animation: pulseGold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  0%, 100% { box-shadow: 0 0 12px rgba(212, 175, 55, 0.35); }
+  50%       { box-shadow: 0 0 26px rgba(212, 175, 55, 0.65); }
 }

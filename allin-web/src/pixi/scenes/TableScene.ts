@@ -263,7 +263,7 @@ export class TableScene {
         }
     }
 
-    /** 9 个座位精灵，displayIdx=0 为本地玩家（大头像） */
+    /** 始终创建 9 个座位精灵，displayIdx=0 为本地玩家（大头像） */
     private buildSeats() {
         for (let i = 0; i < 9; i++) {
             const sprite = new SeatSprite(i === 0)
@@ -309,12 +309,22 @@ export class TableScene {
         this.prevActionSeat = state.action_seat
     }
 
-    /** 更新 9 个座位精灵的位置和内容 */
+    /** 更新 9 个座位精灵；超出 maxPlayers 的槽位直接隐藏 */
     private updateSeats(state: GameState) {
         const myUserId = state.myUserId
         const occupiedServerSeats = state.seats.map((s) => s.seat_index)
+        const maxPlayers = state.config?.max_players ?? 9
 
         for (let displayIdx = 0; displayIdx < 9; displayIdx++) {
+            const sprite = this.seatSprites[displayIdx]
+
+            // 超出房间座位数的槽位隐藏
+            if (displayIdx >= maxPlayers) {
+                sprite.visible = false
+                continue
+            }
+            sprite.visible = true
+
             const serverIdx = this.toServerSeat(displayIdx)
             const seatData = state.seats.find((s) => s.seat_index === serverIdx) ?? null
             const isActive = seatData !== null
@@ -326,8 +336,8 @@ export class TableScene {
                 : undefined
 
             const pos = SEAT_POSITIONS[displayIdx]
-            this.seatSprites[displayIdx].position.set(pos.x, pos.y)
-            this.seatSprites[displayIdx].update(
+            sprite.position.set(pos.x, pos.y)
+            sprite.update(
                 seatData,
                 isActive,
                 seatData?.user_id === myUserId ? state.myHole : undefined,

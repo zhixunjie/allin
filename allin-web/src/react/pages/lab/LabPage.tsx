@@ -7,12 +7,16 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { initPixiApp } from '../../../pixi/app'
-import { SCENES } from './scenes'
+import { SCENE_LIST, findScene } from './scenes'
+import type { SceneEntry } from './scenes'
 import { InjectControls } from './InjectControls'
 import { StateMonitor } from './StateMonitor'
 import { FreeZone } from './FreeZone'
 import { ActionDemo } from './ActionDemo'
 import { ChipDemo } from './ChipDemo'
+import { ActionPanelDemo } from './ActionPanelDemo'
+import { ActionPanel } from '../../panels/ActionPanel'
+import { useGameState } from '../../../hooks/useGameState'
 
 export default function LabPage() {
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -20,21 +24,22 @@ export default function LabPage() {
   const [topOpen, setTopOpen]   = useState(true)
   const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(false)
+  const [actionScenario, setActionScenario] = useState<'hidden' | 'check_bet' | 'call_raise'>('hidden')
+  const gs = useGameState()
 
   useEffect(() => {
     if (!canvasRef.current) return
     let cleanup: (() => void) | null = null
     initPixiApp(canvasRef.current).then((fn) => {
       cleanup = fn
-      const first = Object.keys(SCENES)[0]
-      SCENES[first]()
-      setActiveScene(first)
+      const first = SCENE_LIST.find((e): e is Extract<SceneEntry, { kind: 'scene' }> => e.kind === 'scene')
+      if (first) { first.fn(); setActiveScene(first.name) }
     })
     return () => { cleanup?.() }
   }, [])
 
   function applyScene(name: string) {
-    SCENES[name]()
+    findScene(name)?.()
     setActiveScene(name)
   }
 
@@ -45,6 +50,13 @@ export default function LabPage() {
       <main className="absolute inset-0 flex items-center justify-center">
         <div ref={canvasRef} className="w-full h-full flex items-center justify-center" />
       </main>
+
+      {/* 行动面板 overlay：仅 actionScenario !== 'hidden' 时出现 */}
+      {actionScenario !== 'hidden' && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 w-full max-w-[720px] px-6 pointer-events-auto">
+          <ActionPanel gs={gs} />
+        </div>
+      )}
 
       {/* 顶部抽屉 */}
       <div
@@ -96,20 +108,16 @@ export default function LabPage() {
         ].join(' ')}
       >
         <Section title="预设场景">
-          {Object.keys(SCENES).map((name) => (
-            <SceneBtn
-              key={name}
-              label={name}
-              active={activeScene === name}
-              onClick={() => applyScene(name)}
-            />
-          ))}
+          <SceneList entries={SCENE_LIST} activeScene={activeScene} onApply={applyScene} />
         </Section>
         <Section title="快速注入">
           <InjectControls />
         </Section>
         <Section title="行动演示">
           <ActionDemo />
+        </Section>
+        <Section title="行动栏预览">
+          <ActionPanelDemo active={actionScenario} onToggle={setActionScenario} />
         </Section>
         <Section title="筹码演示">
           <ChipDemo />
@@ -176,5 +184,66 @@ function SceneBtn({ label, active, onClick }: { label: string; active: boolean; 
     >
       {label}
     </button>
+  )
+}
+
+function SceneGroup({ label, items, activeScene, onApply }: {
+  label: string
+  items: { name: string; fn: () => void }[]
+  activeScene: string
+  onApply: (name: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full text-left text-xs px-3 py-1.5 rounded flex items-center justify-between text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors"
+      >
+        <span>{label}</span>
+        <span className="text-white/30">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <div className="ml-3 flex flex-col gap-0.5 mt-0.5">
+          {items.map((item) => (
+            <SceneBtn
+              key={item.name}
+              label={item.name}
+              active={activeScene === item.name}
+              onClick={() => onApply(item.name)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SceneList({ entries, activeScene, onApply }: {
+  entries: SceneEntry[]
+  activeScene: string
+  onApply: (name: string) => void
+}) {
+  return (
+    <>
+      {entries.map((entry) =>
+        entry.kind === 'scene' ? (
+          <SceneBtn
+            key={entry.name}
+            label={entry.name}
+            active={activeScene === entry.name}
+            onClick={() => onApply(entry.name)}
+          />
+        ) : (
+          <SceneGroup
+            key={entry.label}
+            label={entry.label}
+            items={entry.items}
+            activeScene={activeScene}
+            onApply={onApply}
+          />
+        )
+      )}
+    </>
   )
 }
