@@ -34,6 +34,7 @@ import {CardSprite} from './CardSprite'
  */
 export class SeatSprite extends Container {
     private avatarBg!: Graphics      // 头像圆形背景 + 描边
+    private allInGlow!: Graphics     // ALL-IN 脉冲光晕层（独立图层，仅 tick 时更新）
     private avatarImg!: Sprite       // 头像图片
     private nameText!: Text          // 玩家昵称
     private stackText!: Text         // 筹码金额
@@ -53,6 +54,8 @@ export class SeatSprite extends Container {
     private isLocal: boolean        // 是否为本地玩家（底部大头像），false 表示远端玩家
     private avatarR: number         // 头像半径（本地 38，远程 38）
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
+    private isAllIn   = false       // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
+    private allInTime = 0           // 累计时间（ms），用于 sin 脉冲计算
 
     /**
      * @param isLocal 是否为本地玩家座位（displayIdx=0，使用大头像 + 特殊布局）
@@ -80,6 +83,10 @@ export class SeatSprite extends Container {
     private buildAvatar() {
         this.avatarBg = new Graphics()
         this.addChild(this.avatarBg)
+
+        // ALL-IN 脉冲光晕层：位于 avatarBg 之上、avatarImg 之下，仅 tick 时更新
+        this.allInGlow = new Graphics()
+        this.addChild(this.allInGlow)
 
         // 头像图片 Sprite
         this.avatarImg = new Sprite()
@@ -142,7 +149,7 @@ export class SeatSprite extends Container {
                 text: '',
                 style: {
                     fontFamily: FONT_BODY,
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: '900',
                     fill: C.VOID,
                     letterSpacing: 3,
@@ -176,7 +183,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: this.isLocal ? 22 : 14,   // 本地大号，远程小号
+                fontSize: this.isLocal ? 16 : 14,   // 本地略大，远程小号
                 fontWeight: '900',
                 fill: C.GOLD,
                 letterSpacing: this.isLocal ? 1.5 : 0,
@@ -271,7 +278,7 @@ export class SeatSprite extends Container {
 
         this.updateBaseLayer(seat, isActive)   // 头像框光晕 / 弃牌灰度
         this.updatePlayerInfo(seat)             // 昵称 + 筹码余额
-        this.updatePosTag(posName)              // BTN/SB/BB 等身份标签
+        this.updatePosTag(posName, seat.all_in && !seat.folded)  // ALL-IN 时标签变红
         this.updateBetBadge(seat)               // 本街下注徽章
         this.updateStatusBadge(seat)            // 已弃牌 / ALL-IN 状态徽章
         this.updateHandCards(seat, myHole)      // 手牌（本地明牌，远程背面）
@@ -320,12 +327,12 @@ export class SeatSprite extends Container {
         // 本地玩家筹码位置已在 drawAvatar 中设置，无需重新布局
     }
 
-    /** 更新座次头衔（BTN/SB等）：如无身份则隐形 */
-    private updatePosTag(posName?: string) {
+    /** 更新座次头衔（BTN/SB等）：如无身份则隐形；ALL-IN 时标签变红 */
+    private updatePosTag(posName?: string, isAllIn = false) {
         if (posName) {
             this.posTag.visible = true
             this.posTagText.text = posName
-            this.layoutPosTag(posName)
+            this.layoutPosTag(posName, isAllIn)
         } else {
             this.posTag.visible = false
         }
@@ -350,10 +357,7 @@ export class SeatSprite extends Container {
             this.statusBadgeText.style.fill = 0xaaaaaa
             this.layoutStatusBadge(false)
         } else if (seat.all_in) {
-            this.statusBadge.visible = true
-            this.statusBadgeText.text = 'ALL IN'
-            this.statusBadgeText.style.fill = 0xffffff
-            this.layoutStatusBadge(true)
+            this.statusBadge.visible = false
         } else {
             this.statusBadge.visible = false
         }
@@ -438,6 +442,13 @@ export class SeatSprite extends Container {
         const R = this.avatarR
         this.avatarBg.clear()
 
+        // 更新 ALL-IN 动画状态（非 ALL-IN 时清空脉冲层，重置计时）
+        this.isAllIn = isAllIn && !isFolded
+        if (!this.isAllIn) {
+            this.allInGlow.clear()
+            this.allInTime = 0
+        }
+
         // ── 底层玻璃填充 ──────────────────────────────────────
         this.avatarBg.circle(0, 0, R)
         this.avatarBg.fill({color: C.GLASS, alpha: isFolded ? 0.3 : 0.88})
@@ -447,7 +458,7 @@ export class SeatSprite extends Container {
             this.avatarBg.circle(0, 0, R).stroke({color: 0x555555, width: 1.5, alpha: 0.4})
             this.alpha = 0.4
         } else if (isAllIn) {
-            // ALL-IN：红色多层扩散光晕，视觉上最突出
+            // ALL-IN 静态底框（动画部分由 tick 驱动 allInGlow 覆盖）
             this.drawAllInFrame(R)
             this.alpha = 1
         } else if (this.isLocal) {
@@ -537,7 +548,7 @@ export class SeatSprite extends Container {
     }
 
 
-    /** ALL-IN 头像框：红色多层向外扩散光晕，传递爆表紧迫感 */
+    /** ALL-IN 静态底框：红色多层扩散光晕，由 drawFilled 绘制一次 */
     private drawAllInFrame(R: number) {
         this.avatarBg.circle(0, 0, R + 30).stroke({color: C.ERROR, width: 1,   alpha: 0.04})
         this.avatarBg.circle(0, 0, R + 20).stroke({color: C.ERROR, width: 1.5, alpha: 0.10})
@@ -547,10 +558,45 @@ export class SeatSprite extends Container {
         this.avatarBg.circle(0, 0, R -  3).stroke({color: C.ERROR, width: 1.5, alpha: 0.35})
     }
 
-    /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像正上方，动态宽度的玻璃药丸背景 */
-    private layoutPosTag(name: string) {
+    /**
+     * 每帧驱动动画，由 TableScene.onTick 调用。
+     * 目前仅处理 ALL-IN 脉冲光晕：以 1.5s 为周期在红金之间呼吸，
+     * 外层光晕半径和 alpha 随 sin 波浮动，制造"能量燃烧"感。
+     */
+    tick(deltaMS: number) {
+        if (!this.isAllIn) return
+
+        this.allInTime += deltaMS
+        const R = this.avatarR
+
+        // sin 波：0→1→0，周期 1500ms
+        const pulse = (Math.sin((this.allInTime / 1500) * Math.PI * 2 - Math.PI / 2) + 1) / 2
+
+        // 浅粉红(0xff8a80) 与 金(C.GOLD) 之间线性插值，随 pulse 平滑过渡
+        const r1 = 0xff, g1 = 0x8a, b1 = 0x80  // 浅粉红
+        const r2 = (C.GOLD >> 16) & 0xff, g2 = (C.GOLD >> 8) & 0xff, b2 = C.GOLD & 0xff
+        const r = Math.round(r1 + (r2 - r1) * pulse)
+        const g = Math.round(g1 + (g2 - g1) * pulse)
+        const b = Math.round(b1 + (b2 - b1) * pulse)
+        const color = (r << 16) | (g << 8) | b
+
+        // 外晕半径随脉冲扩张 (R+28 ~ R+38)
+        const outerR = R + 28 + pulse * 10
+
+        this.allInGlow.clear()
+        this.allInGlow.circle(0, 0, outerR).stroke({color, width: 1,   alpha: 0.04 + pulse * 0.06})
+        this.allInGlow.circle(0, 0, R + 18).stroke({color, width: 1.5, alpha: 0.08 + pulse * 0.12})
+        this.allInGlow.circle(0, 0, R +  8).stroke({color, width: 2.5, alpha: 0.18 + pulse * 0.22})
+        this.allInGlow.circle(0, 0, R +  2).stroke({color, width: 5,   alpha: 0.55 + pulse * 0.35})
+    }
+
+    /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像正上方；ALL-IN 时边框变红，文字保持不变 */
+    private layoutPosTag(name: string, isAllIn = false) {
         const R = this.avatarR
         this.posTag.position.set(0, -R - 16)
+
+        const tagColor = isAllIn ? C.ERROR : C.GREEN
+        this.posTagText.style.fill = isAllIn ? C.ERROR : C.GREEN
 
         const bg = this.posTag.getChildAt(0) as Graphics
         bg.clear()
@@ -559,7 +605,7 @@ export class SeatSprite extends Container {
         bg.roundRect(-tw / 2, -10, tw, 20, 10)
         bg.fill({color: C.GLASS, alpha: 0.95})
         bg.roundRect(-tw / 2, -10, tw, 20, 10)
-        bg.stroke({color: C.GREEN, width: 1, alpha: 0.5})
+        bg.stroke({color: tagColor, width: 1, alpha: isAllIn ? 0.8 : 0.5})
     }
 
     /**

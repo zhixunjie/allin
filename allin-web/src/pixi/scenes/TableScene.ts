@@ -105,6 +105,10 @@ export class TableScene {
         this.timerArc.tick()
         this.dealAnim.tick(ticker.deltaMS)
         this.chipAnim.tick(ticker.deltaMS)
+        // ALL-IN 脉冲光晕动画
+        for (const seat of this.seatSprites) {
+            seat.tick(ticker.deltaMS)
+        }
     }
 
     // ═══════ 构建方法 ═══════
