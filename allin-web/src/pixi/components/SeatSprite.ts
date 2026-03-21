@@ -18,7 +18,7 @@ import {CardSprite} from './CardSprite'
  * 视觉结构（从底到顶）：
  *   avatarBg       — 头像圆形背景（玻璃面板 + 描边/活跃光环）
  *   avatarIcon     — 头像 emoji（玩家基于 userId 哈希分配，bot 固定 🤖）
- *   posTag         — 位置标签（BTN/SB/BB/UTG 等），浮动于头像上方
+ *   posTag         — 位置标签（BTN/SB/BB/UTG 等），悬浮于头像左上角（225° 方向）
  *   nameBadge      — 本地玩家的金色名称底板（仅本地玩家）
  *   nameText       — 玩家昵称
  *   stackPanel     — 本地玩家的筹码面板（玻璃底板 + 金色边框）
@@ -96,7 +96,7 @@ export class SeatSprite extends Container {
         this.addChild(mask)
     }
 
-    /** 初始化身份标签栏（例如："BTN", "SB", "BB", "UTG"）：位于头像正上方 */
+    /** 初始化身份标签栏（例如："BTN", "SB", "BB", "UTG"）：悬浮于头像左上角（225° 方向） */
     private buildPosTag() {
         this.posTag = new Container()
         this.posTag.visible = false
@@ -122,7 +122,7 @@ export class SeatSprite extends Container {
     /** 初始化玩家昵称展示：本地玩家配有金色底标，远程玩家为底部极简文字 */
     private buildNameText() {
         this.nameBadge = new Graphics()
-        
+
         if (this.isLocal) {
             // 本地玩家：头像底部的金色药丸形名称徽章
             this.addChild(this.nameBadge)
@@ -198,7 +198,7 @@ export class SeatSprite extends Container {
         const betBg = new Graphics()  // 徽章背景（绿色药丸 + 金色边框）
         this.betBadge.addChild(betBg)
 
-        this.betIcon = new Text({ text: '🪙', style: {fontSize: 12} })
+        this.betIcon = new Text({text: '🪙', style: {fontSize: 12}})
         this.betIcon.anchor.set(0.5)
         this.betBadge.addChild(this.betIcon)
 
@@ -274,7 +274,7 @@ export class SeatSprite extends Container {
 
     // ─── 更新分解 ──────────────────────────────────────────────
 
-    /** 
+    /**
      * 核心渲染底层容器的流态：
      * 包括轮光（Active/倒计时）、头像图像和玻璃衬底的弃牌透明衰减，
      * 以及决定是否去网络爬取自定义 URL 图片或直接启用本地渲染生成后备图。
@@ -361,7 +361,7 @@ export class SeatSprite extends Container {
     private updateHandCards(seat: SeatSnapshot, myHole?: string[]) {
         // 手牌显示逻辑：本地玩家用 myHole，远程使用 seat.hole（仅 show down 可见）
         const hole = this.isLocal ? myHole : seat.hole
-        
+
         if (hole && hole.length === 2 && !seat.folded) {
             this.card0.setCard(hole[0])
             this.card1.setCard(hole[1])
@@ -385,11 +385,11 @@ export class SeatSprite extends Container {
         const R = this.avatarR
 
         this.avatarBg.clear()
-        
+
         // 1. 底板填充（微亮）
         this.avatarBg.circle(0, 0, R)
         this.avatarBg.fill({color: C.SURFACE_HIGH, alpha: 0.15})
-        
+
         // 2. 淡虚线或纯细线边框以暗示空位
         this.avatarBg.circle(0, 0, R)
         this.avatarBg.stroke({color: C.TEXT_DIM, width: 1.5, alpha: 0.2})
@@ -397,9 +397,9 @@ export class SeatSprite extends Container {
         // 3. 正中心增加一个低调的 "+" 符号
         const cross = this.isLocal ? 16 : 10
         this.avatarBg.moveTo(-cross, 0).lineTo(cross, 0)
-                     .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
+            .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
         this.avatarBg.moveTo(0, -cross).lineTo(0, cross)
-                     .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
+            .stroke({color: C.TEXT_DIM, width: 3, alpha: 0.3, cap: 'round'})
 
         // 移除图像元素
         this.avatarImg.texture = Texture.EMPTY
@@ -484,18 +484,18 @@ export class SeatSprite extends Container {
     private drawLocalFrame(R: number, isActive: boolean) {
         if (isActive) {
             // 行动中：多层金色向外扩散光晕
-            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1,   alpha: 0.06})
-            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1.5, alpha: 0.14})
-            this.avatarBg.circle(0, 0, R +  4).stroke({color: C.GOLD, width: 2,   alpha: 0.30})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 3,   alpha: 0.90})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.30})
+            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1, alpha: 0.06})
+            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1.5, alpha: 0.14})
+            this.avatarBg.circle(0, 0, R + 4).stroke({color: C.GOLD, width: 2, alpha: 0.30})
+            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 3, alpha: 0.90})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1, alpha: 0.30})
         } else {
             // 普通：同款多层扩散，alpha 整体调低，主角常驻光感
-            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1,   alpha: 0.03})
-            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1.5, alpha: 0.07})
-            this.avatarBg.circle(0, 0, R +  4).stroke({color: C.GOLD, width: 2,   alpha: 0.15})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 3,   alpha: 0.55})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.18})
+            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1, alpha: 0.03})
+            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1.5, alpha: 0.07})
+            this.avatarBg.circle(0, 0, R + 4).stroke({color: C.GOLD, width: 2, alpha: 0.15})
+            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 3, alpha: 0.55})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1, alpha: 0.18})
         }
     }
 
@@ -505,21 +505,17 @@ export class SeatSprite extends Container {
      */
     private drawRemoteFrame(R: number, isActive: boolean) {
         if (isActive) {
-            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1,   alpha: 0.08})
-            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.GOLD, width: 1.5, alpha: 0.18})
-            this.avatarBg.circle(0, 0, R +  2).stroke({color: C.GOLD, width: 2,   alpha: 0.36})
-            this.avatarBg.circle(0, 0, R     ).stroke({color: C.GOLD, width: 2.5, alpha: 0.85})
+            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1, alpha: 0.08})
+            this.avatarBg.circle(0, 0, R + 5).stroke({color: C.GOLD, width: 1.5, alpha: 0.18})
+            this.avatarBg.circle(0, 0, R + 2).stroke({color: C.GOLD, width: 2, alpha: 0.36})
+            this.avatarBg.circle(0, 0, R).stroke({color: C.GOLD, width: 2.5, alpha: 0.85})
         } else {
-            // 普通：银蓝主边框 + 内侧斜切细线
-            this.avatarBg.circle(0, 0, R + 1).stroke({color: 0xb8c8e0, width: 2.5, alpha: 0.28})
-            this.avatarBg.circle(0, 0, R - 3).stroke({color: 0xffffff,  width: 1,   alpha: 0.07})
-            // 4 方位角装饰弧（瞄准框感）
-            const arcR   = R + 6
-            const arcLen = 0.36
-            for (const a of [-Math.PI / 2, 0, Math.PI / 2, Math.PI]) {
-                this.avatarBg.arc(0, 0, arcR, a - arcLen / 2, a + arcLen / 2)
-                this.avatarBg.stroke({color: C.GOLD_DIM, width: 2, alpha: 0.50})
-            }
+            // 普通：多层银白向外扩散光晕
+            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.03})
+            this.avatarBg.circle(0, 0, R + 5).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.08})
+            this.avatarBg.circle(0, 0, R + 2).stroke({color: C.TEXT_PRIMARY, width: 2, alpha: 0.18})
+            this.avatarBg.circle(0, 0, R).stroke({color: C.TEXT_PRIMARY, width: 2.5, alpha: 0.45})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.12})
         }
     }
 
@@ -543,11 +539,13 @@ export class SeatSprite extends Container {
         this.stackLabel.position.set(0, panelY + panelH / 2 + 12)
     }
 
-    /** 布局位置标签（BTN/SB/BB 等）— 放置在头像正上方，动态宽度的玻璃药丸背景 */
+    /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像左上角（225° 方向），动态宽度的玻璃药丸背景 */
     private layoutPosTag(name: string) {
         const R = this.avatarR
-        // 头像上方
-        this.posTag.position.set(0, -R - 16)
+        // 225° 方向（标准数学角，屏幕坐标下对应左上角）
+        const angle = 225 * Math.PI / 180
+        const dist = R + 14
+        this.posTag.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist)
 
         const bg = this.posTag.getChildAt(0) as Graphics
         bg.clear()
@@ -633,7 +631,7 @@ const _defaultAvatarCache = new Map<string, Texture>()
  * 使用纯 Canvas API 本地降级生成备选头像材质：
  * 背景色由其 userId 进行 Hash 并映射至一套稳定的色相光域中，中心附带昵称的单字符简显。
  * 生成出来的图像结果会永久全局缓存于 _defaultAvatarCache 中，多席同位均无性消耗。
- * 
+ *
  * @param userId 确定性散列凭证
  * @param displayName 获取首字母印花来源
  */
