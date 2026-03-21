@@ -96,14 +96,25 @@ export class SeatSprite extends Container {
         this.addChild(mask)
     }
 
-    /** 初始化身份标签栏（例如："BTN", "SB", "BB", "UTG"）：悬浮于头像左上角（225° 方向） */
+    /**
+     * 初始化桌位身份标签（BTN / SB / BB / UTG 等）。
+     *
+     * 结构：posTag（Container）
+     *   ├─ posTagBg（Graphics）  — 圆角药丸背景，颜色在 layoutPosTag() 中每帧动态绘制
+     *   └─ posTagText（Text）    — 标签文字，锚点居中，内容在 updatePosTag() 中赋值
+     *
+     * 默认隐藏（visible = false），仅当该座位被分配到身份时才显示。
+     * 位置由 layoutPosTag() 计算，固定悬浮在头像左上角（225° 方向）。
+     */
     private buildPosTag() {
         this.posTag = new Container()
         this.posTag.visible = false
 
-        const posTagBg = new Graphics()  // 标签背景（玻璃面板 + 金色边框）
+        // 背景：此处只创建节点，实际形状/颜色在 layoutPosTag() 里动态 clear+重绘
+        const posTagBg = new Graphics()
         this.posTag.addChild(posTagBg)
 
+        // 文字：金色标题字体，锚点 (0.5, 0.5) 使文字在背景中居中
         this.posTagText = new Text({
             text: '',
             style: {
@@ -116,6 +127,8 @@ export class SeatSprite extends Container {
         })
         this.posTagText.anchor.set(0.5)
         this.posTag.addChild(this.posTagText)
+
+        // 挂载到座位根容器
         this.addChild(this.posTag)
     }
 
@@ -264,12 +277,12 @@ export class SeatSprite extends Container {
             return
         }
 
-        this.updateBaseLayer(seat, isActive)
-        this.updatePlayerInfo(seat)
-        this.updatePosTag(posName)
-        this.updateBetBadge(seat)
-        this.updateStatusBadge(seat)
-        this.updateHandCards(seat, myHole)
+        this.updateBaseLayer(seat, isActive)   // 头像框光晕 / 弃牌灰度
+        this.updatePlayerInfo(seat)             // 昵称 + 筹码余额
+        this.updatePosTag(posName)              // BTN/SB/BB 等身份标签
+        this.updateBetBadge(seat)               // 本街下注徽章
+        this.updateStatusBadge(seat)            // 已弃牌 / ALL-IN 状态徽章
+        this.updateHandCards(seat, myHole)      // 手牌（本地明牌，远程背面）
     }
 
     // ─── 更新分解 ──────────────────────────────────────────────
@@ -312,10 +325,7 @@ export class SeatSprite extends Container {
         // 筹码金额
         this.stackText.text = `$${seat.stack.toLocaleString()}`
 
-        // 本地玩家需要额外布局玻璃筹码面板
-        if (this.isLocal) {
-            this.layoutLocalStack()
-        }
+        // 本地玩家筹码位置已在 drawAvatar 中设置，无需重新布局
     }
 
     /** 更新座次头衔（BTN/SB等）：如无身份则隐形 */
@@ -465,7 +475,10 @@ export class SeatSprite extends Container {
             this.nameText.position.set(0, nameY)
             this.nameText.style.fill = C.VOID
 
-            this.layoutLocalStack()
+            // 筹码直接放在 YOU 标签下方，无边框面板
+            this.stackPanel.clear()
+            this.stackText.position.set(0, nameY + 20)
+            this.stackText.alpha = 1
         } else {
             // 远程玩家：名称在头像正下方
             this.nameText.position.set(0, R + 10)
@@ -526,23 +539,6 @@ export class SeatSprite extends Container {
         }
     }
 
-    /** 布局并计算本地主视角特供的长条半透明托盘样式，包含"筹码余额"小字 */
-    private layoutLocalStack() {
-        const R = this.avatarR
-        const panelY = R + 40  // YOU 徽章下移后同步下移，保持视觉间距
-        const panelW = 120
-        const panelH = 54
-
-        this.stackPanel.clear()
-        this.stackPanel.roundRect(-panelW / 2, panelY, panelW, panelH, 12)
-        this.stackPanel.fill({color: C.GLASS, alpha: 0.95})
-        this.stackPanel.roundRect(-panelW / 2, panelY, panelW, panelH, 12)
-        this.stackPanel.stroke({color: C.GOLD, width: 1, alpha: 0.3})
-
-        this.stackText.position.set(0, panelY + panelH / 2 - 4)
-
-        this.stackLabel.visible = false
-    }
 
     /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像左上角（225° 方向），动态宽度的玻璃药丸背景 */
     private layoutPosTag(name: string) {
