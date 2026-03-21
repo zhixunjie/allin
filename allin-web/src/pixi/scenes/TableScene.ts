@@ -22,7 +22,6 @@ import {CardSprite} from '../components/CardSprite'
 import {PotDisplay} from '../components/PotDisplay'
 import {SeatSprite} from '../components/SeatSprite'
 import {TimerArc} from '../components/TimerArc'
-import {DealAnimation} from './DealAnimation'
 import {ChipAnimation} from './ChipAnimation'
 
 type GameState = ReturnType<typeof useGameStore.getState>
@@ -54,7 +53,6 @@ export class TableScene {
     private communityCards: CardSprite[] = []
     private potDisplay: PotDisplay
     private timerArc: TimerArc
-    private dealAnim: DealAnimation
     private chipAnim: ChipAnimation
     private streetLabel: Text
     private dealerChip: Graphics
@@ -74,7 +72,6 @@ export class TableScene {
 
         this.potDisplay = new PotDisplay()
         this.timerArc = new TimerArc()
-        this.dealAnim = new DealAnimation(app)
         this.chipAnim = new ChipAnimation(app)
         this.streetLabel = this.createStreetLabel()
         this.dealerChip = this.createDealerChip()
@@ -103,7 +100,6 @@ export class TableScene {
 
     private onTick(ticker: Ticker) {
         this.timerArc.tick()
-        this.dealAnim.tick(ticker.deltaMS)
         this.chipAnim.tick(ticker.deltaMS)
         // ALL-IN 脉冲光晕动画
         for (const seat of this.seatSprites) {

@@ -372,12 +372,14 @@ export class SeatSprite extends Container {
             this.card0.visible = true
             this.card1.visible = true
 
-            // 手牌在头像右侧扇形展开，间距适配缩小后的 46×64 尺寸
+            // 左侧玩家手牌放左边，避免遮挡朝桌心的下注徽章
             const R = this.avatarR
-            this.card0.position.set(R + 22, -34)
-            this.card0.rotation = -0.08
-            this.card1.position.set(R + 52, -34)
-            this.card1.rotation = 0.08
+            const onLeft = this.displayIdx === 6 || this.displayIdx === 7
+            const sign = onLeft ? -1 : 1
+            this.card0.position.set(sign * (R + 62), -34)
+            this.card0.rotation = onLeft ? 0.08 : -0.08
+            this.card1.position.set(sign * (R + 92), -34)
+            this.card1.rotation = onLeft ? -0.08 : 0.08
         } else {
             this.card0.visible = false
             this.card1.visible = false
