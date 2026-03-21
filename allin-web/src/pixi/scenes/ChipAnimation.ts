@@ -30,7 +30,7 @@ export class ChipAnimation {
   }
 
   private _fly(fromX: number, fromY: number, tx: number, ty: number, amount: number) {
-    const style = chipStyleForAmount(amount)
+    const style = {...chipStyleForAmount(amount), label: ''}
     const chip = new CasinoChip(CHIP_RADIUS, style)
     chip.position.set(fromX, fromY)
     this.app.stage.addChild(chip)

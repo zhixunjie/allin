@@ -12,6 +12,7 @@ import {
     TABLE_CY,
 } from '../assets'
 import {CardSprite} from './CardSprite'
+import {CasinoChip, chipStyleForAmount} from './CasinoChip'
 
 /**
  * 座位精灵 — 表示牌桌上一个座位的完整视觉元素。
@@ -40,8 +41,10 @@ export class SeatSprite extends Container {
     private nameText!: Text          // 玩家昵称
     private stackText!: Text         // 筹码金额
     private stackLabel!: Text        // 本地玩家的 "筹码余额" 副标签
-    private betBadge!: Container     // 下注徽章容器（背景 + 文字）
-    private betText!: Text           // 下注金额文字（含 🪙 前缀）
+    private betBadge!: Container     // 下注徽章容器（背景 + 筹码图标 + 文字）
+    private betText!: Text           // 下注金额文字
+    private betChip: CasinoChip | null = null  // 下注金额旁的小筹码图标
+    private lastBetAmount = -1                  // 上次渲染的金额（避免重建）
     private statusBadge!: Container  // 状态徽章容器（"已弃牌" / "ALL-IN"）
     private statusBadgeBg!: Graphics // 状态徽章背景
     private statusBadgeText!: Text   // 状态徽章文字
@@ -55,7 +58,7 @@ export class SeatSprite extends Container {
     private isLocal: boolean        // 是否为本地玩家（底部大头像），false 表示远端玩家
     private avatarR: number         // 头像半径（本地 38，远程 38）
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
-    private isAllIn   = false       // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
+    private isAllIn = false       // 当前是否处于 ALL-IN 状态（驱动脉冲动画）
     private allInTime = 0           // 累计时间（ms），用于 sin 脉冲计算
 
     /**
@@ -224,7 +227,7 @@ export class SeatSprite extends Container {
                 fill: C.GOLD,
             },
         })
-        this.betText.anchor.set(0.5)
+        this.betText.anchor.set(0, 0.5)
         this.betBadge.addChild(new Graphics(), this.betText)
         this.addChild(this.betBadge)
     }
@@ -340,7 +343,14 @@ export class SeatSprite extends Container {
     private updateBetBadge(seat: SeatSnapshot) {
         if (seat.bet > 0 && !seat.folded) {
             this.betBadge.visible = true
-            this.betText.text = `🪙 $${seat.bet.toLocaleString()}`
+            this.betText.text = `$${seat.bet.toLocaleString()}`
+            // 金额变化时重建筹码图标
+            if (seat.bet !== this.lastBetAmount) {
+                this.lastBetAmount = seat.bet
+                if (this.betChip) this.betBadge.removeChild(this.betChip)
+                this.betChip = new CasinoChip(7, {...chipStyleForAmount(seat.bet), label: ''})
+                this.betBadge.addChild(this.betChip)
+            }
             this.layoutBetBadge()
         } else {
             this.betBadge.visible = false
@@ -557,12 +567,12 @@ export class SeatSprite extends Container {
 
     /** ALL-IN 静态底框：红色多层扩散光晕，由 drawFilled 绘制一次 */
     private drawAllInFrame(R: number) {
-        this.avatarBg.circle(0, 0, R + 30).stroke({color: C.ERROR, width: 1,   alpha: 0.04})
+        this.avatarBg.circle(0, 0, R + 30).stroke({color: C.ERROR, width: 1, alpha: 0.04})
         this.avatarBg.circle(0, 0, R + 20).stroke({color: C.ERROR, width: 1.5, alpha: 0.10})
-        this.avatarBg.circle(0, 0, R + 12).stroke({color: C.ERROR, width: 2,   alpha: 0.22})
-        this.avatarBg.circle(0, 0, R +  5).stroke({color: C.ERROR, width: 3,   alpha: 0.48})
-        this.avatarBg.circle(0, 0, R +  1).stroke({color: C.ERROR, width: 5,   alpha: 0.90})
-        this.avatarBg.circle(0, 0, R -  3).stroke({color: C.ERROR, width: 1.5, alpha: 0.35})
+        this.avatarBg.circle(0, 0, R + 12).stroke({color: C.ERROR, width: 2, alpha: 0.22})
+        this.avatarBg.circle(0, 0, R + 5).stroke({color: C.ERROR, width: 3, alpha: 0.48})
+        this.avatarBg.circle(0, 0, R + 1).stroke({color: C.ERROR, width: 5, alpha: 0.90})
+        this.avatarBg.circle(0, 0, R - 3).stroke({color: C.ERROR, width: 1.5, alpha: 0.35})
     }
 
     /**
@@ -591,10 +601,10 @@ export class SeatSprite extends Container {
         const outerR = R + 28 + pulse * 10
 
         this.allInGlow.clear()
-        this.allInGlow.circle(0, 0, outerR).stroke({color, width: 1,   alpha: 0.04 + pulse * 0.06})
+        this.allInGlow.circle(0, 0, outerR).stroke({color, width: 1, alpha: 0.04 + pulse * 0.06})
         this.allInGlow.circle(0, 0, R + 18).stroke({color, width: 1.5, alpha: 0.08 + pulse * 0.12})
-        this.allInGlow.circle(0, 0, R +  8).stroke({color, width: 2.5, alpha: 0.18 + pulse * 0.22})
-        this.allInGlow.circle(0, 0, R +  2).stroke({color, width: 5,   alpha: 0.55 + pulse * 0.35})
+        this.allInGlow.circle(0, 0, R + 8).stroke({color, width: 2.5, alpha: 0.18 + pulse * 0.22})
+        this.allInGlow.circle(0, 0, R + 2).stroke({color, width: 5, alpha: 0.55 + pulse * 0.35})
     }
 
     /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像正上方；ALL-IN 时边框变红，文字保持不变 */
@@ -633,13 +643,17 @@ export class SeatSprite extends Container {
         const dist = R + 50
         this.betBadge.position.set(dirX * dist, dirY * dist)
 
-        // 极简深色玻璃底，宽度跟随文字动态适应
-        const badgeW = Math.max(70, this.betText.text.length * 8 + 16)
+        // 宽度紧贴内容：筹码直径(14) + 间距(4) + 文字宽度 + 左右内边距(8+6)
+        const badgeW = 14 + 4 + this.betText.text.length * 7 + 14
         const bg = this.betBadge.getChildAt(0) as Graphics
         bg.clear()
         bg.roundRect(-badgeW / 2, -11, badgeW, 22, 11)
         bg.fill({color: C.GLASS, alpha: 0.85})
         bg.stroke({color: C.GOLD, width: 1, alpha: 0.35})
+
+        // 筹码居左紧贴内边距，文字紧随其右
+        if (this.betChip) this.betChip.position.set(-badgeW / 2 + 11, 0)
+        this.betText.position.set(-badgeW / 2 + 26, 0)
     }
 
     /**
