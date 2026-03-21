@@ -1,38 +1,42 @@
-package store
+package dao
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
+	"github.com/spf13/viper"
 )
 
-// DB 是全局数据库连接池。
-var DB *sql.DB
+// DBM is the global MySQL connection (master).
+var DBM *sqlx.DB
 
-// Connect 初始化 MySQL 连接池并验证连通性。
-func Connect(dsn string) error {
-	db, err := sql.Open("mysql", dsn)
+var (
+	UserDao = &userDao{}
+	RoomDao = &roomDao{}
+)
+
+// Init connects to MySQL using config from Viper and runs AutoMigrate.
+func Init() {
+	dsn := viper.GetString("mysql.dsn")
+	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
-		return fmt.Errorf("store: open mysql: %w", err)
+		panic(fmt.Errorf("dao.Init: connect mysql: %w", err))
 	}
 	db.SetMaxOpenConns(50)
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
+	DBM = db
+	slog.Info("dao: connected to mysql")
 
-	if err := db.Ping(); err != nil {
-		return fmt.Errorf("store: ping mysql: %w", err)
+	if err := autoMigrate(); err != nil {
+		panic(fmt.Errorf("dao.Init: auto-migrate: %w", err))
 	}
-
-	DB = db
-	slog.Info("store: connected to mysql")
-	return nil
 }
 
-// AutoMigrate 创建所有尚不存在的表。
-func AutoMigrate() error {
+func autoMigrate() error {
 	stmts := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id            CHAR(36)     NOT NULL PRIMARY KEY,
@@ -75,12 +79,11 @@ func AutoMigrate() error {
 			INDEX idx_ledger_user (user_id)
 		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
 	}
-
 	for _, stmt := range stmts {
-		if _, err := DB.Exec(stmt); err != nil {
-			return fmt.Errorf("store: auto-migrate: %w", err)
+		if _, err := DBM.Exec(stmt); err != nil {
+			return err
 		}
 	}
-	slog.Info("store: auto-migrated 4 tables")
+	slog.Info("dao: auto-migrated 4 tables")
 	return nil
 }

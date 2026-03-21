@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/allin/server/internal/ws"
+	"github.com/allin/server/contrib/ws"
 )
 
 var botNames = []string{

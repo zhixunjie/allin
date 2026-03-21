@@ -3,8 +3,8 @@ package game
 import (
 	"fmt"
 
-	"github.com/allin/server/internal/eval"
-	"github.com/allin/server/internal/room"
+	"github.com/allin/server/contrib/eval"
+	"github.com/allin/server/contrib/room"
 )
 
 // Street 表示下注回合阶段。

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/allin/server/internal/store"
+	"github.com/allin/server/base/biz/dao"
 	"github.com/google/uuid"
 )
 
@@ -18,18 +18,18 @@ var (
 	ErrCodeConflict = errors.New("code generation conflict, retry")
 )
 
-// Manager 在内存中保存所有活跃房间并处理持久化。
+// Manager holds all active rooms in memory.
 type Manager struct {
 	mu    sync.RWMutex
-	rooms map[string]*Room // 键 = 房间码
+	rooms map[string]*Room // key = room code
 }
 
-// NewManager 创建一个新的 RoomManager。
+// NewManager creates a new Manager.
 func NewManager() *Manager {
 	return &Manager{rooms: make(map[string]*Room)}
 }
 
-// Create 创建新房间，持久化并注册到内存。
+// Create validates config, generates a unique code, persists to DB, and registers in memory.
 func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
@@ -49,14 +49,9 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 		CreatedAt:  time.Now(),
 	}
 
-	// 持久化到 room_history
-	cfgJSON, _ := json.Marshal(cfg)
-	if _, err := store.DB.Exec(
-		`INSERT INTO room_history (id, room_code, host_user_id, config_json, started_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		r.ID, r.Code, r.HostUserID, cfgJSON, r.CreatedAt,
-	); err != nil {
-		return nil, fmt.Errorf("room.Create: persist: %w", err)
+	cfgJSON, _ := json.Marshal(r.Config)
+	if err := dao.RoomDao.Persist(r.ID, r.Code, r.HostUserID, cfgJSON, r.CreatedAt); err != nil {
+		return nil, fmt.Errorf("room.Create: %w", err)
 	}
 
 	m.mu.Lock()
@@ -66,7 +61,7 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	return r, nil
 }
 
-// Get 返回给定房间码的房间。
+// Get returns the room for the given code.
 func (m *Manager) Get(code string) (*Room, error) {
 	m.mu.RLock()
 	r, ok := m.rooms[code]
@@ -77,18 +72,16 @@ func (m *Manager) Get(code string) (*Room, error) {
 	return r, nil
 }
 
-// Close 将房间标记为已结束并从内存中移除。
+// Close removes the room from memory and marks it ended in DB.
 func (m *Manager) Close(code string) {
 	m.mu.Lock()
 	delete(m.rooms, code)
 	m.mu.Unlock()
 
-	store.DB.Exec( //nolint:errcheck
-		`UPDATE room_history SET ended_at = NOW() WHERE room_code = ? AND ended_at IS NULL`, code,
-	)
+	dao.RoomDao.MarkEnded(code)
 }
 
-// generateUniqueCode 生成一个未被使用的房间码（最多尝试 10 次）。
+// generateUniqueCode generates an unused room code (up to 10 attempts).
 func (m *Manager) generateUniqueCode() (string, error) {
 	for i := 0; i < 10; i++ {
 		code, err := GenerateCode()
@@ -105,8 +98,7 @@ func (m *Manager) generateUniqueCode() (string, error) {
 	return "", ErrCodeConflict
 }
 
-// StartGC 启动后台 goroutine，移除超过 idleTimeout 时间没有连接客户端的房间。
-// clientCount(code) 必须返回该房间的实时 WS 客户端数量。
+// StartGC starts a background goroutine that removes rooms idle longer than idleTimeout.
 func (m *Manager) StartGC(interval, idleTimeout time.Duration, clientCount func(string) int) {
 	go func() {
 		ticker := time.NewTicker(interval)

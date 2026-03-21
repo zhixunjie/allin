@@ -8,7 +8,17 @@
       "Bash(mysql --version)",
       "Bash(brew services:*)",
       "Bash(npx vite:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(find /Users/dev/Desktop/Project/Go/allin/allin-web/src -name Card* -o -name card*)",
+      "Bash(grep -v \".js$\")",
+      "WebFetch(domain:www.cloudwego.io)",
+      "Bash(go mod:*)",
+      "Bash(echo \"GOPROXY=$GOPROXY\")",
+      "Bash(go env:*)",
+      "Bash(GOPROXY=https://goproxy.cn go get github.com/hertz-contrib/adaptor@v0.2.0)",
+      "Bash(sed -i '' 's|userPkg \"\"github.com/allin/server/internal/user\"\"|bizdao \"\"github.com/allin/server/biz/dao\"\"|g' /Users/dev/Desktop/Project/Go/allin/allin-server/internal/game/engine.go)",
+      "Bash(__NEW_LINE_f1387d54881f64bc__ sed:*)",
+      "Bash(__NEW_LINE_f1387d54881f64bc__ echo:*)"
     ]
   }
 }

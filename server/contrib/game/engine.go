@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/allin/server/internal/room"
-	userPkg "github.com/allin/server/internal/user"
-	"github.com/allin/server/internal/ws"
+	"github.com/allin/server/contrib/room"
+	bizdao "github.com/allin/server/base/biz/dao"
+	"github.com/allin/server/contrib/ws"
 )
 
 const (
@@ -147,7 +147,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 
 	// 从用户账户扣除买入金额
 	buyIn := e.room.Config.MaxBuyIn
-	u, err := userPkg.GetByID(msg.SenderID)
+	u, err := bizdao.UserDao.GetByID(msg.SenderID)
 	if err != nil {
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
 			Code: "user_not_found", Message: "user not found",
@@ -161,7 +161,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		}))
 		return
 	}
-	if err := userPkg.AdjustChips(msg.SenderID, -buyIn, "buy_in", e.room.Code); err != nil {
+	if err := bizdao.UserDao.AdjustChips(msg.SenderID, -buyIn, "buy_in", e.room.Code); err != nil {
 		slog.Error("game: failed to deduct buy-in", "user", msg.SenderID, "err", err)
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
 			Code: "server_error", Message: "failed to process buy-in",
@@ -291,7 +291,7 @@ func (e *Engine) cashOut(userID string, stack int64) {
 	if IsBotID(userID) || stack == 0 {
 		return
 	}
-	if err := userPkg.AdjustChips(userID, stack, "cash_out", e.room.Code); err != nil {
+	if err := bizdao.UserDao.AdjustChips(userID, stack, "cash_out", e.room.Code); err != nil {
 		slog.Error("game: failed to cash out", "user", userID, "stack", stack, "err", err)
 	}
 }

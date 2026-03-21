@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/allin/server/internal/auth"
-	"github.com/allin/server/internal/room"
+	"github.com/allin/server/contrib/auth"
+	"github.com/allin/server/contrib/room"
 )
 
 // EngineStarter 是在为房间创建新 hub 时调用的函数。
