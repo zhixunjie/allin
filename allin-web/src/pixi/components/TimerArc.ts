@@ -69,35 +69,41 @@ export class TimerArc extends Container {
     const fraction = remaining / this.totalSecs
     const secs = Math.ceil(remaining)
 
-    const color = fraction > 0.4 ? C.SUCCESS : fraction > 0.2 ? C.GOLD : C.ERROR
+    // 配色：全部使用色板内颜色
+    //   充裕(>40%) — TEXT_PRIMARY 银白，平静不打扰视线
+    //   警示(>15%) — GOLD 主题金，与全场金色系一致
+    //   紧迫(≤15%) — ERROR 红，最后关头的强警示
+    const color = fraction > 0.4 ? C.TEXT_PRIMARY
+                : fraction > 0.15 ? C.GOLD
+                :                   C.ERROR
+
     const R = this.radius
 
-    // 背景圆环
+    // 背景圆环：始终暗金，作为刻度底盘
     this.bgRing.clear()
     this.bgRing.circle(0, 0, R)
-    this.bgRing.stroke({ color: C.GOLD, width: 4, alpha: 0.1 })
+    this.bgRing.stroke({ color: C.GOLD_DIM, width: 3, alpha: 0.15 })
 
-    // 进度弧
+    // 进度弧（外发光 + 主线双层）
     this.ring.clear()
     if (fraction > 0) {
-      const startAngle = -Math.PI / 2
-      const endAngle = startAngle + TWO_PI * fraction
-
-      this.ring.arc(0, 0, R, startAngle, endAngle)
-      this.ring.stroke({ color, width: 4, alpha: 0.9 })
+      const start = -Math.PI / 2
+      const end   = start + TWO_PI * fraction
+      this.ring.arc(0, 0, R, start, end)
+      this.ring.stroke({ color, width: 7, alpha: 0.15 })
+      this.ring.arc(0, 0, R, start, end)
+      this.ring.stroke({ color, width: 3, alpha: 0.90 })
     }
 
-    // 徽章位置：圆环右上方
-    const badgeX = R * 0.7
-    const badgeY = -R * 0.7
-
-    // 绘制徽章背景
+    // 徽章：边框跟随弧线颜色，底色固定深色
+    const badgeX = R * 0.72
+    const badgeY = -R * 0.72
     const badgeBg = this.badge.getChildAt(0) as Graphics
     badgeBg.clear()
     badgeBg.roundRect(-14, -10, 28, 20, 10)
     badgeBg.fill({ color: C.GLASS, alpha: 0.95 })
     badgeBg.roundRect(-14, -10, 28, 20, 10)
-    badgeBg.stroke({ color: C.GOLD, width: 1 })
+    badgeBg.stroke({ color, width: 1, alpha: 0.7 })
 
     this.badge.position.set(badgeX, badgeY)
     this.badgeText.text = `${secs}s`

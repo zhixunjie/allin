@@ -130,10 +130,10 @@ export class SeatSprite extends Container {
                 text: '',
                 style: {
                     fontFamily: FONT_BODY,
-                    fontSize: 11,
-                    fontWeight: '800',
-                    fill: C.VOID,        // 深色文字（金底反色）
-                    letterSpacing: 2,
+                    fontSize: 10,
+                    fontWeight: '900',
+                    fill: C.VOID,
+                    letterSpacing: 3,
                 },
             })
             this.nameText.anchor.set(0.5)
@@ -306,8 +306,8 @@ export class SeatSprite extends Container {
 
     /** 更新基本数据字段：截断昵称以及筹码数显 */
     private updatePlayerInfo(seat: SeatSnapshot) {
-        // 玩家昵称（截断到 10 字符）
-        this.nameText.text = seat.display_name.slice(0, 10)
+        // 本地玩家标签固定为 "YOU"，远端玩家显示昵称
+        this.nameText.text = this.isLocal ? 'YOU' : seat.display_name.slice(0, 10)
 
         // 筹码金额
         this.stackText.text = `$${seat.stack.toLocaleString()}`
@@ -419,37 +419,49 @@ export class SeatSprite extends Container {
     }
 
     /**
-     * 绘制有玩家的座位背景。
-     * 活跃状态（当前行动者）显示金色光环；弃牌状态整体变暗。
+     * 绘制座位头像框，本地玩家与远端玩家使用不同的框架风格。
+     *
+     * 本地玩家（YOU）：
+     *   普通  — 内金边 + 外环境散晕，彰显主角地位
+     *   行动中 — 多层金色光晕向外扩散，营造紧迫感
+     *
+     * 远端玩家：
+     *   普通  — 银蓝双环 + 4 方位角装饰弧（科技瞄准框）
+     *   行动中 — 金色多层光晕
+     *
+     * 弃牌：整体暗淡，去掉所有装饰
      */
     private drawFilled(_userId: string, isActive: boolean, _isBot: boolean, isFolded: boolean) {
         const R = this.avatarR
-
         this.avatarBg.clear()
 
-        // 头像圆形背景 — 深色玻璃面板
+        // ── 底层玻璃填充 ──────────────────────────────────────
         this.avatarBg.circle(0, 0, R)
-        this.avatarBg.fill({color: C.GLASS, alpha: 0.8})
+        this.avatarBg.fill({color: C.GLASS, alpha: isFolded ? 0.45 : 0.88})
 
-        if (isActive) {
-            // 当前行动者：外扩金色光环（R+3 半径）
-            this.avatarBg.circle(0, 0, R + 3)
-            this.avatarBg.stroke({color: C.GOLD, width: 3, alpha: 0.7})
+        if (isFolded) {
+            this.avatarBg.circle(0, 0, R).stroke({color: 0x444444, width: 1.5, alpha: 0.35})
+            this.alpha = 0.45
+        } else if (this.isLocal) {
+            this.drawLocalFrame(R, isActive)
+            this.alpha = 1
         } else {
-            // 非行动者：微弱幽灵边框（弃牌更暗）
-            this.avatarBg.circle(0, 0, R)
-            this.avatarBg.stroke({color: isFolded ? 0x333333 : 0xffffff, width: 2, alpha: isFolded ? 0.08 : 0.05})
+            this.drawRemoteFrame(R, isActive)
+            this.alpha = 1
         }
 
-        // 弃牌时整个座位半透明
-        this.alpha = isFolded ? 0.5 : 1
+        // 弃牌时整个座位半透明（已在上方分支处理 alpha）
 
         if (this.isLocal) {
-            // 本地玩家：头像底部的金色药丸形名称徽章
+            // 本地玩家：头像底部挂 "YOU" 金色药丸标签（昵称显示在筹码面板里）
             const nameY = R + 2
             this.nameBadge.clear()
-            this.nameBadge.roundRect(-36, nameY - 10, 72, 20, 8)
+            this.nameBadge.roundRect(-22, nameY - 10, 44, 20, 10)
             this.nameBadge.fill({color: C.GOLD})
+            this.nameBadge.roundRect(-22, nameY - 10, 44, 20, 10)
+            this.nameBadge.stroke({color: C.GOLD_LIGHT, width: 1, alpha: 0.5})
+            // 把 nameText 临时借用来显示 "YOU"（固定文字，不展示昵称）
+            this.nameText.text = 'YOU'
             this.nameText.position.set(0, nameY)
             this.nameText.style.fill = C.VOID
 
@@ -462,6 +474,52 @@ export class SeatSprite extends Container {
             // 筹码金额在名称下方
             this.stackText.position.set(0, R + 26)
             this.stackText.alpha = isFolded ? 0.4 : 0.8
+        }
+    }
+
+    /**
+     * 本地玩家（YOU）头像框：内金边 + 外环境散晕。
+     * 普通状态体现主角地位；行动时多层光晕向外扩散。
+     */
+    private drawLocalFrame(R: number, isActive: boolean) {
+        if (isActive) {
+            // 行动中：多层金色向外扩散光晕
+            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1,   alpha: 0.06})
+            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1.5, alpha: 0.14})
+            this.avatarBg.circle(0, 0, R +  4).stroke({color: C.GOLD, width: 2,   alpha: 0.30})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 3,   alpha: 0.90})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.30})
+        } else {
+            // 普通：外环境散晕（主角光感）+ 内金边
+            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 1,   alpha: 0.05})
+            this.avatarBg.circle(0, 0, R +  6).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
+            this.avatarBg.circle(0, 0, R +  2).stroke({color: C.GOLD, width: 2,   alpha: 0.20})
+            this.avatarBg.circle(0, 0, R     ).stroke({color: C.GOLD, width: 1.5, alpha: 0.75})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1,   alpha: 0.20})
+        }
+    }
+
+    /**
+     * 远端玩家头像框：银蓝双环 + 4 方位角装饰弧（科技瞄准框）。
+     * 行动时替换为金色多层光晕。
+     */
+    private drawRemoteFrame(R: number, isActive: boolean) {
+        if (isActive) {
+            this.avatarBg.circle(0, 0, R +  8).stroke({color: C.GOLD, width: 1,   alpha: 0.08})
+            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.GOLD, width: 1.5, alpha: 0.18})
+            this.avatarBg.circle(0, 0, R +  2).stroke({color: C.GOLD, width: 2,   alpha: 0.36})
+            this.avatarBg.circle(0, 0, R     ).stroke({color: C.GOLD, width: 2.5, alpha: 0.85})
+        } else {
+            // 普通：银蓝主边框 + 内侧斜切细线
+            this.avatarBg.circle(0, 0, R + 1).stroke({color: 0xb8c8e0, width: 2.5, alpha: 0.28})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: 0xffffff,  width: 1,   alpha: 0.07})
+            // 4 方位角装饰弧（瞄准框感）
+            const arcR   = R + 6
+            const arcLen = 0.36
+            for (const a of [-Math.PI / 2, 0, Math.PI / 2, Math.PI]) {
+                this.avatarBg.arc(0, 0, arcR, a - arcLen / 2, a + arcLen / 2)
+                this.avatarBg.stroke({color: C.GOLD_DIM, width: 2, alpha: 0.50})
+            }
         }
     }
 
