@@ -18,7 +18,9 @@
       "Bash(GOPROXY=https://goproxy.cn go get github.com/hertz-contrib/adaptor@v0.2.0)",
       "Bash(sed -i '' 's|userPkg \"\"github.com/allin/server/internal/user\"\"|bizdao \"\"github.com/allin/server/biz/dao\"\"|g' /Users/dev/Desktop/Project/Go/allin/allin-server/internal/game/engine.go)",
       "Bash(__NEW_LINE_f1387d54881f64bc__ sed:*)",
-      "Bash(__NEW_LINE_f1387d54881f64bc__ echo:*)"
+      "Bash(__NEW_LINE_f1387d54881f64bc__ echo:*)",
+      "Bash(go run:*)",
+      "Bash(curl -s http://localhost:8080/health)"
     ]
   }
 }

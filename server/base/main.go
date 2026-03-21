@@ -22,6 +22,7 @@ func init() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+	viper.AddConfigPath("./base") // when running `go run ./base/` from module root
 	viper.AutomaticEnv()
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Fprintf(os.Stderr, "config: %v (using defaults)\n", err)
