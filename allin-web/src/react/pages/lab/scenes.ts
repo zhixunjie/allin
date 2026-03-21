@@ -144,6 +144,34 @@ export const SCENES: Record<string, () => void> = {
     })
   },
 
+  '特殊行动': () => {
+    // 9 人满座，每个玩家展示一种特殊状态，方便对比所有效果
+    useGameStore.setState({
+      street: Street.River,
+      myUserId: 'player-0',
+      dealer_seat: 4,
+      action_seat: 0,
+      current_bet: 300,
+      callAmount: 300,
+      minRaiseAmount: 600,
+      pot: 1800,
+      deadlineTs: Date.now() + 20_000,
+      myHole: ['Ah', 'Kd'],
+      community: ['Ac', '7d', '2h', 'Ks', 'Qc'],
+      seats: [
+        makeSeat(0, 'player-0', '我',      500,  { bet: 200, hole: ['Ah', 'Kd'] }),              // 行动中
+        makeSeat(1, 'bot-1',    'Alice',   0,    { bet: 300, all_in: true, is_bot: true, hole: ['?', '?'] }),  // ALL-IN
+        makeSeat(2, 'bot-2',    'Bob',     800,  { folded: true, is_bot: true }),                 // 已弃牌
+        makeSeat(3, 'bot-3',    'Carol',   1200, { bet: 100, is_bot: true, hole: ['?', '?'] }),   // 有下注
+        makeSeat(4, 'bot-4',    'Dave',    600,  { is_bot: true, hole: ['?', '?'] }),             // 普通等待
+        makeSeat(5, 'bot-5',    'Eve',     0,    { all_in: true, bet: 500, is_bot: true, hole: ['?', '?'] }), // ALL-IN+下注
+        makeSeat(6, 'bot-6',    'Frank',   900,  { folded: true, is_bot: true }),                 // 已弃牌
+        makeSeat(7, 'bot-7',    'Grace',   400,  { bet: 50, is_bot: true, hole: ['?', '?'] }),    // 有下注
+        makeSeat(8, 'bot-8',    'Hank',    750,  { is_bot: true, hole: ['?', '?'] }),             // 普通等待
+      ],
+    })
+  },
+
   '满座（9人）': () => {
     const names = ['我', 'Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank', 'Grace', 'Hank']
     useGameStore.setState({

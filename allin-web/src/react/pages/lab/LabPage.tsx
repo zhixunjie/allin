@@ -11,6 +11,7 @@ import { SCENES } from './scenes'
 import { InjectControls } from './InjectControls'
 import { StateMonitor } from './StateMonitor'
 import { FreeZone } from './FreeZone'
+import { ActionDemo } from './ActionDemo'
 
 export default function LabPage() {
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -105,6 +106,9 @@ export default function LabPage() {
         </Section>
         <Section title="快速注入">
           <InjectControls />
+        </Section>
+        <Section title="行动演示">
+          <ActionDemo />
         </Section>
         <Section title="自由区">
           <FreeZone />

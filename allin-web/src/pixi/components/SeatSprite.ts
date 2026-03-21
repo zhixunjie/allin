@@ -38,9 +38,8 @@ export class SeatSprite extends Container {
     private nameText!: Text          // 玩家昵称
     private stackText!: Text         // 筹码金额
     private stackLabel!: Text        // 本地玩家的 "筹码余额" 副标签
-    private betBadge!: Container     // 下注徽章容器（背景 + 图标 + 文字）
-    private betIcon!: Text           // 下注图标 🪙
-    private betText!: Text           // 下注金额文字
+    private betBadge!: Container     // 下注徽章容器（背景 + 文字）
+    private betText!: Text           // 下注金额文字（含 🪙 前缀）
     private statusBadge!: Container  // 状态徽章容器（"已弃牌" / "ALL-IN"）
     private statusBadgeBg!: Graphics // 状态徽章背景
     private statusBadgeText!: Text   // 状态徽章文字
@@ -51,8 +50,8 @@ export class SeatSprite extends Container {
     private nameBadge!: Graphics     // 本地玩家金色名称底板
     private stackPanel!: Graphics    // 本地玩家玻璃筹码面板
 
-    private isLocal: boolean        // 是否为本地玩家（底部大头像）
-    private avatarR: number         // 头像半径（本地 52，远程 38）
+    private isLocal: boolean        // 是否为本地玩家（底部大头像），false 表示远端玩家
+    private avatarR: number         // 头像半径（本地 38，远程 38）
     private displayIdx = 0          // 显示索引（0=本地，用于计算朝向）
 
     /**
@@ -114,14 +113,14 @@ export class SeatSprite extends Container {
         const posTagBg = new Graphics()
         this.posTag.addChild(posTagBg)
 
-        // 文字：金色标题字体，锚点 (0.5, 0.5) 使文字在背景中居中
+        // 文字：银白色标题字体，锚点 (0.5, 0.5) 使文字在背景中居中
         this.posTagText = new Text({
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
                 fontSize: 12,
                 fontWeight: '800',
-                fill: C.GOLD,
+                fill: C.GREEN,
                 letterSpacing: 1,
             },
         })
@@ -203,29 +202,22 @@ export class SeatSprite extends Container {
         if (this.isLocal) this.addChild(this.stackLabel)
     }
 
-    /** 初始化下注徽章（带金币图标和绿底的药丸框）：表示当前街的下注金额 */
+    /** 初始化下注徽章：🪙 + 金额，朝桌心方向放置，模拟筹码推入桌面效果 */
     private buildBetBadge() {
         this.betBadge = new Container()
         this.betBadge.visible = false
 
-        const betBg = new Graphics()  // 徽章背景（绿色药丸 + 金色边框）
-        this.betBadge.addChild(betBg)
-
-        this.betIcon = new Text({text: '🪙', style: {fontSize: 14}})
-        this.betIcon.anchor.set(0.5)
-        this.betBadge.addChild(this.betIcon)
-
         this.betText = new Text({
             text: '',
             style: {
-                fontFamily: FONT_BODY,
+                fontFamily: FONT_HEADLINE,
                 fontSize: 13,
                 fontWeight: '700',
-                fill: C.GREEN,
+                fill: C.GOLD,
             },
         })
-        this.betText.anchor.set(0, 0.5)
-        this.betBadge.addChild(this.betText)
+        this.betText.anchor.set(0.5)
+        this.betBadge.addChild(new Graphics(), this.betText)
         this.addChild(this.betBadge)
     }
 
@@ -343,7 +335,7 @@ export class SeatSprite extends Container {
     private updateBetBadge(seat: SeatSnapshot) {
         if (seat.bet > 0 && !seat.folded) {
             this.betBadge.visible = true
-            this.betText.text = `下注 $${seat.bet.toLocaleString()}`
+            this.betText.text = `🪙 $${seat.bet.toLocaleString()}`
             this.layoutBetBadge()
         } else {
             this.betBadge.visible = false
@@ -373,16 +365,17 @@ export class SeatSprite extends Container {
         const hole = this.isLocal ? myHole : seat.hole
 
         if (hole && hole.length === 2 && !seat.folded) {
-            this.card0.setCard(hole[0])
-            this.card1.setCard(hole[1])
+            // '?' 占位符 → 背面（已发牌但不可见）；否则显示正面牌值
+            hole[0] === '?' ? this.card0.setFaceDown() : this.card0.setCard(hole[0])
+            hole[1] === '?' ? this.card1.setFaceDown() : this.card1.setCard(hole[1])
             this.card0.visible = true
             this.card1.visible = true
 
-            // 所有玩家：手牌在头像右侧扇形展开，微微旋转
+            // 手牌在头像右侧扇形展开，间距适配缩小后的 46×64 尺寸
             const R = this.avatarR
-            this.card0.position.set(R + 30, -46)
+            this.card0.position.set(R + 22, -34)
             this.card0.rotation = -0.08
-            this.card1.position.set(R + 66, -46)
+            this.card1.position.set(R + 52, -34)
             this.card1.rotation = 0.08
         } else {
             this.card0.visible = false
@@ -436,7 +429,7 @@ export class SeatSprite extends Container {
      *   行动中 — 多层金色光晕向外扩散，营造紧迫感
      *
      * 远端玩家：
-     *   普通  — 银蓝双环 + 4 方位角装饰弧（科技瞄准框）
+     *   普通  — 银蓝双环
      *   行动中 — 金色多层光晕
      *
      * 弃牌：整体暗淡，去掉所有装饰
@@ -446,21 +439,21 @@ export class SeatSprite extends Container {
         this.avatarBg.clear()
 
         // ── 底层玻璃填充 ──────────────────────────────────────
+        // 弃牌时整个座位半透明（设置alpha）
         this.avatarBg.circle(0, 0, R)
         this.avatarBg.fill({color: C.GLASS, alpha: isFolded ? 0.45 : 0.88})
 
         if (isFolded) {
             this.avatarBg.circle(0, 0, R).stroke({color: 0x444444, width: 1.5, alpha: 0.35})
             this.alpha = 0.45
-        } else if (this.isLocal) {
+        } else if (this.isLocal) {// 本地玩家（YOU）
             this.drawLocalFrame(R, isActive)
             this.alpha = 1
-        } else {
-            this.drawRemoteFrame(R, isActive)
+        } else {// 远端玩家
+            this.drawRemoteFrame(R)
             this.alpha = 1
         }
 
-        // 弃牌时整个座位半透明（已在上方分支处理 alpha）
 
         if (this.isLocal) {
             // 本地玩家：头像底部挂 "YOU" 金色药丸标签（昵称显示在筹码面板里）
@@ -497,56 +490,53 @@ export class SeatSprite extends Container {
     private drawLocalFrame(R: number, isActive: boolean) {
         if (isActive) {
             // 行动中：多层金色向外大范围扩散光晕
-            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1,   alpha: 0.03})
+            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1, alpha: 0.03})
             this.avatarBg.circle(0, 0, R + 30).stroke({color: C.GOLD, width: 1.5, alpha: 0.08})
-            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2,   alpha: 0.16})
-            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3,   alpha: 0.32})
-            this.avatarBg.circle(0, 0, R +  3).stroke({color: C.GOLD, width: 4,   alpha: 0.65})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 5,   alpha: 0.95})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1.5, alpha: 0.40})
+            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2, alpha: 0.16})
+            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3, alpha: 0.32})
+            this.avatarBg.circle(0, 0, R + 3).stroke({color: C.GOLD, width: 4, alpha: 0.65})
+            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 5, alpha: 0.95})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1.5, alpha: 0.40})
         } else {
-            // 普通：同款多层扩散，alpha 整体调低，主角常驻光感
-            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1,   alpha: 0.015})
+            // 普通状态：同款多层扩散，alpha 整体调低，主角常驻光感
+            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1, alpha: 0.015})
             this.avatarBg.circle(0, 0, R + 30).stroke({color: C.GOLD, width: 1.5, alpha: 0.04})
-            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2,   alpha: 0.09})
-            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3,   alpha: 0.18})
-            this.avatarBg.circle(0, 0, R +  3).stroke({color: C.GOLD, width: 4,   alpha: 0.38})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 5,   alpha: 0.65})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1.5, alpha: 0.22})
+            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2, alpha: 0.09})
+            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3, alpha: 0.18})
+            this.avatarBg.circle(0, 0, R + 3).stroke({color: C.GOLD, width: 4, alpha: 0.38})
+            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 5, alpha: 0.65})
+            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1.5, alpha: 0.22})
         }
     }
 
     /**
-     * 远端玩家头像框：银蓝双环 + 4 方位角装饰弧（科技瞄准框）。
-     * 行动时替换为金色多层光晕。
+     * 远端玩家头像框：银蓝双环
+     * 行动时替换为金色多层光晕
      */
-    private drawRemoteFrame(R: number, isActive: boolean) {
-        if (isActive) {
-            // 行动中：金色多层大范围光晕
-            this.avatarBg.circle(0, 0, R + 32).stroke({color: C.GOLD, width: 1,   alpha: 0.04})
-            this.avatarBg.circle(0, 0, R + 22).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
-            this.avatarBg.circle(0, 0, R + 13).stroke({color: C.GOLD, width: 2,   alpha: 0.22})
-            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.GOLD, width: 3,   alpha: 0.45})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 4.5, alpha: 0.90})
-        } else {
-            // 普通：多层银白向外大范围扩散光晕
-            this.avatarBg.circle(0, 0, R + 32).stroke({color: C.TEXT_PRIMARY, width: 1,   alpha: 0.015})
-            this.avatarBg.circle(0, 0, R + 22).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.05})
-            this.avatarBg.circle(0, 0, R + 13).stroke({color: C.TEXT_PRIMARY, width: 2,   alpha: 0.11})
-            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.TEXT_PRIMARY, width: 3,   alpha: 0.24})
-            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.TEXT_PRIMARY, width: 4.5, alpha: 0.52})
-            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.TEXT_PRIMARY, width: 1,   alpha: 0.16})
-        }
+    private drawRemoteFrame(R: number) {
+        // if (isActive) {
+        //     // 行动中：金色多层大范围光晕
+        //     this.avatarBg.circle(0, 0, R + 32).stroke({color: C.GOLD, width: 1, alpha: 0.04})
+        //     this.avatarBg.circle(0, 0, R + 22).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
+        //     this.avatarBg.circle(0, 0, R + 13).stroke({color: C.GOLD, width: 2, alpha: 0.22})
+        //     this.avatarBg.circle(0, 0, R + 5).stroke({color: C.GOLD, width: 3, alpha: 0.45})
+        //     this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 4.5, alpha: 0.90})
+        // } else {
+        // 普通状态：多层银白向外大范围扩散光晕
+        this.avatarBg.circle(0, 0, R + 32).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.015})
+        this.avatarBg.circle(0, 0, R + 22).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.05})
+        this.avatarBg.circle(0, 0, R + 13).stroke({color: C.TEXT_PRIMARY, width: 2, alpha: 0.11})
+        this.avatarBg.circle(0, 0, R + 5).stroke({color: C.TEXT_PRIMARY, width: 3, alpha: 0.24})
+        this.avatarBg.circle(0, 0, R + 1).stroke({color: C.TEXT_PRIMARY, width: 4.5, alpha: 0.52})
+        this.avatarBg.circle(0, 0, R - 3).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.16})
+        // }
     }
 
 
-    /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像左上角（225° 方向），动态宽度的玻璃药丸背景 */
+    /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像正上方，动态宽度的玻璃药丸背景 */
     private layoutPosTag(name: string) {
         const R = this.avatarR
-        // 225° 方向（标准数学角，屏幕坐标下对应左上角）
-        const angle = 225 * Math.PI / 180
-        const dist = R + 14
-        this.posTag.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist)
+        this.posTag.position.set(0, -R - 16)
 
         const bg = this.posTag.getChildAt(0) as Graphics
         bg.clear()
@@ -555,7 +545,7 @@ export class SeatSprite extends Container {
         bg.roundRect(-tw / 2, -10, tw, 20, 10)
         bg.fill({color: C.GLASS, alpha: 0.95})
         bg.roundRect(-tw / 2, -10, tw, 20, 10)
-        bg.stroke({color: C.GOLD, width: 1, alpha: 0.6})
+        bg.stroke({color: C.GREEN, width: 1, alpha: 0.5})
     }
 
     /**
@@ -572,23 +562,17 @@ export class SeatSprite extends Container {
         const dirX = dx / len
         const dirY = dy / len
 
-        // 沿方向向量偏移放置徽章 (由原来的 +40 减缩到 +25，因为大头像已经很靠近桌心)
-        const dist = R + 25
+        // 朝桌心方向偏移，模拟玩家把筹码推到桌面的效果
+        const dist = R + 50
         this.betBadge.position.set(dirX * dist, dirY * dist)
 
-        // 动态宽度药丸背景：[🪙图标] [下注金额文字]
-        const textStr = this.betText.text
-        const badgeW = Math.max(90, textStr.length * 7 + 30)
-
+        // 极简深色玻璃底，宽度跟随文字动态适应
+        const badgeW = Math.max(70, this.betText.text.length * 8 + 16)
         const bg = this.betBadge.getChildAt(0) as Graphics
         bg.clear()
-        bg.roundRect(-badgeW / 2, -13, badgeW, 26, 8)
-        bg.fill({color: C.GREEN_BET, alpha: 0.95})
-        bg.roundRect(-badgeW / 2, -13, badgeW, 26, 8)
-        bg.stroke({color: C.GOLD, width: 1, alpha: 0.2})
-
-        this.betIcon.position.set(-badgeW / 2 + 14, 0)
-        this.betText.position.set(-badgeW / 2 + 26, 0)
+        bg.roundRect(-badgeW / 2, -11, badgeW, 22, 11)
+        bg.fill({color: C.GLASS, alpha: 0.85})
+        bg.stroke({color: C.GOLD, width: 1, alpha: 0.35})
     }
 
     /**

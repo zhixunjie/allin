@@ -74,7 +74,7 @@ export const SEAT_POSITIONS: { x: number; y: number }[] = [
     seatPos(25),   // 1  右侧下            θ=25°
     seatPos(335),  // 2  右侧上            θ=335°
     seatPos(300),  // 3  顶部右            θ=300°
-    seatPos(270, 18),  // 4  顶部中（向下微调补偿顶部空隙）θ=270°
+    seatPos(270, 35),  // 4  顶部中（nudgeY=35 与 player3/5 水平对齐）θ=270°
     seatPos(240),  // 5  顶部左            θ=240°
     seatPos(205),  // 6  左侧上            θ=205°
     seatPos(155),  // 7  左侧下            θ=155°

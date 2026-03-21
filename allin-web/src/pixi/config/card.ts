@@ -5,10 +5,10 @@ export const CARD_W = 64
 export const CARD_H = 90
 export const CARD_RADIUS = 10
 
-// ── 手牌尺寸（座位旁小牌）────────────────────────────
-export const HOLE_CARD_W = 64
-export const HOLE_CARD_H = 90
-export const HOLE_CARD_RADIUS = 8
+// ── 手牌尺寸（座位旁小牌，比公共牌小约 30%）──────────
+export const HOLE_CARD_W = 46
+export const HOLE_CARD_H = 64
+export const HOLE_CARD_RADIUS = 7
 
 // ── 花色符号 ─────────────────────────────────────────
 // 缩写来自英文首字母：c=Clubs(梅花) d=Diamonds(方块) h=Hearts(红心) s=Spades(黑桃)
