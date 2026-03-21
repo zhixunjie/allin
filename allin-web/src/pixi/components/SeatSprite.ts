@@ -531,14 +531,6 @@ export class SeatSprite extends Container {
      * 普通状态体现主角地位；行动时多层光晕向外扩散。
      */
     private drawLocalFrame(R: number, isActive: boolean) {
-        // 外层银白光环（同远端玩家框格式，作为倒计时弧道底轨装饰，常驻）
-        // 弧道中心在 R+54，光环从 R+46 向外扩散至 R+62
-        this.avatarBg.circle(0, 0, R + 62).stroke({color: C.TEXT_PRIMARY, width: 1,   alpha: 0.008})
-        this.avatarBg.circle(0, 0, R + 56).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.025})
-        this.avatarBg.circle(0, 0, R + 50).stroke({color: C.TEXT_PRIMARY, width: 2,   alpha: 0.06 })
-        this.avatarBg.circle(0, 0, R + 46).stroke({color: C.TEXT_PRIMARY, width: 3,   alpha: 0.13 })
-        this.avatarBg.circle(0, 0, R + 43).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.07 })
-
         if (isActive) {
             // 行动中：多层金色向外大范围扩散光晕
             this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1, alpha: 0.03})
