@@ -125,7 +125,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: '800',
                 fill: C.GREEN,
                 letterSpacing: 1,
@@ -162,7 +162,7 @@ export class SeatSprite extends Container {
                 text: '',
                 style: {
                     fontFamily: FONT_BODY,
-                    fontSize: 15,
+                    fontSize: 11,
                     fontWeight: '700',
                     fill: C.TEXT_PRIMARY,
                     letterSpacing: 0.5,
@@ -183,7 +183,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: this.isLocal ? 16 : 14,   // 本地略大，远程小号
+                fontSize: this.isLocal ? 16 : 11,   // 本地略大，远程小号
                 fontWeight: '900',
                 fill: C.GOLD,
                 letterSpacing: this.isLocal ? 1.5 : 0,
@@ -218,7 +218,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: '700',
                 fill: C.GOLD,
             },
@@ -303,15 +303,10 @@ export class SeatSprite extends Container {
             }
         }
 
-        if (seat.avatar) {
-            // 有自定义头像：远程加载，失败则降级为默认头像
-            Assets.load(seat.avatar).then(setTex).catch(() => {
-                setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
-            })
-        } else {
-            // 无头像：本地直接生成
-            setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
-        }
+        const fallback = () => setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
+        const avatarUrl = seat.avatar
+            ?? `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(seat.user_id)}`
+        Assets.load(avatarUrl).then(setTex).catch(fallback)
 
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
     }

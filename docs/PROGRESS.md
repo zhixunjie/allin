@@ -1,7 +1,7 @@
 # 实现进度
 
-> 最后更新：2026-03-19
-> 当前阶段：Phase 7 完成，Phase 8 修复已保留，视觉重绘待重新实现
+> 最后更新：2026-03-21
+> 当前阶段：Phase 9 完成
 
 ---
 
@@ -177,6 +177,39 @@
 - [x] **Canvas 宽高比修复**（`src/pixi/app.ts`）：移除 `height: '100%'`，改用 `aspectRatio: 1200/700`，防止 CSS 垂直拉伸导致整体模糊
 - [x] **手牌可见性修复**（`src/pixi/components/SeatSprite.ts`）：删除 `else if (isActive)` 背面牌分支（showdown 前 `seat.hole` 本就是 undefined，无需此逻辑）；手牌逻辑统一为 `isLocal ? myHole : seat.hole`
 - [x] **手牌渲染统一到 PixiJS**（`src/react/pages/RoomPage.tsx`）：移除 React overlay 的 `myCards` HTML 版手牌（含 `isRedSuit`/`suitSymbol` 辅助函数和对应 CSS），`SeatSprite` 统一渲染本地玩家和摊牌手牌
+
+---
+
+---
+
+## Phase 9：UI 视觉精调 ✅
+
+### 头像框
+
+- [x] **本地玩家（YOU）头像框光晕扩展**：最外层从 R+24 扩到 R+40，主环线宽加粗至 5px，active / normal 两态分别调整 alpha 梯度，整体气势更足
+- [x] **远端玩家 normal 态升级**：原银蓝双环 + 瞄准框改为多层银白向外扩散光晕（R+1 ~ R+32），与本地玩家金色光晕结构对称但色调区分
+- [x] **远端玩家 active 态扩展**：最外层从 R+18 扩到 R+32，主环 4.5px，更大气
+- [x] **移除 4 方位角装饰弧**：简化视觉，去掉瞄准框感装饰
+- [x] **统一头像半径**：`AVATAR_R_REMOTE` 由 40 调整为 48，所有玩家头像大小一致
+
+### 字体
+
+- [x] 远端玩家昵称 12 → 15
+- [x] 远端玩家筹码金额 11 → 14
+- [x] 位置标签（BTN/SB/BB）10 → 12
+- [x] 下注徽章金额 11 → 13，金币图标 12 → 14
+- [x] 筹码余额副标签 8 → 10
+- [x] 本地玩家 YOU 徽章 13 → 10（偏小更协调）
+- [x] 本地玩家筹码金额 22 → 16
+
+### 手牌位置
+
+- [x] 所有玩家手牌统一向右偏移 18px（card0: R+12→R+30，card1: R+48→R+66），避免与光晕重叠
+
+### 代码整理
+
+- [x] **`ChipAnimation.ts`**：移除 `FlyChip.label`（是 `g` 子节点，无需独立引用）
+- [x] **`DealAnimation.ts`**：移除未使用的 `vx/vy/progress` 字段，改为直接存 `speed`，tick 逻辑同步简化
 
 ---
 
