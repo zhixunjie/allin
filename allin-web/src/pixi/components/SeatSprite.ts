@@ -286,7 +286,7 @@ export class SeatSprite extends Container {
      */
     private updateBaseLayer(seat: SeatSnapshot, isActive: boolean) {
         // 绘制有玩家的座位背景（头像圆 + 活跃光环/普通描边）
-        this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded)
+        this.drawFilled(seat.user_id, isActive, seat.is_bot ?? false, seat.folded, seat.all_in ?? false)
 
         const setTex = (tex: Texture) => {
             if (this.avatarImg && !this.avatarImg.destroyed) {
@@ -342,18 +342,18 @@ export class SeatSprite extends Container {
         }
     }
 
-    /** 切变行为标记：包含 'ALL-IN' 耀金标识或 '已弃牌' 的灰冷态提示 */
+    /** 切变行为标记：ALL-IN 红底白字居中，已弃牌灰色作废章居中 */
     private updateStatusBadge(seat: SeatSnapshot) {
         if (seat.folded) {
             this.statusBadge.visible = true
             this.statusBadgeText.text = '已弃牌'
-            this.statusBadgeText.style.fill = C.TEXT_SECONDARY
-            this.layoutStatusBadge()
+            this.statusBadgeText.style.fill = 0xaaaaaa
+            this.layoutStatusBadge(false)
         } else if (seat.all_in) {
             this.statusBadge.visible = true
-            this.statusBadgeText.text = 'ALL-IN'
-            this.statusBadgeText.style.fill = C.GOLD
-            this.layoutStatusBadge()
+            this.statusBadgeText.text = 'ALL IN'
+            this.statusBadgeText.style.fill = 0xffffff
+            this.layoutStatusBadge(true)
         } else {
             this.statusBadge.visible = false
         }
@@ -434,22 +434,26 @@ export class SeatSprite extends Container {
      *
      * 弃牌：整体暗淡，去掉所有装饰
      */
-    private drawFilled(_userId: string, isActive: boolean, _isBot: boolean, isFolded: boolean) {
+    private drawFilled(_userId: string, isActive: boolean, _isBot: boolean, isFolded: boolean, isAllIn: boolean) {
         const R = this.avatarR
         this.avatarBg.clear()
 
         // ── 底层玻璃填充 ──────────────────────────────────────
-        // 弃牌时整个座位半透明（设置alpha）
         this.avatarBg.circle(0, 0, R)
-        this.avatarBg.fill({color: C.GLASS, alpha: isFolded ? 0.45 : 0.88})
+        this.avatarBg.fill({color: C.GLASS, alpha: isFolded ? 0.3 : 0.88})
 
         if (isFolded) {
-            this.avatarBg.circle(0, 0, R).stroke({color: 0x444444, width: 1.5, alpha: 0.35})
-            this.alpha = 0.45
-        } else if (this.isLocal) {// 本地玩家（YOU）
+            // 弃牌：灰色细环 + 整体大幅压暗
+            this.avatarBg.circle(0, 0, R).stroke({color: 0x555555, width: 1.5, alpha: 0.4})
+            this.alpha = 0.4
+        } else if (isAllIn) {
+            // ALL-IN：红色多层扩散光晕，视觉上最突出
+            this.drawAllInFrame(R)
+            this.alpha = 1
+        } else if (this.isLocal) {
             this.drawLocalFrame(R, isActive)
             this.alpha = 1
-        } else {// 远端玩家
+        } else {
             this.drawRemoteFrame(R)
             this.alpha = 1
         }
@@ -533,6 +537,16 @@ export class SeatSprite extends Container {
     }
 
 
+    /** ALL-IN 头像框：红色多层向外扩散光晕，传递爆表紧迫感 */
+    private drawAllInFrame(R: number) {
+        this.avatarBg.circle(0, 0, R + 30).stroke({color: C.ERROR, width: 1,   alpha: 0.04})
+        this.avatarBg.circle(0, 0, R + 20).stroke({color: C.ERROR, width: 1.5, alpha: 0.10})
+        this.avatarBg.circle(0, 0, R + 12).stroke({color: C.ERROR, width: 2,   alpha: 0.22})
+        this.avatarBg.circle(0, 0, R +  5).stroke({color: C.ERROR, width: 3,   alpha: 0.48})
+        this.avatarBg.circle(0, 0, R +  1).stroke({color: C.ERROR, width: 5,   alpha: 0.90})
+        this.avatarBg.circle(0, 0, R -  3).stroke({color: C.ERROR, width: 1.5, alpha: 0.35})
+    }
+
     /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像正上方，动态宽度的玻璃药丸背景 */
     private layoutPosTag(name: string) {
         const R = this.avatarR
@@ -576,34 +590,30 @@ export class SeatSprite extends Container {
     }
 
     /**
-     * 布局状态徽章（"已弃牌" / "ALL-IN"）。
-     * 本地玩家放在头像中心；远程玩家朝桌心方向偏移放置。
+     * 布局状态徽章 — 所有玩家统一居中覆盖在头像上，形成"盖章"效果。
+     * @param isAllIn true = ALL-IN 红底；false = 已弃牌灰底
      */
-    private layoutStatusBadge() {
-        const R = this.avatarR
-        const pos = SEAT_POSITIONS[this.displayIdx]
-
-        // 计算朝桌心方向
-        const dx = TABLE_CX - pos.x
-        const dy = TABLE_CY - pos.y
-        const len = Math.sqrt(dx * dx + dy * dy) || 1
-
-        if (this.isLocal) {
-            // 本地玩家：徽章覆盖在头像中心
-            this.statusBadge.position.set(0, 0)
-        } else {
-            // 远程玩家：朝桌心偏移（比下注徽章更近）
-            this.statusBadge.position.set((dx / len) * (R + 20), (dy / len) * (R + 10))
-        }
+    private layoutStatusBadge(isAllIn: boolean) {
+        // 统一居中，不再朝桌心偏移
+        this.statusBadge.position.set(0, 0)
 
         const text = this.statusBadgeText.text
-        const badgeW = Math.max(50, text.length * 8 + 16)
+        const badgeW = Math.max(60, text.length * 9 + 24)
 
         this.statusBadgeBg.clear()
-        this.statusBadgeBg.roundRect(-badgeW / 2, -11, badgeW, 22, 8)
-        this.statusBadgeBg.fill({color: C.SURFACE_HIGH, alpha: 0.9})
-        this.statusBadgeBg.roundRect(-badgeW / 2, -11, badgeW, 22, 8)
-        this.statusBadgeBg.stroke({color: 0xffffff, width: 0.5, alpha: 0.05})
+        if (isAllIn) {
+            // ALL-IN：红色实心药丸，亮边描框
+            this.statusBadgeBg.roundRect(-badgeW / 2, -13, badgeW, 26, 13)
+            this.statusBadgeBg.fill({color: C.ERROR, alpha: 0.90})
+            this.statusBadgeBg.roundRect(-badgeW / 2, -13, badgeW, 26, 13)
+            this.statusBadgeBg.stroke({color: 0xff9999, width: 1.5, alpha: 0.65})
+        } else {
+            // 已弃牌：深灰半透明，仿"作废章"
+            this.statusBadgeBg.roundRect(-badgeW / 2, -13, badgeW, 26, 13)
+            this.statusBadgeBg.fill({color: 0x1a1a1a, alpha: 0.80})
+            this.statusBadgeBg.roundRect(-badgeW / 2, -13, badgeW, 26, 13)
+            this.statusBadgeBg.stroke({color: 0x888888, width: 1.5, alpha: 0.45})
+        }
     }
 }
 
