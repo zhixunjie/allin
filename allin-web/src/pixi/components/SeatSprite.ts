@@ -368,17 +368,12 @@ export class SeatSprite extends Container {
             this.card0.visible = true
             this.card1.visible = true
 
-            if (this.isLocal) {
-                // 本地玩家：手牌在头像右侧扇形展开，微微旋转
-                this.card0.position.set(this.avatarR + 24, -50)
-                this.card0.rotation = -0.08
-                this.card1.position.set(this.avatarR + 60, -50)
-                this.card1.rotation = 0.08
-            } else {
-                // 远程玩家：摊牌时手牌显示在头像上方
-                this.card0.position.set(-36, -this.avatarR - 70)
-                this.card1.position.set(4, -this.avatarR - 70)
-            }
+            // 所有玩家：手牌在头像右侧扇形展开，微微旋转
+            const R = this.avatarR
+            this.card0.position.set(R + 12, -46)
+            this.card0.rotation = -0.08
+            this.card1.position.set(R + 48, -46)
+            this.card1.rotation = 0.08
         } else {
             this.card0.visible = false
             this.card1.visible = false
