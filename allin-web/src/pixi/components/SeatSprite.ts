@@ -108,7 +108,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: '800',
                 fill: C.GOLD,
                 letterSpacing: 1,
@@ -130,7 +130,7 @@ export class SeatSprite extends Container {
                 text: '',
                 style: {
                     fontFamily: FONT_BODY,
-                    fontSize: 10,
+                    fontSize: 13,
                     fontWeight: '900',
                     fill: C.VOID,
                     letterSpacing: 3,
@@ -143,7 +143,7 @@ export class SeatSprite extends Container {
                 text: '',
                 style: {
                     fontFamily: FONT_BODY,
-                    fontSize: 12,
+                    fontSize: 15,
                     fontWeight: '700',
                     fill: C.TEXT_PRIMARY,
                     letterSpacing: 0.5,
@@ -164,7 +164,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_HEADLINE,
-                fontSize: this.isLocal ? 22 : 11,   // 本地大号，远程小号
+                fontSize: this.isLocal ? 22 : 14,   // 本地大号，远程小号
                 fontWeight: '900',
                 fill: C.GOLD,
                 letterSpacing: this.isLocal ? 1.5 : 0,
@@ -178,7 +178,7 @@ export class SeatSprite extends Container {
             text: '筹码余额',
             style: {
                 fontFamily: FONT_BODY,
-                fontSize: 8,
+                fontSize: 10,
                 fontWeight: '700',
                 fill: C.GREEN,
                 letterSpacing: 2,
@@ -198,7 +198,7 @@ export class SeatSprite extends Container {
         const betBg = new Graphics()  // 徽章背景（绿色药丸 + 金色边框）
         this.betBadge.addChild(betBg)
 
-        this.betIcon = new Text({text: '🪙', style: {fontSize: 12}})
+        this.betIcon = new Text({text: '🪙', style: {fontSize: 14}})
         this.betIcon.anchor.set(0.5)
         this.betBadge.addChild(this.betIcon)
 
@@ -206,7 +206,7 @@ export class SeatSprite extends Container {
             text: '',
             style: {
                 fontFamily: FONT_BODY,
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: '700',
                 fill: C.GREEN,
             },
@@ -370,9 +370,9 @@ export class SeatSprite extends Container {
 
             // 所有玩家：手牌在头像右侧扇形展开，微微旋转
             const R = this.avatarR
-            this.card0.position.set(R + 12, -46)
+            this.card0.position.set(R + 30, -46)
             this.card0.rotation = -0.08
-            this.card1.position.set(R + 48, -46)
+            this.card1.position.set(R + 66, -46)
             this.card1.rotation = 0.08
         } else {
             this.card0.visible = false
@@ -454,7 +454,7 @@ export class SeatSprite extends Container {
 
         if (this.isLocal) {
             // 本地玩家：头像底部挂 "YOU" 金色药丸标签（昵称显示在筹码面板里）
-            const nameY = R + 2
+            const nameY = R + 18  // 避开 TimerArc 环底边（R+4+stroke/2 ≈ R+7.5）
             this.nameBadge.clear()
             this.nameBadge.roundRect(-22, nameY - 10, 44, 20, 10)
             this.nameBadge.fill({color: C.GOLD})
@@ -483,19 +483,23 @@ export class SeatSprite extends Container {
      */
     private drawLocalFrame(R: number, isActive: boolean) {
         if (isActive) {
-            // 行动中：多层金色向外扩散光晕
-            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1, alpha: 0.06})
-            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1.5, alpha: 0.14})
-            this.avatarBg.circle(0, 0, R + 4).stroke({color: C.GOLD, width: 2, alpha: 0.30})
-            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 3, alpha: 0.90})
-            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1, alpha: 0.30})
+            // 行动中：多层金色向外大范围扩散光晕
+            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1,   alpha: 0.03})
+            this.avatarBg.circle(0, 0, R + 30).stroke({color: C.GOLD, width: 1.5, alpha: 0.08})
+            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2,   alpha: 0.16})
+            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3,   alpha: 0.32})
+            this.avatarBg.circle(0, 0, R +  3).stroke({color: C.GOLD, width: 4,   alpha: 0.65})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 5,   alpha: 0.95})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1.5, alpha: 0.40})
         } else {
             // 普通：同款多层扩散，alpha 整体调低，主角常驻光感
-            this.avatarBg.circle(0, 0, R + 12).stroke({color: C.GOLD, width: 1, alpha: 0.03})
-            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1.5, alpha: 0.07})
-            this.avatarBg.circle(0, 0, R + 4).stroke({color: C.GOLD, width: 2, alpha: 0.15})
-            this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 3, alpha: 0.55})
-            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.GOLD, width: 1, alpha: 0.18})
+            this.avatarBg.circle(0, 0, R + 40).stroke({color: C.GOLD, width: 1,   alpha: 0.015})
+            this.avatarBg.circle(0, 0, R + 30).stroke({color: C.GOLD, width: 1.5, alpha: 0.04})
+            this.avatarBg.circle(0, 0, R + 20).stroke({color: C.GOLD, width: 2,   alpha: 0.09})
+            this.avatarBg.circle(0, 0, R + 10).stroke({color: C.GOLD, width: 3,   alpha: 0.18})
+            this.avatarBg.circle(0, 0, R +  3).stroke({color: C.GOLD, width: 4,   alpha: 0.38})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 5,   alpha: 0.65})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.GOLD, width: 1.5, alpha: 0.22})
         }
     }
 
@@ -505,25 +509,28 @@ export class SeatSprite extends Container {
      */
     private drawRemoteFrame(R: number, isActive: boolean) {
         if (isActive) {
-            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.GOLD, width: 1, alpha: 0.08})
-            this.avatarBg.circle(0, 0, R + 5).stroke({color: C.GOLD, width: 1.5, alpha: 0.18})
-            this.avatarBg.circle(0, 0, R + 2).stroke({color: C.GOLD, width: 2, alpha: 0.36})
-            this.avatarBg.circle(0, 0, R).stroke({color: C.GOLD, width: 2.5, alpha: 0.85})
+            // 行动中：金色多层大范围光晕
+            this.avatarBg.circle(0, 0, R + 32).stroke({color: C.GOLD, width: 1,   alpha: 0.04})
+            this.avatarBg.circle(0, 0, R + 22).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
+            this.avatarBg.circle(0, 0, R + 13).stroke({color: C.GOLD, width: 2,   alpha: 0.22})
+            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.GOLD, width: 3,   alpha: 0.45})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.GOLD, width: 4.5, alpha: 0.90})
         } else {
-            // 普通：多层银白向外扩散光晕
-            this.avatarBg.circle(0, 0, R + 8).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.03})
-            this.avatarBg.circle(0, 0, R + 5).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.08})
-            this.avatarBg.circle(0, 0, R + 2).stroke({color: C.TEXT_PRIMARY, width: 2, alpha: 0.18})
-            this.avatarBg.circle(0, 0, R).stroke({color: C.TEXT_PRIMARY, width: 2.5, alpha: 0.45})
-            this.avatarBg.circle(0, 0, R - 3).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.12})
+            // 普通：多层银白向外大范围扩散光晕
+            this.avatarBg.circle(0, 0, R + 32).stroke({color: C.TEXT_PRIMARY, width: 1,   alpha: 0.015})
+            this.avatarBg.circle(0, 0, R + 22).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.05})
+            this.avatarBg.circle(0, 0, R + 13).stroke({color: C.TEXT_PRIMARY, width: 2,   alpha: 0.11})
+            this.avatarBg.circle(0, 0, R +  5).stroke({color: C.TEXT_PRIMARY, width: 3,   alpha: 0.24})
+            this.avatarBg.circle(0, 0, R +  1).stroke({color: C.TEXT_PRIMARY, width: 4.5, alpha: 0.52})
+            this.avatarBg.circle(0, 0, R -  3).stroke({color: C.TEXT_PRIMARY, width: 1,   alpha: 0.16})
         }
     }
 
     /** 布局并计算本地主视角特供的长条半透明托盘样式，包含"筹码余额"小字 */
     private layoutLocalStack() {
         const R = this.avatarR
-        const panelY = R + 24
-        const panelW = 150
+        const panelY = R + 40  // YOU 徽章下移后同步下移，保持视觉间距
+        const panelW = 120
         const panelH = 54
 
         this.stackPanel.clear()
@@ -534,9 +541,7 @@ export class SeatSprite extends Container {
 
         this.stackText.position.set(0, panelY + panelH / 2 - 4)
 
-        // 金额下方的 "筹码余额" 标签
-        this.stackLabel.visible = true
-        this.stackLabel.position.set(0, panelY + panelH / 2 + 12)
+        this.stackLabel.visible = false
     }
 
     /** 布局位置标签（BTN/SB/BB 等）— 悬浮于头像左上角（225° 方向），动态宽度的玻璃药丸背景 */

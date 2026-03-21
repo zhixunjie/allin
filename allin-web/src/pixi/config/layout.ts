@@ -19,8 +19,8 @@ export const RAIL_W = 17
 // ── 座位 ─────────────────────────────────────────────
 /** 本地玩家头像半径（主角尺寸，96px 直径） */
 export const AVATAR_R_LOCAL = 48
-/** 远端玩家头像半径（80px 直径） */
-export const AVATAR_R_REMOTE = 40
+/** 远端玩家头像半径（与本地玩家一致） */
+export const AVATAR_R_REMOTE = 48
 
 // ── 牌桌纹理 (NineSlice) ───────────────────────────────
 /**
