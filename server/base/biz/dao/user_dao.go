@@ -8,12 +8,12 @@ import (
 
 type userDao struct{}
 
-// Create inserts a new user row.
+// Create inserts a new user row and sets u.ID from the auto-increment value.
 func (d *userDao) Create(u *model.User) error {
-	_, err := DBM.Exec(
-		`INSERT INTO users (id, username, password_hash, display_name, chip_balance, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		u.ID, u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt,
+	result, err := DBM.Exec(
+		`INSERT INTO users (username, password_hash, display_name, chip_balance, created_at)
+		 VALUES (?, ?, ?, ?, ?)`,
+		u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt,
 	)
 	if err != nil {
 		if isDuplicateEntry(err) {
@@ -21,6 +21,7 @@ func (d *userDao) Create(u *model.User) error {
 		}
 		return fmt.Errorf("userDao.Create: %w", err)
 	}
+	u.ID, _ = result.LastInsertId()
 	return nil
 }
 
@@ -41,7 +42,7 @@ func (d *userDao) GetByUsername(username string) (*model.User, error) {
 }
 
 // GetByID returns the user with the given ID.
-func (d *userDao) GetByID(id string) (*model.User, error) {
+func (d *userDao) GetByID(id int64) (*model.User, error) {
 	u := &model.User{}
 	err := DBM.Get(u,
 		`SELECT id, username, password_hash, display_name, chip_balance, created_at
@@ -57,7 +58,7 @@ func (d *userDao) GetByID(id string) (*model.User, error) {
 }
 
 // AdjustChips atomically adds delta to chip_balance and writes a ledger entry.
-func (d *userDao) AdjustChips(userID string, delta int64, reason, refID string) error {
+func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) error {
 	tx, err := DBM.Begin()
 	if err != nil {
 		return fmt.Errorf("userDao.AdjustChips: begin tx: %w", err)

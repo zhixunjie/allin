@@ -53,8 +53,17 @@ export type ShowdownPayload = Array<{
 }>
 
 export interface HandResultPayload {
-  winners: Array<{ player_id: string; amount: number; hand_name?: string }> // 赢家列表
-  seats: Array<{ player_id: string; stack: number }> // 结算后各玩家筹码
+  winners: Array<{ player_id: string; amount: number; hand_name?: string }>
+  seats?: Array<{ player_id: string; stack: number }>
+  best_hand?: string[]
+  all_players?: Array<{
+    player_id: string
+    display_name: string
+    hole: string[]
+    hand_name?: string
+    folded: boolean
+    is_winner: boolean
+  }>
 }
 
 export interface PlayerJoinedPayload {
@@ -219,8 +228,15 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     }
   },
 
-  // 发公共牌：无需处理，公共牌由 applyStreetStarted 同步
-  applyCardsDealt: (_payload) => {},
+  // 发牌通知：为所有已发牌座位展示背面牌（? 占位），showdown 时替换为正面
+  applyCardsDealt: (payload) => {
+    const p = payload as { seats: number[] }
+    set((state) => ({
+      seats: state.seats.map((s) =>
+        p.seats.includes(s.seat_index) ? { ...s, hole: ['?', '?'] } : s
+      ),
+    }))
+  },
 
   // 新街道：同步公共牌、底池，重置本街下注
   applyStreetStarted: (payload) => {
@@ -276,9 +292,8 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     }))
   },
 
-  // 本手结算：更新各玩家筹码，记录赢家信息，重置街道为 idle
+  // 本手结算：更新各玩家筹码，记录赢家/手牌信息，重置街道为 idle
   applyHandResult: (payload) => {
-    if (!payload.seats) return
     set((state) => {
       const lastHandResult: LastHandResult = {
         winners: payload.winners.map((w) => ({
@@ -286,6 +301,15 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
           display_name: state.seats.find((s) => s.user_id === w.player_id)?.display_name ?? w.player_id,
           amount: w.amount,
           hand_name: w.hand_name,
+        })),
+        bestHand: payload.best_hand,
+        allPlayers: payload.all_players?.map((p) => ({
+          player_id: p.player_id,
+          display_name: p.display_name,
+          hole: p.hole,
+          hand_name: p.hand_name,
+          folded: p.folded,
+          is_winner: p.is_winner,
         })),
       }
       return {

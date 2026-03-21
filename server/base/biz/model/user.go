@@ -12,7 +12,7 @@ var (
 
 // User represents a registered player.
 type User struct {
-	ID           string    `json:"id"           db:"id"`
+	ID           int64     `json:"id"           db:"id"`
 	Username     string    `json:"username"     db:"username"`
 	PasswordHash string    `json:"-"            db:"password_hash"`
 	DisplayName  string    `json:"display_name" db:"display_name"`

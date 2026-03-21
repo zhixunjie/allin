@@ -10,7 +10,7 @@ func NewRoomSvc(manager *room.Manager) *RoomSvc {
 	return &RoomSvc{manager: manager}
 }
 
-func (svc *RoomSvc) Create(hostUserID string, cfg room.RoomConfig) (*room.Room, error) {
+func (svc *RoomSvc) Create(hostUserID int64, cfg room.RoomConfig) (*room.Room, error) {
 	return svc.manager.Create(hostUserID, cfg)
 }
 

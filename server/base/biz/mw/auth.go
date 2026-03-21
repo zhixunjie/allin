@@ -44,9 +44,9 @@ func extractToken(c *app.RequestContext) string {
 }
 
 // GetUserID returns the authenticated user ID set by JWTMiddleware.
-func GetUserID(c *app.RequestContext) string {
+func GetUserID(c *app.RequestContext) int64 {
 	v, _ := c.Get(ctxUserID)
-	id, _ := v.(string)
+	id, _ := v.(int64)
 	return id
 }
 

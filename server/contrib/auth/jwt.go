@@ -11,13 +11,13 @@ const tokenTTL = 7 * 24 * time.Hour
 
 // Claims 是 JWT 的有效载荷。
 type Claims struct {
-	UserID      string `json:"uid"`
+	UserID      int64  `json:"uid"`
 	DisplayName string `json:"name"`
 	jwt.RegisteredClaims
 }
 
 // IssueToken 为指定用户创建一个签名的 JWT。
-func IssueToken(secret, userID, displayName string) (string, error) {
+func IssueToken(secret string, userID int64, displayName string) (string, error) {
 	claims := Claims{
 		UserID:      userID,
 		DisplayName: displayName,

@@ -9,7 +9,6 @@ import (
 	"github.com/allin/server/base/biz/dao"
 	"github.com/allin/server/base/biz/model"
 	"github.com/allin/server/contrib/auth"
-	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
@@ -32,7 +31,6 @@ func (svc *UserSvc) Register(username, password, displayName string) (*model.Use
 	}
 
 	u := &model.User{
-		ID:           uuid.New().String(),
 		Username:     username,
 		PasswordHash: hash,
 		DisplayName:  displayName,
@@ -68,7 +66,7 @@ func (svc *UserSvc) Login(username, password string) (*model.User, string, error
 }
 
 // GetByID returns the user with the given ID.
-func (svc *UserSvc) GetByID(id string) (*model.User, error) {
+func (svc *UserSvc) GetByID(id int64) (*model.User, error) {
 	return dao.UserDao.GetByID(id)
 }
 

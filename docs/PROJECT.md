@@ -11,16 +11,20 @@
 
 | 层 | 选型 |
 |----|------|
-| 后端 | Go 1.22+（net/http + gorilla/websocket） |
-| 前端游戏桌面 | PixiJS v8（WebGL Canvas 渲染） |
-| 前端 UI 面板 | React 18 + TypeScript（DOM 覆盖层） |
-| 状态管理 | Zustand |
-| 构建工具 | Vite |
-| 实时通信 | WebSocket + JSON |
-| 鉴权 | JWT HS256，用户名/密码 |
-| 持久化 | MySQL 8.0+（go-sql-driver/mysql） |
+| 后端语言 | Go 1.25 |
+| HTTP 框架 | Hertz v0.10.4（CloudWeGo） |
+| WebSocket | gorilla/websocket（via contrib/ws） |
+| 配置管理 | Viper（`server/base/config.yaml`） |
+| 数据库访问 | sqlx + go-sql-driver/mysql |
+| 持久化 | MySQL 8.0（AutoMigrate 自动建表） |
+| 鉴权 | JWT HS256，7 天有效期 |
 | 游戏状态 | 纯内存（Go struct + channel 单写者模式） |
-| 手牌评估 | Two Plus Two 查表算法（HandRanks.dat） |
+| 手牌评估 | 纯 Go 枚举 C(7,5)=21 种五牌组合（HandRanks.dat 为可选加速） |
+| 前端构建 | Vite 5 + TypeScript |
+| UI | React 18 + CSS Modules |
+| 2D 渲染 | PixiJS v8（WebGL，程序化渲染，无外部图片） |
+| 状态管理 | Zustand |
+| 路由 | React Router v6 |
 
 ---
 
@@ -28,29 +32,32 @@
 
 ```
 allin/
-├── allin-server/               # Go 后端
-│   ├── cmd/server/main.go
-│   ├── internal/
-│   │   ├── auth/               # JWT + bcrypt
-│   │   ├── user/               # 用户注册/登录
-│   │   ├── room/               # 房间管理
-│   │   ├── game/               # 游戏引擎（状态机 + 动作 + 牌型评估）
-│   │   ├── eval/               # Two Plus Two 手牌评估器
-│   │   ├── ws/                 # WebSocket Hub + Client
-│   │   ├── store/              # MySQL 连接 + 自动建表
-│   │   └── config/             # 环境变量配置
-│   ├── assets/eval/HandRanks.dat
-│   ├── go.mod
-│   └── Makefile
+├── server/                     # Go 后端（单 module: github.com/allin/server）
+│   ├── base/                   # 微服务主体
+│   │   ├── main.go             # 启动入口（Hertz + Viper）
+│   │   ├── router.go           # 路由注册
+│   │   ├── config.yaml         # 本地配置
+│   │   └── biz/
+│   │       ├── handler/        # HTTP Handler（User / Room）
+│   │       ├── service/        # 业务逻辑（UserSvc / RoomSvc）
+│   │       ├── dao/            # 数据访问（userDao / roomDao + AutoMigrate）
+│   │       ├── mw/             # 中间件（JWT）
+│   │       └── model/          # 数据模型（User struct + 错误定义）
+│   ├── contrib/                # 可复用组件
+│   │   ├── ws/                 # WebSocket Hub + Client + Handler
+│   │   ├── room/               # RoomManager（内存 + GC）
+│   │   ├── game/               # 游戏引擎（状态机 + AI bot）
+│   │   ├── eval/               # 手牌评估器
+│   │   └── auth/               # JWT 签发/验证 + bcrypt
+│   └── go.mod
 │
-├── allin-web/                  # React + PixiJS 前端
+├── ui-web/                     # React + PixiJS 前端
 │   ├── src/
 │   │   ├── api/                # HTTP + WebSocket 客户端
-│   │   ├── store/              # Zustand stores
+│   │   ├── store/              # Zustand stores（auth / room / game / chat）
 │   │   ├── pixi/               # PixiJS 场景 + 组件
 │   │   ├── react/              # React 页面 + 面板
 │   │   └── hooks/
-│   ├── public/assets/          # 牌面图、筹码图、桌面图
 │   ├── vite.config.ts
 │   └── package.json
 │
@@ -64,45 +71,33 @@ allin/
 ## 本地开发环境
 
 ### 依赖
-- Go 1.22+
+
+- Go 1.25+
 - Node.js 20+
-- MySQL 8.0+（本地服务，端口 3306）
+- MySQL 8.0（本地 `127.0.0.1:13306`，root 无密码，`allin` 库已存在）
 
-### 1. 创建数据库
-
-```sql
-CREATE DATABASE allin CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-### 2. 配置后端环境变量
-
-复制并编辑：
-```bash
-cp allin-server/.env.example allin-server/.env
-```
-
-`.env` 内容：
-```
-MYSQL_DSN=root:yourpassword@tcp(127.0.0.1:3306)/allin?parseTime=true&charset=utf8mb4
-JWT_SECRET=your-secret-key-here
-SERVER_ADDR=:8080
-```
-
-### 3. 启动后端
+### 启动后端
 
 ```bash
-cd allin-server
-go run ./cmd/server
-# 首次启动自动建表，输出：[store] auto-migrated 4 tables
+cd server
+go run ./base
+# 首次启动自动建表，输出：dao: auto-migrated 4 tables
+# 健康检查：curl http://localhost:8080/health
 ```
 
-### 4. 启动前端
+### 启动前端
 
 ```bash
-cd allin-web
+cd ui-web
 npm install
 npm run dev
-# 访问 http://localhost:5173
+# 默认 http://localhost:5173，端口占用时顺延
+```
+
+### 验证后端是否已在运行
+
+```bash
+curl http://localhost:8080/health
 ```
 
 ---
@@ -121,7 +116,7 @@ npm run dev
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/rooms` | 创建房间：`{ small_blind, big_blind, min_buy_in, max_buy_in, max_players }` |
+| POST | `/api/rooms` | 创建房间：`{ small_blind, big_blind, min_buy_in, max_buy_in, max_players, bot_count, bot_style }` |
 | GET  | `/api/rooms/:code` | 获取房间快照（邀请链接预览） |
 
 ### WebSocket

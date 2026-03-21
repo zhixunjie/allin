@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -63,7 +64,9 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	hub := h.getOrCreateHub(rm)
 
 	// 4. Upgrade to WebSocket
-	client, err := NewClient(hub, w, r, claims.UserID, claims.DisplayName)
+	// UserID is int64 in JWT claims; WS/game layers use string representation.
+	userIDStr := fmt.Sprintf("%d", claims.UserID)
+	client, err := NewClient(hub, w, r, userIDStr, claims.DisplayName)
 	if err != nil {
 		slog.Error("ws: upgrade failed", "err", err)
 		return

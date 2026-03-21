@@ -28,9 +28,9 @@ const (
 // Room 是一个扑克房间。内存中的字段（hub、engine、players）
 // 由 RoomManager 管理，不会持久化。
 type Room struct {
-	ID          string     `json:"id"`
+	ID          int64      `json:"id"`
 	Code        string     `json:"code"`
-	HostUserID  string     `json:"host_user_id"`
+	HostUserID  int64      `json:"host_user_id"`
 	Config      RoomConfig `json:"config"`
 	State       RoomState  `json:"state"`
 	CreatedAt   time.Time  `json:"created_at"`

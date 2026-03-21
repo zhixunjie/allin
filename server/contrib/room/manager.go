@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/allin/server/base/biz/dao"
-	"github.com/google/uuid"
 )
 
 var (
@@ -30,7 +29,7 @@ func NewManager() *Manager {
 }
 
 // Create validates config, generates a unique code, persists to DB, and registers in memory.
-func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
+func (m *Manager) Create(hostUserID int64, cfg RoomConfig) (*Room, error) {
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -41,7 +40,6 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	}
 
 	r := &Room{
-		ID:         uuid.New().String(),
 		Code:       code,
 		HostUserID: hostUserID,
 		Config:     cfg,
@@ -50,7 +48,8 @@ func (m *Manager) Create(hostUserID string, cfg RoomConfig) (*Room, error) {
 	}
 
 	cfgJSON, _ := json.Marshal(r.Config)
-	if err := dao.RoomDao.Persist(r.ID, r.Code, r.HostUserID, cfgJSON, r.CreatedAt); err != nil {
+	r.ID, err = dao.RoomDao.Persist(r.Code, r.HostUserID, cfgJSON, r.CreatedAt)
+	if err != nil {
 		return nil, fmt.Errorf("room.Create: %w", err)
 	}
 

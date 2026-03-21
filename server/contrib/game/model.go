@@ -305,3 +305,27 @@ func EvaluateHand(hole [2]Card, community []Card) (uint32, string) {
 	rank := eval.Evaluate7(cards)
 	return rank, fmt.Sprintf("%s", eval.Describe(rank))
 }
+
+// BestFiveStrings 返回玩家手牌+公共牌中最佳五张的字符串切片。
+// community 不足 3 张时返回 nil（翻牌前不评估）。
+func BestFiveStrings(hole [2]Card, community []Card) []string {
+	if len(community) < 3 {
+		return nil
+	}
+	cards := [7]eval.Card{
+		hole[0].toEval(),
+		hole[1].toEval(),
+	}
+	for i, c := range community {
+		if i >= 5 {
+			break
+		}
+		cards[2+i] = c.toEval()
+	}
+	best := eval.BestFive(cards)
+	out := make([]string, 5)
+	for i, c := range best {
+		out[i] = c.String()
+	}
+	return out
+}

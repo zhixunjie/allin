@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
-	"github.com/allin/server/contrib/room"
 	bizdao "github.com/allin/server/base/biz/dao"
+	"github.com/allin/server/contrib/room"
 	"github.com/allin/server/contrib/ws"
 )
 
 const (
-	handStartDelay = 3 * time.Second // 手牌之间的延迟
+	handStartDelay = 10 * time.Second // 手牌之间的延迟
 )
 
 const chatRateLimit = time.Second // 每个玩家聊天消息的最小间隔
@@ -145,9 +146,32 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		return
 	}
 
-	// 从用户账户扣除买入金额
-	buyIn := e.room.Config.MaxBuyIn
-	u, err := bizdao.UserDao.GetByID(msg.SenderID)
+	// 解析带入金额（0 表示默认使用 MaxBuyIn）。
+	var cmd ws.JoinRoomCmd
+	_ = json.Unmarshal(msg.Env.Payload, &cmd)
+	buyIn := cmd.BuyIn
+	if buyIn == 0 {
+		buyIn = e.room.Config.MaxBuyIn
+	}
+	minBuyIn := e.room.Config.MinBuyIn
+	maxBuyIn := e.room.Config.MaxBuyIn
+	if buyIn < minBuyIn || buyIn > maxBuyIn {
+		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+			Code:    "invalid_buy_in",
+			Message: fmt.Sprintf("buy_in must be between %d and %d", minBuyIn, maxBuyIn),
+		}))
+		return
+	}
+
+	// 从用户账户扣除买入金额（bot 跳过 DB 操作）
+	senderIntID, parseErr := strconv.ParseInt(msg.SenderID, 10, 64)
+	if parseErr != nil {
+		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+			Code: "user_not_found", Message: "user not found",
+		}))
+		return
+	}
+	u, err := bizdao.UserDao.GetByID(senderIntID)
 	if err != nil {
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
 			Code: "user_not_found", Message: "user not found",
@@ -161,7 +185,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		}))
 		return
 	}
-	if err := bizdao.UserDao.AdjustChips(msg.SenderID, -buyIn, "buy_in", e.room.Code); err != nil {
+	if err := bizdao.UserDao.AdjustChips(senderIntID, -buyIn, "buy_in", e.room.Code); err != nil {
 		slog.Error("game: failed to deduct buy-in", "user", msg.SenderID, "err", err)
 		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
 			Code: "server_error", Message: "failed to process buy-in",
@@ -291,7 +315,12 @@ func (e *Engine) cashOut(userID string, stack int64) {
 	if IsBotID(userID) || stack == 0 {
 		return
 	}
-	if err := bizdao.UserDao.AdjustChips(userID, stack, "cash_out", e.room.Code); err != nil {
+	uid, err := strconv.ParseInt(userID, 10, 64)
+	if err != nil {
+		slog.Error("game: cashOut invalid userID", "user", userID)
+		return
+	}
+	if err := bizdao.UserDao.AdjustChips(uid, stack, "cash_out", e.room.Code); err != nil {
 		slog.Error("game: failed to cash out", "user", userID, "stack", stack, "err", err)
 	}
 }
@@ -434,10 +463,13 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 		return
 	}
 
-	// 行动超时：自动弃牌或过牌。
+	// 全员全押自动推进：ActionSeat==-1 表示本街无人可行动，继续发牌。
 	if e.gs.ActionSeat == -1 {
+		e.nextStreet(resetTimer)
 		return
 	}
+
+	// 行动超时：自动弃牌或过牌。
 	p := e.gs.Seats[e.gs.ActionSeat]
 	if p == nil {
 		return
@@ -703,10 +735,12 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		Hole        []string `json:"hole"`
 		HandName    string `json:"hand_name"`
 	}
+	handNames := map[string]string{} // playerID → handName
 	var reveals []reveal
 	for _, p := range e.gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut {
 			_, handName := EvaluateHand(p.Hole, e.gs.Community)
+			handNames[p.UserID] = handName
 			reveals = append(reveals, reveal{
 				PlayerID:  p.UserID,
 				SeatIndex: p.SeatIndex,
@@ -724,11 +758,11 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	type winEntry struct {
 		PlayerID string `json:"player_id"`
 		Amount   int64  `json:"amount"`
+		HandName string `json:"hand_name,omitempty"`
 	}
 	var winners []winEntry
 
 	for _, pot := range pots {
-		// 在有资格的玩家中找到最佳手牌。
 		bestRank := uint32(0xFFFFFFFF)
 		var bestPlayers []string
 		for _, uid := range pot.Eligible {
@@ -744,19 +778,22 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 				bestPlayers = append(bestPlayers, uid)
 			}
 		}
-		// 平局时平分底池。
 		share := pot.Amount / int64(len(bestPlayers))
 		remainder := pot.Amount % int64(len(bestPlayers))
 		for i, uid := range bestPlayers {
 			award := share
 			if i == 0 {
-				award += remainder // 将余数给第一个赢家
+				award += remainder
 			}
 			p := e.gs.FindPlayer(uid)
 			if p != nil {
 				p.Stack += award
 			}
-			winners = append(winners, winEntry{PlayerID: uid, Amount: award})
+			winners = append(winners, winEntry{
+				PlayerID: uid,
+				Amount:   award,
+				HandName: handNames[uid],
+			})
 		}
 	}
 
@@ -772,15 +809,59 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		}
 	}
 
+	// 赢家最佳五张牌。
+	var bestHand []string
+	if len(winners) > 0 {
+		wp := e.gs.FindPlayer(winners[0].PlayerID)
+		if wp != nil {
+			bestHand = BestFiveStrings(wp.Hole, e.gs.Community)
+		}
+	}
+
+	// 全场玩家摘要（含弃牌者）。
+	type playerDetail struct {
+		PlayerID    string   `json:"player_id"`
+		DisplayName string   `json:"display_name"`
+		Hole        []string `json:"hole"`
+		HandName    string   `json:"hand_name,omitempty"`
+		Folded      bool     `json:"folded"`
+		IsWinner    bool     `json:"is_winner"`
+	}
+	winnerSet := map[string]bool{}
+	for _, w := range winners {
+		winnerSet[w.PlayerID] = true
+	}
+	var allPlayers []playerDetail
+	for _, p := range e.gs.Seats {
+		if p == nil {
+			continue
+		}
+		hole := []string{}
+		if !p.Folded {
+			hole = []string{p.Hole[0].String(), p.Hole[1].String()}
+		}
+		allPlayers = append(allPlayers, playerDetail{
+			PlayerID:    p.UserID,
+			DisplayName: p.DisplayName,
+			Hole:        hole,
+			HandName:    handNames[p.UserID],
+			Folded:      p.Folded,
+			IsWinner:    winnerSet[p.UserID],
+		})
+	}
+
 	rawResult, _ := json.Marshal(struct {
-		Winners []winEntry   `json:"winners"`
-		Seats   []resultSeat `json:"seats"`
-	}{winners, resultSeats})
+		Winners    []winEntry     `json:"winners"`
+		Seats      []resultSeat   `json:"seats"`
+		BestHand   []string       `json:"best_hand,omitempty"`
+		AllPlayers []playerDetail `json:"all_players"`
+	}{winners, resultSeats, bestHand, allPlayers})
 	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
-	// 安排下一手牌。
+	e.kickBrokePlayers()
+
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
 	if len(e.gs.EligibleToStart()) >= 2 {
@@ -811,19 +892,42 @@ func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)
 	}
 	winner.Stack += total
 
+	type uWinner struct {
+		PlayerID string `json:"player_id"`
+		Amount   int64  `json:"amount"`
+	}
+	type uPlayer struct {
+		PlayerID    string   `json:"player_id"`
+		DisplayName string   `json:"display_name"`
+		Hole        []string `json:"hole"`
+		Folded      bool     `json:"folded"`
+		IsWinner    bool     `json:"is_winner"`
+	}
+	var uPlayers []uPlayer
+	for _, p := range e.gs.Seats {
+		if p == nil {
+			continue
+		}
+		uPlayers = append(uPlayers, uPlayer{
+			PlayerID:    p.UserID,
+			DisplayName: p.DisplayName,
+			Hole:        []string{},
+			Folded:      p.Folded || p.UserID != winner.UserID,
+			IsWinner:    p.UserID == winner.UserID,
+		})
+	}
 	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, struct {
-		Winners []struct {
-			PlayerID string `json:"player_id"`
-			Amount   int64  `json:"amount"`
-		} `json:"winners"`
+		Winners    []uWinner `json:"winners"`
+		AllPlayers []uPlayer `json:"all_players"`
 	}{
-		Winners: []struct {
-			PlayerID string `json:"player_id"`
-			Amount   int64  `json:"amount"`
-		}{{winner.UserID, total}},
+		Winners:    []uWinner{{winner.UserID, total}},
+		AllPlayers: uPlayers,
 	}))
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)
+
+	// 移除筹码归零的玩家。
+	e.kickBrokePlayers()
 
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
@@ -837,6 +941,41 @@ func (e *Engine) checkHandOver(resetTimer func(time.Duration), stopTimer func())
 	active := e.gs.ActivePlayers()
 	if len(active) == 1 {
 		e.awardUncontested(active[0], resetTimer)
+	}
+}
+
+// kickBrokePlayers 移除手牌结束后筹码归零的玩家。
+func (e *Engine) kickBrokePlayers() {
+	for _, p := range e.gs.Seats {
+		if p == nil || p.Stack > 0 {
+			continue
+		}
+		uid := p.UserID
+		seatIdx := p.SeatIndex
+		e.gs.UnseatPlayer(uid)
+		slog.Info("game: player broke, unseated", "room", e.room.Code, "player", uid)
+		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+			PlayerID:  uid,
+			SeatIndex: seatIdx,
+		}))
+	}
+	// 若人类玩家全部离开，清场 bot 并启动宽限期。
+	humanCount := 0
+	for _, p := range e.gs.Seats {
+		if p != nil && !IsBotID(p.UserID) {
+			humanCount++
+		}
+	}
+	if humanCount == 0 {
+		for _, p := range e.gs.Seats {
+			if p != nil && IsBotID(p.UserID) {
+				e.gs.UnseatPlayer(p.UserID)
+			}
+		}
+		e.botsSeated = false
+		if e.onEmpty != nil && e.emptyTimer == nil {
+			e.emptyTimer = time.AfterFunc(emptyGracePeriod, e.onEmpty)
+		}
 	}
 }
 

@@ -229,3 +229,25 @@ func evaluateFive(cards [5]Card) uint32 {
 	}
 	return encodeRank(8, sorted[0], sorted[1], sorted[2], sorted[3], sorted[4])
 }
+
+// BestFive 从 7 张牌中找出构成最佳手牌的 5 张，返回这 5 张牌。
+// 遍历全部 C(7,5)=21 种组合，取等级最低（最好）的一组。
+func BestFive(cards [7]Card) [5]Card {
+	bestRank := uint32(0xFFFFFFFF)
+	var bestIdx [5]int
+	for _, combo := range combos21 {
+		var five [5]Card
+		for i, idx := range combo {
+			five[i] = cards[idx]
+		}
+		if r := evaluateFive(five); r < bestRank {
+			bestRank = r
+			bestIdx = combo
+		}
+	}
+	var result [5]Card
+	for i, idx := range bestIdx {
+		result[i] = cards[idx]
+	}
+	return result
+}

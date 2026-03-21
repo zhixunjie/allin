@@ -177,6 +177,7 @@ type StackUpdatedPayload struct {
 type JoinRoomCmd struct {
 	RoomCode  string `json:"room_code"`
 	SeatIndex *int   `json:"seat_index"` // 可选的首选座位
+	BuyIn     int64  `json:"buy_in"`     // 买入金额；0 表示使用 MaxBuyIn
 }
 
 // ActionCmd 是 CmdAction 的载荷。
