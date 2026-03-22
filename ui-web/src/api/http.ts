@@ -76,7 +76,18 @@ export const authAPI = {
   me: () => http.get<User>('/me', true),
 }
 
+export interface HandEntry {
+  hand_num: number
+  result: Array<{ player_id: string; amount: number; hand_name?: string }>
+  played_at: string
+}
+
+export const chipsAPI = {
+  claim: () => http.post<{ chip_balance: number }>('/chips/claim', {}, true),
+}
+
 export const roomAPI = {
   create: (config: RoomConfig) => http.post<Room>('/rooms', config, true),
   get: (code: string) => http.get<Room>(`/rooms/${code}`),
+  getHands: (code: string) => http.get<HandEntry[]>(`/rooms/${code}/hands`, true),
 }

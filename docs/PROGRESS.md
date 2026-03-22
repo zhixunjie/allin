@@ -210,6 +210,35 @@
 
 ---
 
+---
+
+## Phase 14：功能补全 ✅
+
+### 账户余额自动刷新
+- [x] `useWebSocket`：`player_joined`（自身首次入桌）时 fetch `/api/me` 更新 `chip_balance`
+- [x] `useWebSocket`：`stack_updated`（自身补充筹码）时 fetch `/api/me` 更新 `chip_balance`
+- [x] `LobbyPage`：组件挂载时 fetch `/api/me`，确保离桌 cashOut 后余额显示最新值
+
+### 补充筹码按钮（RoomPage）
+- [x] 手牌间隙（`street === Idle`）且桌面筹码低于 `max_buy_in` 时显示「补充筹码」按钮
+- [x] 弹窗支持自定义金额输入（25% / 50% / 全补 快捷预设，上限 `min(maxAdd, chip_balance)`）
+- [x] 确认后发送 `add_chips` WS 命令，`stack_updated` 事件自动刷新桌面筹码和账户余额
+
+### 筹码归零后领取（`POST /api/chips/claim`）
+- [x] 后端：`UserSvc.ClaimFreeChips` — 余额 < 1000 时补发 10000 筹码，写入 `chip_ledger`
+- [x] 后端：`UserHandler.ClaimChips` handler + 路由注册
+- [x] 前端：`LobbyPage` 余额 < 1000 时显示「领取筹码」按钮，成功后更新 auth store
+
+### 手牌历史查询（`GET /api/rooms/:code/hands`）
+- [x] 后端：`HandHistoryDao.GetByRoomCode` — JOIN `room_history` 按房间码查最近 20 手，返回 `hand_num / result / played_at`
+- [x] 后端：`RoomHandler.GetHands` handler + 路由注册（JWT 保护）
+- [x] 前端：`HandHistory` 面板重写为按需加载的历史列表（每行展示手牌编号、赢家、金额、牌型、时间）
+- [x] `RoomPage` 顶部栏添加「历史」切换按钮，点击显示/隐藏 `HandHistory` 面板
+
+### 行动计时器 Banner 移除
+- [x] 删除 `hooks/useActionTimer.ts`
+- [x] `RoomPage` 移除所有计时器 Banner 相关注释代码（PixiJS `TimerArc` 弧形倒计时保留）
+
 ## TODO：已知缺口
 
 （暂无已知功能缺口）

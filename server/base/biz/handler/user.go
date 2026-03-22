@@ -67,3 +67,19 @@ func (*UserHandler) Me(ctx context.Context, c *app.RequestContext) {
 	}
 	c.JSON(200, u)
 }
+
+// ClaimChips handles POST /api/chips/claim
+// 余额低于 1000 时补发 10000 筹码。
+func (*UserHandler) ClaimChips(ctx context.Context, c *app.RequestContext) {
+	userID := mw.GetUserID(c)
+	newBalance, err := service.User.ClaimFreeChips(userID)
+	if err != nil {
+		if err.Error() == "sufficient balance" {
+			c.JSON(400, map[string]string{"error": "sufficient balance"})
+			return
+		}
+		c.JSON(500, map[string]string{"error": "server error"})
+		return
+	}
+	c.JSON(200, map[string]int64{"chip_balance": newBalance})
+}

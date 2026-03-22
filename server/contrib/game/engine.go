@@ -13,35 +13,34 @@ import (
 )
 
 const (
-	handStartDelay = 5 * time.Second // 手牌之间的延迟
+	handStartDelay  = 5 * time.Second  // 两手牌之间的等待时长，给玩家留出准备时间
+	chatRateLimit   = time.Second      // 聊天消息发送频率上限：每人每秒最多 1 条
+	emptyGracePeriod = 30 * time.Second // 所有人类玩家离开后，房间被回收前的宽限期
 )
 
-const chatRateLimit = time.Second // 每个玩家聊天消息的最小间隔
-
-const emptyGracePeriod = 30 * time.Second
-
 // Engine 驱动一个房间的游戏状态机。
-// 所有对 GameState 的修改都在单一的 Run() goroutine 中发生。
+// 所有对 GameState 的修改都严格发生在单一的 Run() goroutine 中，
+// 无需任何锁即可保证并发安全。
 type Engine struct {
-	hub         *ws.Hub
-	room        *room.Room
-	gs          *GameState
-	deck        []Card
-	quit        chan struct{}
-	chatLimiter map[string]time.Time // 每个 userID 的上次聊天时间
-	registry    *Registry
-	onEmpty     func() // 所有玩家离开时调用
-	emptyTimer  *time.Timer
-	botsSeated  bool              // 首次有人类玩家加入时安排 bot 入座
-	handActions []actionLogEntry  // 当前手牌行动序列（用于写入历史）
+	hub         *ws.Hub             // 该房间的 WebSocket 消息总线
+	room        *room.Room          // 房间元数据与配置
+	gs          *GameState          // 游戏状态（街道、座位、下注等）
+	deck        []Card              // 当前手牌使用的洗牌牌组（每手重置）
+	quit        chan struct{}        // 关闭此 channel 通知 Run() 退出
+	chatLimiter map[string]time.Time // 各玩家最近一次聊天时间，用于频率限制
+	registry    *Registry           // 全局引擎注册表，为 nil 时不注册
+	onEmpty     func()              // 所有人类玩家离开后触发的回调（用于回收房间）
+	emptyTimer  *time.Timer         // 宽限期计时器，到期后执行 onEmpty
+	botsSeated  bool                // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
+	handActions []actionLogEntry    // 当前手牌的行动序列，手牌结束后写入历史表
 }
 
-// actionLogEntry 记录单次行动，用于写入 hand_history.actions_json。
+// actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
 type actionLogEntry struct {
-	PlayerID string `json:"player_id"`
-	Action   string `json:"action"`
-	Amount   int64  `json:"amount"`
-	Street   string `json:"street"`
+	PlayerID string `json:"player_id"` // 执行行动的玩家 ID
+	Action   string `json:"action"`    // 行动类型（fold/check/call/bet/raise/all_in）
+	Amount   int64  `json:"amount"`    // 行动金额（check/fold 为 0）
+	Street   string `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
 }
 
 // NewEngine 为给定的 hub 和房间创建引擎。
@@ -113,6 +112,7 @@ func (e *Engine) Run() {
 	}
 }
 
+// handleMessage 将入站消息按命令类型路由到对应处理函数。
 func (e *Engine) handleMessage(
 	msg ws.InboundMessage,
 	resetTimer func(time.Duration),
@@ -138,6 +138,8 @@ func (e *Engine) handleMessage(
 
 // ---- 加入 ----
 
+// handleJoinRoom 处理玩家加入房间请求。
+// 若玩家已在座位（断线重连）则直接恢复状态；否则走完整买入入座流程。
 func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Duration)) {
 	// 断线重连：若玩家仍在座位（Disconnected=true），直接恢复。
 	if existing := e.gs.FindPlayer(msg.SenderID); existing != nil {
@@ -262,6 +264,9 @@ func (e *Engine) seatBots() {
 
 // ---- 断开连接 ----
 
+// handleDisconnect 处理玩家 WebSocket 断开事件。
+// Idle 状态下立即离座并返还筹码；手牌进行中则保留座位标记断线，
+// 仅在轮到该玩家行动时立即自动弃牌，其余情况等超时逻辑处理，保留重连机会。
 func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
 	// Bot ID 从没有真实的 WS 连接；忽略虚假的断开连接消息。
 	if IsBotID(msg.SenderID) {
@@ -315,6 +320,8 @@ func (e *Engine) cashOut(userID string, stack int64) {
 
 // ---- 行动 ----
 
+// handleAction 处理玩家行动（fold/check/call/bet/raise/all_in）。
+// 先校验合法性，通过后应用行动、记录日志、广播结果，再推进牌局。
 func (e *Engine) handleAction(
 	msg ws.InboundMessage,
 	resetTimer func(time.Duration),
@@ -361,6 +368,7 @@ func (e *Engine) handleAction(
 
 // ---- 聊天 ----
 
+// handleChat 处理聊天消息，并执行频率限制（每人每秒最多 1 条）。
 func (e *Engine) handleChat(msg ws.InboundMessage) {
 	// 频率限制：每个玩家每秒 1 条消息
 	if last, ok := e.chatLimiter[msg.SenderID]; ok && time.Since(last) < chatRateLimit {
@@ -385,6 +393,8 @@ func (e *Engine) handleChat(msg ws.InboundMessage) {
 
 // ---- 加注筹码 ----
 
+// handleAddChips 处理手牌间隙的筹码补充请求。
+// 从账户余额扣款后将差额加到桌面 stack，上限为 MaxBuyIn。
 func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 	if e.gs.Street != StreetIdle {
 		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
@@ -446,6 +456,8 @@ func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 
 // ---- 离座 ----
 
+// handleSitOut 处理玩家离座/归座请求。
+// 离座时若正轮到该玩家行动，自动弃牌；归座时若满足开局条件，启动倒计时。
 func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
 	var cmd ws.SitOutCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
@@ -478,6 +490,8 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 
 // ---- 主动离桌 ----
 
+// handleLeaveTable 处理玩家主动离桌请求。
+// 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
 func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
 	if e.gs.Street != StreetIdle {
 		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
@@ -541,6 +555,10 @@ func (e *Engine) cleanupDisconnected() {
 
 // ---- 超时 ----
 
+// handleTimeout 处理计时器到期事件，分三种情况：
+//  1. Idle 状态：手牌间隔计时结束，若仍满足条件则开始新手牌。
+//  2. ActionSeat == -1：全员全押，无人可行动，自动推进到下一街道。
+//  3. 正常行动超时：对当前行动玩家执行自动弃牌（有下注则 fold，否则 check）。
 func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	if e.gs.Street == StreetIdle {
 		// 开始手牌计时器触发。
@@ -584,6 +602,8 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 
 // ---- 手牌流程 ----
 
+// startHand 开始新一手牌：递增手牌编号、移动庄家按钮、分配盲注、洗牌发牌，
+// 并广播 game_started / hole_cards / cards_dealt 事件，最后提示第一个行动玩家。
 func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.handActions = e.handActions[:0] // 清空行动日志
 	e.gs.HandNum++
@@ -673,6 +693,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.broadcastActionRequired(resetTimer)
 }
 
+// postBlind 强制玩家下盲注：若筹码不足则全押，更新 Bet / TotalBet / Stack。
 func postBlind(p *Player, amount int64) {
 	if p == nil {
 		return
@@ -686,6 +707,8 @@ func postBlind(p *Player, amount int64) {
 	p.Stack -= amount
 }
 
+// dealHoleCards 按座位顺序循环两轮发牌，每位玩家发 2 张底牌。
+// 已离座（SitOut）的玩家跳过，发完后收缩 deck 指针。
 func (e *Engine) dealHoleCards() {
 	idx := 0
 	for round := 0; round < 2; round++ {
@@ -701,6 +724,8 @@ func (e *Engine) dealHoleCards() {
 	e.deck = e.deck[idx:]
 }
 
+// dealCommunity 从牌组顶部取 n 张牌追加到公共牌区域。
+// 翻牌发 3 张，转牌/河牌各发 1 张。
 func (e *Engine) dealCommunity(n int) {
 	for i := 0; i < n; i++ {
 		e.gs.Community = append(e.gs.Community, e.deck[0])
@@ -708,7 +733,11 @@ func (e *Engine) dealCommunity(n int) {
 	}
 }
 
-// advanceOrEnd：行动后，确定下一步。
+// advanceOrEnd 在玩家行动或超时弃牌后决定下一步：
+//   - 活跃玩家仅剩 1 人 → awardUncontested（无需摊牌）；
+//   - 本回合下注已结束 → nextStreet 推进到下一街道；
+//   - 所有剩余玩家全押 → nextStreet 继续发牌；
+//   - 否则找到下一个可行动座位，广播 action_required。
 func (e *Engine) advanceOrEnd(resetTimer func(time.Duration), stopTimer func()) {
 	active := e.gs.ActivePlayers()
 
@@ -735,6 +764,10 @@ func (e *Engine) advanceOrEnd(resetTimer func(time.Duration), stopTimer func()) 
 	e.broadcastActionRequired(resetTimer)
 }
 
+// nextStreet 将游戏推进到下一个下注街道：
+// 重置玩家本回合下注，发公共牌（翻牌 3 张、转牌/河牌各 1 张），
+// 广播 street_started 事件；若所有人全押则设置短延迟自动推进，
+// 否则从庄家左边开始新一轮行动。河牌结束后调用 runShowdown。
 func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 	// 为新回合重置下注。
 	for _, p := range e.gs.Seats {
@@ -780,7 +813,8 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 	e.broadcastActionRequired(resetTimer)
 }
 
-// CanAct 返回活跃且未全押的玩家。
+// CanAct 返回所有仍可参与下注决策的玩家：未弃牌、未离座、未全押。
+// 用于判断当前街道是否还有行动空间，若为空则跳过直接发牌。
 func (gs *GameState) CanAct() []*Player {
 	var out []*Player
 	for _, p := range gs.Seats {
@@ -791,6 +825,8 @@ func (gs *GameState) CanAct() []*Player {
 	return out
 }
 
+// broadcastActionRequired 广播 action_required 事件，告知所有客户端当前需要行动的玩家，
+// 并启动行动计时器；若该玩家是 bot，则同步调度 AI 决策。
 func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 	p := e.gs.Seats[e.gs.ActionSeat]
 	if p == nil {
@@ -818,6 +854,11 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 
 // ---- 摊牌 ----
 
+// runShowdown 执行摊牌流程：
+//  1. 将所有未弃牌的手牌通过 showdown 事件公开；
+//  2. 调用 BuildPots 计算主池/边池，按手牌强度分配给赢家（平分余数给第一位）；
+//  3. 广播 hand_result，异步写入 DB，移除零筹码玩家，
+//     进入 StreetIdle 并启动下一手计时器。
 func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	e.gs.Street = StreetShowdown
 	e.gs.ActionSeat = -1
@@ -1102,6 +1143,8 @@ func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
 
 // ---- 辅助函数 ----
 
+// nextEligibleSeatAfter 在 eligible 玩家列表中，找到座位号严格大于 from 的下一个座位（循环）。
+// from == -1 时直接返回第一个 eligible 玩家的座位；用于庄家/盲注/行动顺序推进。
 func (e *Engine) nextEligibleSeatAfter(from int, eligible []*Player) int {
 	if from == -1 {
 		if len(eligible) > 0 {
@@ -1120,6 +1163,8 @@ func (e *Engine) nextEligibleSeatAfter(from int, eligible []*Player) int {
 	return eligible[0].SeatIndex
 }
 
+// sendSnapshot 向指定玩家发送 connected 事件，包含当前完整游戏快照和账户余额。
+// 重连或首次加入时调用，让客户端恢复到正确的 UI 状态。
 func (e *Engine) sendSnapshot(userID string) {
 	snap := e.gs.Snapshot(userID)
 	payload := ws.ConnectedPayload{
@@ -1149,6 +1194,7 @@ func (e *Engine) sendError(userID string, code ws.ErrCode, refSeq int64, msgOver
 	}))
 }
 
+// max64 返回两个 int64 中的较大值。
 func max64(a, b int64) int64 {
 	if a > b {
 		return a

@@ -7,15 +7,36 @@ import (
 	"github.com/allin/server/contrib/room"
 )
 
-// Street 表示下注回合阶段。
+// Street 表示当前手牌所处的下注回合阶段。
+// 状态转移由 engine.go 中的 advanceOrEnd / nextStreet 驱动：
+//
+//	Idle → PreFlop（startHand 发底牌，postBlind 完成盲注）
+//	PreFlop → Flop（下注完成，dealCommunity 发 3 张公共牌）
+//	Flop → Turn（下注完成，dealCommunity 发第 4 张公共牌）
+//	Turn → River（下注完成，dealCommunity 发第 5 张公共牌）
+//	River → Showdown（下注完成，runShowdown 比牌并分配底池）
+//	Showdown → Idle（结算完成，等待 handStartDelay 后开始下一手）
 type Street uint8
 
 const (
-	StreetIdle     Street = 0
-	StreetPreFlop  Street = 1
-	StreetFlop     Street = 2
-	StreetTurn     Street = 3
-	StreetRiver    Street = 4
+	// StreetIdle 是闲置状态：手牌尚未开始或上一手牌已结算完毕。
+	// 在此状态下等待足够玩家（≥2 名，非离座、非断线、有筹码）后由定时器触发 startHand。
+	StreetIdle Street = 0
+
+	// StreetPreFlop 是翻牌前阶段：底牌已发，盲注已下，从 UTG 开始第一轮下注。
+	StreetPreFlop Street = 1
+
+	// StreetFlop 是翻牌圈：3 张公共牌已揭开，从小盲（或其后第一个活跃玩家）开始下注。
+	StreetFlop Street = 2
+
+	// StreetTurn 是转牌圈：第 4 张公共牌已揭开，再次从小盲方向开始下注。
+	StreetTurn Street = 3
+
+	// StreetRiver 是河牌圈：第 5 张（最后一张）公共牌已揭开，进行最后一轮下注。
+	StreetRiver Street = 4
+
+	// StreetShowdown 是摊牌阶段：所有下注结束，runShowdown 比较手牌并按底池分配筹码。
+	// 结算完成后广播 HandResult，随后重置为 StreetIdle。
 	StreetShowdown Street = 5
 )
 

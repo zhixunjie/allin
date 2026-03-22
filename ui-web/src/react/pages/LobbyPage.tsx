@@ -1,6 +1,6 @@
 import { useState, FormEvent, useEffect, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { roomAPI } from '../../api/http'
+import { roomAPI, chipsAPI, authAPI } from '../../api/http'
 import type { RoomConfig } from '../../api/http'
 import { useAuthStore } from '../../store/auth'
 import { useRoomStore } from '../../store/room'
@@ -106,8 +106,30 @@ export default function LobbyPage() {
   // 加入房间
   const [joinCode, setJoinCode] = useState('')
 
-  const [error,   setError]   = useState('')
-  const [loading, setLoading] = useState(false)
+  const [error,        setError]       = useState('')
+  const [loading,      setLoading]     = useState(false)
+  const [claiming,     setClaiming]    = useState(false)
+  const { updateChipBalance } = useAuthStore()
+
+  // 进入大厅时刷新账户余额（离桌 cashOut 后同步最新值）
+  useEffect(() => {
+    authAPI.me()
+      .then((u) => updateChipBalance(u.chip_balance))
+      .catch(() => {})
+  }, [])
+
+  async function handleClaimChips() {
+    setClaiming(true)
+    setError('')
+    try {
+      const { chip_balance } = await chipsAPI.claim()
+      updateChipBalance(chip_balance)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '领取失败')
+    } finally {
+      setClaiming(false)
+    }
+  }
 
   // 确认弹窗
   const [confirmProps, setConfirmProps] = useState<Omit<ConfirmDialogProps, 'onConfirm' | 'onCancel'> | null>(null)
@@ -217,6 +239,16 @@ export default function LobbyPage() {
             <span className={styles.chipIcon}>$</span>
             {user?.chip_balance?.toLocaleString() ?? '—'}
           </span>
+          {(user?.chip_balance ?? 0) < 1000 && (
+            <button
+              className={styles.logoutBtn}
+              onClick={handleClaimChips}
+              disabled={claiming}
+              style={{ color: '#d4af37', borderColor: 'rgba(212,175,55,0.4)' }}
+            >
+              {claiming ? '领取中…' : '领取筹码'}
+            </button>
+          )}
           <button className={styles.logoutBtn} onClick={clearAuth}>退出</button>
         </div>
       </header>

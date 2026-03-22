@@ -151,28 +151,22 @@
   background: rgba(212, 175, 55, 0.1);
 }
 
-/* ---- 计时器横幅 ---- */
-.timerBanner {
-  position: absolute;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(4, 8, 16, 0.85);
-  backdrop-filter: blur(12px);
+.addChipsBtn {
+  margin-left: 8px;
+  background: rgba(212, 175, 55, 0.12);
+  color: #d4af37;
   border: 1px solid rgba(212, 175, 55, 0.3);
-  border-radius: 20px;
-  padding: 6px 20px;
+  cursor: pointer;
   font-size: 0.85rem;
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.3s;
   font-family: 'Manrope', sans-serif;
-  color: rgba(175, 205, 189, 0.8);
-  pointer-events: none;
-  white-space: nowrap;
 }
 
-.timerNum {
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.1rem;
-  font-weight: 800;
+.addChipsBtn:hover {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: rgba(212, 175, 55, 0.55);
 }
 
 /* ---- 等待消息 ---- */

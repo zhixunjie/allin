@@ -17,7 +17,14 @@ import type {
   StackUpdatedPayload,
 } from '../store/game'
 import { useChatStore } from '../store/chat'
+import { authAPI } from '../api/http'
 import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
+
+function refreshBalance() {
+  authAPI.me()
+    .then((u) => useAuthStore.getState().updateChipBalance(u.chip_balance))
+    .catch(() => {})
+}
 
 /**
  * 管理 WebSocket 连接的生命周期，并将服务端消息路由到对应的 store。
@@ -49,7 +56,14 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
         useAuthStore.getState().updateChipBalance(payload.chip_balance)
       }
     })
-    on(WSEventType.PlayerJoined,   (p) => store().applyPlayerJoined(p as PlayerJoinedPayload))
+    on(WSEventType.PlayerJoined, (p) => {
+      const payload = p as PlayerJoinedPayload
+      store().applyPlayerJoined(payload)
+      // 自己首次入桌：买入已从账户扣除，刷新余额
+      if (payload.player_id === store().myUserId && !payload.is_reconnect && !payload.is_bot) {
+        refreshBalance()
+      }
+    })
     on(WSEventType.PlayerLeft,     (p) => store().applyPlayerLeft(p as PlayerLeftPayload))
     on(WSEventType.GameStarted,    (p) => store().applyGameStarted(p as GameStartedPayload))
     on(WSEventType.HoleCards,      (p) => store().applyHoleCards(p as HoleCardsPayload))
@@ -61,7 +75,14 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     on(WSEventType.Showdown,       (p) => store().applyShowdown(p as ShowdownPayload))
     on(WSEventType.HandResult,     (p) => store().applyHandResult(p as HandResultPayload))
     on(WSEventType.SitOutStatus,   (p) => store().applySitOut(p as SitOutPayload))
-    on('stack_updated',            (p) => store().applyStackUpdated(p as StackUpdatedPayload))
+    on('stack_updated', (p) => {
+      const payload = p as StackUpdatedPayload
+      store().applyStackUpdated(payload)
+      // 自己补充筹码：账户余额已扣除，刷新显示
+      if (payload.player_id === store().myUserId) {
+        refreshBalance()
+      }
+    })
 
     // ── 服务端 → 客户端（聊天） ──────────────────────────────────────
     on(WSEventType.ChatMessage, (p) => {

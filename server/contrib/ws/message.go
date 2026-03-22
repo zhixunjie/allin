@@ -50,12 +50,13 @@ type Envelope struct {
 	Payload json.RawMessage `json:"payload"`
 }
 
-// CmdEnvelope 是客户端发来的命令包装（Type 为 CmdType）。
+// CmdEnvelope 是客户端 → 服务端的命令包装。
+// Type 使用 CmdType 枚举，区别于服务端事件使用的 Envelope（MsgType）。
 type CmdEnvelope struct {
-	Type    CmdType         `json:"type"`
-	Seq     int64           `json:"seq"`
-	Ts      int64           `json:"ts"`
-	Payload json.RawMessage `json:"payload"`
+	Type    CmdType         `json:"type"`    // 命令类型，见 CmdType 枚举
+	Seq     int64           `json:"seq"`     // 客户端递增序列号，用于关联响应
+	Ts      int64           `json:"ts"`      // 客户端发送时间戳（Unix 毫秒）
+	Payload json.RawMessage `json:"payload"` // 具体命令载荷，按 Type 解析为对应 Cmd 结构体
 }
 
 // NewEvent 构建一个带当前时间戳的服务端事件信封。
@@ -178,16 +179,16 @@ type ChatPayload struct {
 type ErrCode string
 
 const (
-	ErrRoomFull          ErrCode = "room_full"
-	ErrInvalidBuyIn      ErrCode = "invalid_buy_in"
-	ErrUserNotFound      ErrCode = "user_not_found"
-	ErrInsufficientChips ErrCode = "insufficient_chips"
-	ErrServerError       ErrCode = "server_error"
-	ErrBadPayload        ErrCode = "bad_payload"
-	ErrInvalidAction     ErrCode = "invalid_action"
-	ErrHandInProgress    ErrCode = "hand_in_progress"
-	ErrNotSeated         ErrCode = "not_seated"
-	ErrInvalidAmount     ErrCode = "invalid_amount"
+	ErrRoomFull          ErrCode = "room_full"          // 房间已满，无法加入
+	ErrInvalidBuyIn      ErrCode = "invalid_buy_in"     // 买入金额不在允许范围内
+	ErrUserNotFound      ErrCode = "user_not_found"     // 找不到对应用户记录
+	ErrInsufficientChips ErrCode = "insufficient_chips" // 账户余额不足以完成操作
+	ErrServerError       ErrCode = "server_error"       // 服务端内部错误
+	ErrBadPayload        ErrCode = "bad_payload"        // 消息体格式错误或无法解析
+	ErrInvalidAction     ErrCode = "invalid_action"     // 行动不合规则（如不是你的回合）
+	ErrHandInProgress    ErrCode = "hand_in_progress"   // 手牌进行中，该操作只能在手牌间隙执行
+	ErrNotSeated         ErrCode = "not_seated"         // 玩家未在座位上
+	ErrInvalidAmount     ErrCode = "invalid_amount"     // 金额参数非法（如小于等于零）
 )
 
 // errMessages 是 ErrCode 到默认错误消息的映射。

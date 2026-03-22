@@ -1,15 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { initPixiApp } from '../../pixi/app'
 import { useAuthStore } from '../../store/auth'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { wsClient } from '../../api/ws'
 import { useGameState } from '../../hooks/useGameState'
-// import { useActionTimer } from '../../hooks/useActionTimer'
 import { ActionPanel } from '../panels/ActionPanel'
-// import { ChatPanel } from '../panels/ChatPanel'
 import { RoundResultModal } from '../panels/RoundResultModal'
 import { ConnectionBanner } from '../components/ConnectionBanner'
+import { HandHistory } from '../panels/HandHistory'
 import { Street } from '../../types/enums'
 import styles from './RoomPage.module.css'
 
@@ -22,7 +21,7 @@ const STREET_LABEL: Record<string, string> = {
 }
 
 export default function RoomPage() {
-  const { code } = useParams<{ code: string }>()  // 用于 WebSocket 连接房间
+  const { code } = useParams<{ code: string }>()
   const { token, user } = useAuthStore()
   const navigate = useNavigate()
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -30,7 +29,14 @@ export default function RoomPage() {
   useWebSocket(code, token)
 
   const gs = useGameState()
-  // const secondsLeft = useActionTimer()
+
+  // 补充筹码弹窗
+  const [showAddChips, setShowAddChips] = useState(false)
+  const maxAdd = Math.max(0, (gs.config?.max_buy_in ?? 0) - (gs.mySeat?.stack ?? 0))
+  const [addAmount, setAddAmount] = useState(0)
+
+  // 手牌历史面板
+  const [showHistory, setShowHistory] = useState(false)
 
   useEffect(() => {
     if (!canvasRef.current) return
@@ -38,6 +44,25 @@ export default function RoomPage() {
     initPixiApp(canvasRef.current).then((fn) => { cleanup = fn })
     return () => { cleanup?.() }
   }, [])
+
+  // 打开补充筹码弹窗时重置金额为最大可补额
+  function openAddChips() {
+    setAddAmount(Math.min(maxAdd, user?.chip_balance ?? 0))
+    setShowAddChips(true)
+  }
+
+  function confirmAddChips() {
+    if (addAmount > 0) {
+      wsClient.send('add_chips', { amount: addAmount })
+    }
+    setShowAddChips(false)
+  }
+
+  const canAddChips =
+    gs.street === Street.Idle &&
+    gs.mySeat != null &&
+    maxAdd > 0 &&
+    (user?.chip_balance ?? 0) > 0
 
   return (
     <div className={styles.root}>
@@ -79,6 +104,18 @@ export default function RoomPage() {
                 <span className={styles.tableInfoValue}>${user.chip_balance.toLocaleString()}</span>
               </div>
             )}
+            {canAddChips && (
+              <button className={styles.addChipsBtn} onClick={openAddChips}>
+                补充筹码
+              </button>
+            )}
+            <button
+              className={styles.leaveBtn}
+              onClick={() => setShowHistory((v) => !v)}
+              style={{ background: showHistory ? 'rgba(212,175,55,0.2)' : undefined }}
+            >
+              历史
+            </button>
             <span className={styles.navLink}>{user?.display_name ?? user?.username}</span>
             <button className={styles.leaveBtn} onClick={() => {
               wsClient.send('leave_table', {})
@@ -88,16 +125,6 @@ export default function RoomPage() {
             </button>
           </div>
         </div>
-
-        {/* 行动计时器 临时屏蔽*/}
-        {/*{gs.isMyTurn && secondsLeft > 0 && (*/}
-        {/*  <div className={styles.timerBanner}>*/}
-        {/*    <span className={styles.timerNum} style={{ color: secondsLeft <= 5 ? '#ff5252' : '#d4af37' }}>*/}
-        {/*      {secondsLeft}s*/}
-        {/*    </span>*/}
-        {/*    &nbsp;轮到你行动*/}
-        {/*  </div>*/}
-        {/*)}*/}
 
         {/* 等待消息 */}
         {gs.street === Street.Idle && (() => {
@@ -137,11 +164,76 @@ export default function RoomPage() {
         {/* 连接状态 */}
         <ConnectionBanner />
 
-        {/* 聊天（暂时屏蔽）*/}
-        {/* <ChatPanel /> */}
-
         {/* 本局结算弹窗 */}
         <RoundResultModal />
+
+        {/* 手牌历史面板 */}
+        {showHistory && code && (
+          <HandHistory roomCode={code} onClose={() => setShowHistory(false)} />
+        )}
+
+        {/* 补充筹码弹窗 */}
+        {showAddChips && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddChips(false)}
+          >
+            <div
+              className="w-80 rounded-2xl overflow-hidden bg-[#111820] border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.8)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+              <div className="px-6 py-5 flex flex-col gap-4">
+                <div>
+                  <p className="text-[10px] font-bold tracking-[0.25em] text-amber-500/60 uppercase">补充筹码</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    当前桌面 ${gs.mySeat?.stack.toLocaleString()} · 最高买入 ${gs.config?.max_buy_in.toLocaleString()} · 账户余额 ${user?.chip_balance?.toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.min(maxAdd, user?.chip_balance ?? 0)}
+                    value={addAmount}
+                    onChange={(e) => setAddAmount(Math.max(1, Math.min(Math.min(maxAdd, user?.chip_balance ?? 0), Number(e.target.value))))}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                  <div className="flex gap-2">
+                    {[0.25, 0.5, 1].map((r) => {
+                      const v = Math.min(Math.round(maxAdd * r), user?.chip_balance ?? 0)
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => setAddAmount(v)}
+                          className="flex-1 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90 border border-white/8 transition-colors"
+                        >
+                          {r === 1 ? '全补' : `${r * 100}%`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowAddChips(false)}
+                    className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:text-white/80 text-sm font-semibold transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={confirmAddChips}
+                    disabled={addAmount <= 0}
+                    className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-[#0a0f18] text-sm font-black transition-colors"
+                  >
+                    确认补充 ${addAmount.toLocaleString()}
+                  </button>
+                </div>
+              </div>
+              <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/30 to-transparent" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
