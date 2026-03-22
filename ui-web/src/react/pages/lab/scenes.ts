@@ -199,6 +199,7 @@ export const SCENE_LIST: SceneEntry[] = [
             lastHandResult: {
               winners: [{ player_id: 'player-0', display_name: 'ZorpX', amount: 1200, hand_name: 'Full House' }],
               bestHand: ['Ah', 'Ad', 'Ac', 'Ks', '4s'],
+              nextHandDelaySec: 10,
               allPlayers: [
                 { player_id: 'player-1', display_name: 'Nova_Commander', hole: ['Qh', 'Qs'], hand_name: 'Two Pair',  folded: false, is_winner: false },
                 { player_id: 'player-2', display_name: 'Nebula_Ghost',   hole: ['Td', 'Jd'], hand_name: 'High Card', folded: false, is_winner: false },
