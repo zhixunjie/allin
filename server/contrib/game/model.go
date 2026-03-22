@@ -360,3 +360,16 @@ func BestFiveStrings(hole [2]Card, community []Card) []string {
 	}
 	return out
 }
+
+// BotSituation 描述 bot 做决策时的完整局面快照。
+// 在触发 bot 行动前从 GameState 中提取，传入 decideBotAction。
+type BotSituation struct {
+	Street     Street  // 当前街道（PreFlop/Flop/Turn/River）
+	Hole       [2]Card // bot 的两张底牌
+	Community  []Card  // 当前公共牌（0–5 张）
+	CurrentBet int64   // 本轮最大下注额（需跟注到此金额）
+	PlayerBet  int64   // bot 本街已下注金额
+	Stack      int64   // bot 当前桌面筹码
+	BigBlind   int64   // 大盲注额（用于计算底池赔率和加注倍数）
+	Pot        int64   // 当前总底池（含本街所有下注）
+}

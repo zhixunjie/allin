@@ -47,8 +47,8 @@ func main() {
 	wsHandler := ws.NewHandler(roomManager, viper.GetString("jwt.secret"))
 	registry := game.NewRegistry()
 
-	wsHandler.SetEngineStarter(func(hub *ws.Hub, rm *room.Room) {
-		eng := game.NewEngine(hub, rm, registry)
+	wsHandler.SetEngineStarter(func(rc *ws.RoomConn, rm *room.Room) {
+		eng := game.NewEngine(rc, rm, registry)
 		eng.SetOnEmpty(func() {
 			service.Room.Close(rm.Code)
 			wsHandler.RemoveHub(rm.Code)

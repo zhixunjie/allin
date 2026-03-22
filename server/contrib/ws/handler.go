@@ -11,29 +11,29 @@ import (
 	"github.com/allin/server/contrib/room"
 )
 
-// EngineStarter 是在为房间创建新 hub 时调用的函数。
+// EngineStarter 是在为房间创建新 RoomConn 时调用的函数。
 // 游戏引擎应在此回调中创建和启动。
-type EngineStarter func(hub *Hub, rm *room.Room)
+type EngineStarter func(rc *RoomConn, rm *room.Room)
 
-// Handler handles WebSocket upgrade requests.
+// Handler 负责处理 WebSocket 升级请求，并维护每个房间的 RoomConn 生命周期。
 type Handler struct {
-	roomManager   *room.Manager
-	jwtSecret     string
-	engineStarter EngineStarter
+	roomManager   *room.Manager  // 用于按房间码查询房间元数据
+	jwtSecret     string         // JWT 验证密钥，从 config.yaml 注入
+	engineStarter EngineStarter  // 创建 RoomConn 时触发的回调，用于启动游戏引擎
 
-	hubsMu sync.RWMutex
-	hubs   map[string]*Hub // key = room code
+	roomConnsMu sync.RWMutex          // 保护 roomConns 并发读写
+	roomConns   map[string]*RoomConn  // 活跃 RoomConn 索引，key = 房间码
 }
 
 func NewHandler(roomManager *room.Manager, jwtSecret string) *Handler {
 	return &Handler{
 		roomManager: roomManager,
 		jwtSecret:   jwtSecret,
-		hubs:        make(map[string]*Hub),
+		roomConns:   make(map[string]*RoomConn),
 	}
 }
 
-// SetEngineStarter registers the callback used to start a game engine when a hub is created.
+// SetEngineStarter 注册创建 RoomConn 时启动游戏引擎的回调。
 func (h *Handler) SetEngineStarter(fn EngineStarter) {
 	h.engineStarter = fn
 }
@@ -60,13 +60,13 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Get or create hub (and engine) for this room
-	hub := h.getOrCreateHub(rm)
+	// 3. Get or create RoomConn (and engine) for this room
+	rc := h.getOrCreateRoomConn(rm)
 
 	// 4. Upgrade to WebSocket
 	// UserID is int64 in JWT claims; WS/game layers use string representation.
 	userIDStr := fmt.Sprintf("%d", claims.UserID)
-	client, err := NewClient(hub, w, r, userIDStr, claims.DisplayName)
+	client, err := NewClient(rc, w, r, userIDStr, claims.DisplayName)
 	if err != nil {
 		slog.Error("ws: upgrade failed", "err", err)
 		return
@@ -77,48 +77,48 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	client.ReadPump()
 }
 
-// getOrCreateHub returns the hub for the given room, creating it if needed.
-func (h *Handler) getOrCreateHub(rm *room.Room) *Hub {
-	h.hubsMu.RLock()
-	hub, ok := h.hubs[rm.Code]
-	h.hubsMu.RUnlock()
+// getOrCreateRoomConn 返回给定房间的 RoomConn，不存在则新建。
+func (h *Handler) getOrCreateRoomConn(rm *room.Room) *RoomConn {
+	h.roomConnsMu.RLock()
+	rc, ok := h.roomConns[rm.Code]
+	h.roomConnsMu.RUnlock()
 	if ok {
-		return hub
+		return rc
 	}
 
-	h.hubsMu.Lock()
-	defer h.hubsMu.Unlock()
-	if hub, ok = h.hubs[rm.Code]; ok {
-		return hub
+	h.roomConnsMu.Lock()
+	defer h.roomConnsMu.Unlock()
+	if rc, ok = h.roomConns[rm.Code]; ok {
+		return rc
 	}
 
-	hub = NewHub(rm.Code)
-	go hub.Run()
-	h.hubs[rm.Code] = hub
-	slog.Info("ws: hub created", "room", rm.Code)
+	rc = NewRoomConn(rm.Code)
+	go rc.Run()
+	h.roomConns[rm.Code] = rc
+	slog.Info("ws: room conn created", "room", rm.Code)
 
 	if h.engineStarter != nil {
-		h.engineStarter(hub, rm)
+		h.engineStarter(rc, rm)
 	}
-	return hub
+	return rc
 }
 
-// RemoveHub removes the hub for a room that has been closed.
+// RemoveHub 移除已关闭房间的 RoomConn。
 func (h *Handler) RemoveHub(code string) {
-	h.hubsMu.Lock()
-	delete(h.hubs, code)
-	h.hubsMu.Unlock()
+	h.roomConnsMu.Lock()
+	delete(h.roomConns, code)
+	h.roomConnsMu.Unlock()
 }
 
-// ClientCount returns the number of connected clients for the given room.
+// ClientCount 返回给定房间已连接的客户端数量。
 func (h *Handler) ClientCount(code string) int {
-	h.hubsMu.RLock()
-	hub, ok := h.hubs[code]
-	h.hubsMu.RUnlock()
+	h.roomConnsMu.RLock()
+	rc, ok := h.roomConns[code]
+	h.roomConnsMu.RUnlock()
 	if !ok {
 		return 0
 	}
-	return hub.ClientCount()
+	return rc.ClientCount()
 }
 
 // extractToken pulls JWT from Authorization header or ?token= query param.

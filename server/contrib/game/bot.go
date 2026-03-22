@@ -213,22 +213,16 @@ func handStrength(street Street, hole [2]Card, community []Card) float64 {
 //	强度 < FoldThreshold 且非虚张声势 → fold
 //	强度 >= BetThreshold×1.3 → raise(2.5× currentBet)
 //	否则 → call
-func decideBotAction(
-	p *BotPersonality,
-	street Street,
-	hole [2]Card,
-	community []Card,
-	currentBet, playerBet, stack, bigBlind, pot int64,
-) (Action, int64) {
-	strength := handStrength(street, hole, community)
-	toCall := currentBet - playerBet
+func decideBotAction(p *BotPersonality, sit BotSituation) (Action, int64) {
+	strength := handStrength(sit.Street, sit.Hole, sit.Community)
+	toCall := sit.CurrentBet - sit.PlayerBet
 	r := rand.Float64()
 
-	if street == StreetPreFlop {
+	if sit.Street == StreetPreFlop {
 		if toCall <= 0 {
 			// 无需入池成本（BB 的免费过牌或 limp）
 			if strength >= p.PreflopRaiseThreshold {
-				return safeRaise(currentBet, playerBet, stack, bigBlind*3, bigBlind)
+				return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.BigBlind*3, sit.BigBlind)
 			}
 			return ActionCheck, 0
 		}
@@ -237,9 +231,9 @@ func decideBotAction(
 			return ActionFold, 0
 		}
 		if strength >= p.PreflopRaiseThreshold {
-			return safeRaise(currentBet, playerBet, stack, bigBlind*3, bigBlind)
+			return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.BigBlind*3, sit.BigBlind)
 		}
-		if toCall >= stack {
+		if toCall >= sit.Stack {
 			return ActionAllIn, 0
 		}
 		return ActionCall, 0
@@ -248,11 +242,11 @@ func decideBotAction(
 	// Postflop：无人下注，先手
 	if toCall <= 0 {
 		if strength >= p.PostflopBetThreshold || r < p.BluffRate {
-			betAmt := pot * 6 / 10 // 0.6 × pot
-			if betAmt < bigBlind {
-				betAmt = bigBlind
+			betAmt := sit.Pot * 6 / 10 // 0.6 × pot
+			if betAmt < sit.BigBlind {
+				betAmt = sit.BigBlind
 			}
-			if betAmt >= stack {
+			if betAmt >= sit.Stack {
 				return ActionAllIn, 0
 			}
 			return ActionBet, betAmt
@@ -269,9 +263,9 @@ func decideBotAction(
 		raiseThresh = 1.0
 	}
 	if strength >= raiseThresh {
-		return safeRaise(currentBet, playerBet, stack, currentBet*5/2, bigBlind)
+		return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.CurrentBet*5/2, sit.BigBlind)
 	}
-	if toCall >= stack {
+	if toCall >= sit.Stack {
 		return ActionAllIn, 0
 	}
 	return ActionCall, 0
@@ -308,25 +302,25 @@ func (e *Engine) scheduleAIAction(p *Player) {
 	}
 
 	// 捕获局面快照（不可变）
-	street := e.gs.Street
-	hole := p.Hole
 	community := make([]Card, len(e.gs.Community))
 	copy(community, e.gs.Community)
-	currentBet := e.gs.CurrentBet
-	playerBet := p.Bet
-	stack := p.Stack
-	bigBlind := e.gs.Config.BigBlind
-	pot := e.gs.TotalPot()
+	sit := BotSituation{
+		Street:     e.gs.Street,
+		Hole:       p.Hole,
+		Community:  community,
+		CurrentBet: e.gs.CurrentBet,
+		PlayerBet:  p.Bet,
+		Stack:      p.Stack,
+		BigBlind:   e.gs.Config.BigBlind,
+		Pot:        e.gs.TotalPot(),
+	}
 
 	go func() {
 		// 模拟思考时间：1–3 秒随机延迟
 		delay := time.Duration(1000+rand.Intn(2000)) * time.Millisecond
 		time.Sleep(delay)
 
-		action, amount := decideBotAction(
-			&personality, street, hole, community,
-			currentBet, playerBet, stack, bigBlind, pot,
-		)
+		action, amount := decideBotAction(&personality, sit)
 		payload, _ := json.Marshal(ws.ActionCmd{Action: string(action), Amount: amount})
 
 		select {

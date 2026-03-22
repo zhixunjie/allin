@@ -6,9 +6,9 @@ import (
 	"sync"
 )
 
-// Hub 管理单个房间的所有 WebSocket 客户端。
+// RoomConn 管理单个房间的所有 WebSocket 客户端。
 // 它是客户端 send 通道的唯一写入者，防止数据竞争。
-type Hub struct {
+type RoomConn struct {
 	roomCode string
 
 	// 以 userID 为键的已注册客户端。
@@ -31,9 +31,9 @@ type InboundMessage struct {
 	Env         CmdEnvelope
 }
 
-// NewHub 为给定房间创建一个新的 Hub。
-func NewHub(roomCode string) *Hub {
-	return &Hub{
+// NewRoomConn 为给定房间创建一个新的 RoomConn。
+func NewRoomConn(roomCode string) *RoomConn {
+	return &RoomConn{
 		roomCode:   roomCode,
 		clients:    make(map[string]*Client),
 		Inbound:    make(chan InboundMessage, 256),
@@ -42,27 +42,27 @@ func NewHub(roomCode string) *Hub {
 	}
 }
 
-// Run 启动 hub 事件循环。应在专用 goroutine 中调用。
-func (h *Hub) Run() {
+// Run 启动 RoomConn 事件循环。应在专用 goroutine 中调用。
+func (rc *RoomConn) Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.mu.Lock()
-			h.clients[client.UserID] = client
-			h.mu.Unlock()
-			slog.Info("ws: client registered", "room", h.roomCode, "user", client.UserID)
+		case client := <-rc.register:
+			rc.mu.Lock()
+			rc.clients[client.UserID] = client
+			rc.mu.Unlock()
+			slog.Info("ws: client registered", "room", rc.roomCode, "user", client.UserID)
 
-		case client := <-h.unregister:
-			h.mu.Lock()
-			if existing, ok := h.clients[client.UserID]; ok && existing == client {
-				delete(h.clients, client.UserID)
+		case client := <-rc.unregister:
+			rc.mu.Lock()
+			if existing, ok := rc.clients[client.UserID]; ok && existing == client {
+				delete(rc.clients, client.UserID)
 				close(client.send)
 			}
-			h.mu.Unlock()
-			slog.Info("ws: client unregistered", "room", h.roomCode, "user", client.UserID)
+			rc.mu.Unlock()
+			slog.Info("ws: client unregistered", "room", rc.roomCode, "user", client.UserID)
 
 			// 通知游戏引擎有玩家断开连接。
-			h.Inbound <- InboundMessage{
+			rc.Inbound <- InboundMessage{
 				SenderID: client.UserID,
 				Env:      CmdEnvelope{Type: CmdDisconnect},
 			}
@@ -71,15 +71,15 @@ func (h *Hub) Run() {
 }
 
 // Broadcast 向房间内所有已连接的客户端发送消息。
-func (h *Hub) Broadcast(env Envelope) {
+func (rc *RoomConn) Broadcast(env Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
 		slog.Error("ws: broadcast marshal", "err", err)
 		return
 	}
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	for _, client := range h.clients {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	for _, client := range rc.clients {
 		select {
 		case client.send <- data:
 		default:
@@ -89,15 +89,15 @@ func (h *Hub) Broadcast(env Envelope) {
 }
 
 // SendTo 向一个特定客户端发送消息（例如手牌）。
-func (h *Hub) SendTo(userID string, env Envelope) {
+func (rc *RoomConn) SendTo(userID string, env Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
 		slog.Error("ws: send marshal", "err", err)
 		return
 	}
-	h.mu.RLock()
-	client, ok := h.clients[userID]
-	h.mu.RUnlock()
+	rc.mu.RLock()
+	client, ok := rc.clients[userID]
+	rc.mu.RUnlock()
 	if !ok {
 		return
 	}
@@ -109,25 +109,25 @@ func (h *Hub) SendTo(userID string, env Envelope) {
 }
 
 // ClientCount 返回已连接的客户端数量。
-func (h *Hub) ClientCount() int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return len(h.clients)
+func (rc *RoomConn) ClientCount() int {
+	rc.mu.RLock()
+	defer rc.mu.RUnlock()
+	return len(rc.clients)
 }
 
 // IsConnected 报告用户当前是否有活跃连接。
-func (h *Hub) IsConnected(userID string) bool {
-	h.mu.RLock()
-	_, ok := h.clients[userID]
-	h.mu.RUnlock()
+func (rc *RoomConn) IsConnected(userID string) bool {
+	rc.mu.RLock()
+	_, ok := rc.clients[userID]
+	rc.mu.RUnlock()
 	return ok
 }
 
 // DisplayName 返回已连接用户的显示名称，未连接则返回空字符串。
-func (h *Hub) DisplayName(userID string) string {
-	h.mu.RLock()
-	c, ok := h.clients[userID]
-	h.mu.RUnlock()
+func (rc *RoomConn) DisplayName(userID string) string {
+	rc.mu.RLock()
+	c, ok := rc.clients[userID]
+	rc.mu.RUnlock()
 	if !ok {
 		return ""
 	}

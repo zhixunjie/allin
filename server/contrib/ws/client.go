@@ -16,9 +16,9 @@ const (
 	maxMessageSize = 4096
 )
 
-// Client 是与房间 hub 关联的单个 WebSocket 连接。
+// Client 是与房间 RoomConn 关联的单个 WebSocket 连接。
 type Client struct {
-	hub         *Hub
+	hub         *RoomConn
 	conn        *websocket.Conn
 	send        chan []byte
 	UserID      string
@@ -35,7 +35,7 @@ var upgrader = websocket.Upgrader{
 }
 
 // NewClient 将 HTTP 连接升级为 WebSocket 并注册到 hub。
-func NewClient(hub *Hub, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
+func NewClient(hub *RoomConn, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, err

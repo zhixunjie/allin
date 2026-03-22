@@ -24,7 +24,7 @@ const (
 // 所有对 GameState 的修改都严格发生在单一的 Run() goroutine 中，
 // 无需任何锁即可保证并发安全。
 type Engine struct {
-	hub             *ws.Hub              // 该房间的 WebSocket 消息总线
+	hub             *ws.RoomConn         // 该房间的 WebSocket 消息总线
 	room            *room.Room           // 房间元数据与配置
 	gs              *GameState           // 游戏状态（街道、座位、下注等）
 	deck            []Card               // 当前手牌使用的洗牌牌组（每手重置）
@@ -48,8 +48,8 @@ type actionLogEntry struct {
 	Street   string `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
 }
 
-// NewEngine 为给定的 hub 和房间创建引擎。
-func NewEngine(hub *ws.Hub, rm *room.Room, registry *Registry) *Engine {
+// NewEngine 为给定的 RoomConn 和房间创建引擎。
+func NewEngine(hub *ws.RoomConn, rm *room.Room, registry *Registry) *Engine {
 	cfg := rm.Config
 	if cfg.ActionTimeSec == 0 {
 		cfg.ActionTimeSec = 30
