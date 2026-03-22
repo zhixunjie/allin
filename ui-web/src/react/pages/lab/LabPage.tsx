@@ -55,7 +55,7 @@ export default function LabPage() {
       </main>
 
       {/* 结算弹窗 overlay：Lab 中延长到 2 分钟方便调试 */}
-      <RoundResultModal duration={120} />
+      <RoundResultModal duration={120} code="LAB" onLobby={() => {}} />
 
       {/* 扑克牌展示 overlay */}
       {cardGalleryOpen && <CardGallery onClose={() => setCardGalleryOpen(false)} />}

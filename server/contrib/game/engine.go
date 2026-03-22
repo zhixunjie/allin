@@ -139,8 +139,6 @@ func (e *Engine) handleMessage(
 		e.handleAction(msg, resetTimer, stopTimer)
 	case ws.CmdChat:
 		e.handleChat(msg)
-	case ws.CmdAddChips:
-		e.handleAddChips(msg)
 	case ws.CmdSitOut:
 		e.handleSitOut(msg, resetTimer, stopTimer)
 	case ws.CmdLeaveTable:
@@ -407,69 +405,6 @@ func (e *Engine) handleChat(msg ws.InboundMessage) {
 	}))
 }
 
-// ---- 加注筹码 ----
-
-// handleAddChips 处理手牌间隙的筹码补充请求。
-// 从账户余额扣款后将差额加到桌面 stack，上限为 MaxBuyIn。
-func (e *Engine) handleAddChips(msg ws.InboundMessage) {
-	if e.gs.Street != StreetIdle {
-		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
-		return
-	}
-	var cmd ws.AddChipsCmd
-	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, ws.ErrBadPayload, msg.Env.Seq)
-		return
-	}
-	p := e.gs.FindPlayer(msg.SenderID)
-	if p == nil {
-		e.sendError(msg.SenderID, ws.ErrNotSeated, msg.Env.Seq)
-		return
-	}
-	if cmd.Amount <= 0 {
-		e.sendError(msg.SenderID, ws.ErrInvalidAmount, msg.Env.Seq)
-		return
-	}
-	newStack := p.Stack + cmd.Amount
-	if newStack > e.gs.Config.MaxBuyIn {
-		newStack = e.gs.Config.MaxBuyIn
-	}
-	added := newStack - p.Stack
-	if added == 0 {
-		return
-	}
-
-	// 从 DB 账户余额扣除（bot 跳过）。
-	uid, err := strconv.ParseInt(msg.SenderID, 10, 64)
-	if err != nil {
-		e.sendError(msg.SenderID, ws.ErrServerError, msg.Env.Seq)
-		return
-	}
-	u, err := bizdao.UserDao.GetByID(uid)
-	if err != nil {
-		e.sendError(msg.SenderID, ws.ErrUserNotFound, msg.Env.Seq)
-		return
-	}
-	if u.ChipBalance < added {
-		e.sendError(msg.SenderID, ws.ErrInsufficientChips, msg.Env.Seq,
-			fmt.Sprintf("insufficient chips: need $%d, have $%d", added, u.ChipBalance))
-		return
-	}
-	if err := bizdao.UserDao.AdjustChips(uid, -added, "add_chips", e.room.Code); err != nil {
-		slog.Error("game: failed to deduct add_chips", "user", msg.SenderID, "err", err)
-		e.sendError(msg.SenderID, ws.ErrServerError, msg.Env.Seq, "failed to process add chips")
-		return
-	}
-
-	p.Stack = newStack
-	e.hub.Broadcast(ws.MustEvent(ws.TypeStackUpdated, ws.StackUpdatedPayload{
-		PlayerID: p.UserID,
-		Stack:    p.Stack,
-		Delta:    added,
-	}))
-	slog.Info("game: chips added", "room", e.room.Code, "player", p.UserID, "added", added, "stack", p.Stack)
-}
-
 // ---- 离座 ----
 
 // handleSitOut 处理玩家离座/归座请求。
@@ -601,12 +536,13 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 		action = ActionCheck
 	}
 
+	ApplyAction(e.gs, p.UserID, action, 0)
 	e.hub.Broadcast(ws.MustEvent(ws.TypeActionTimeout, ws.ActionTimeoutPayload{
 		PlayerID: p.UserID,
 		Action:   string(action),
+		Stack:    p.Stack,
+		TotalPot: e.gs.TotalPot(),
 	}))
-
-	ApplyAction(e.gs, p.UserID, action, 0)
 	e.handActions = append(e.handActions, actionLogEntry{
 		PlayerID: p.UserID,
 		Action:   string(action),
@@ -890,7 +826,10 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	handNames := map[string]string{} // playerID → handName
 	var reveals []reveal
 	for _, p := range e.gs.Seats {
-		if p != nil && !p.Folded && !p.SitOut {
+		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank == 0 {
+			slog.Error("game: showdown player has no hole cards", "player", p.UserID, "seat", p.SeatIndex)
+		}
+		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank != 0 {
 			_, handName := EvaluateHand(p.Hole, e.gs.Community)
 			handNames[p.UserID] = handName
 			reveals = append(reveals, reveal{

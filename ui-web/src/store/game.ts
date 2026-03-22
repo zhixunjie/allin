@@ -76,12 +76,6 @@ export interface SitOutPayload {
   sit_out: boolean
 }
 
-export interface StackUpdatedPayload {
-  player_id: string
-  stack: number
-  delta: number
-}
-
 export interface PlayerJoinedPayload {
   player_id: string    // 加入的玩家 ID
   display_name: string // 显示名
@@ -200,7 +194,6 @@ interface GameStoreState extends GameSnapshot {
   applyPlayerJoined: (payload: PlayerJoinedPayload) => void
   applyPlayerLeft: (payload: PlayerLeftPayload) => void
   applySitOut: (payload: SitOutPayload) => void
-  applyStackUpdated: (payload: StackUpdatedPayload) => void
   applyReadyStatus: (payload: { ready_count: number; total_count: number }) => void
   reset: () => void
 }
@@ -425,15 +418,6 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   applyPlayerLeft: (payload) => {
     set((state) => ({
       seats: state.seats.filter((s) => s.user_id !== payload.player_id),
-    }))
-  },
-
-  // 筹码补充：更新指定座位的 stack
-  applyStackUpdated: (payload) => {
-    set((state) => ({
-      seats: state.seats.map((s) =>
-        s.user_id === payload.player_id ? { ...s, stack: payload.stack } : s
-      ),
     }))
   },
 

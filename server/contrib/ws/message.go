@@ -25,7 +25,6 @@ const (
 	TypeHandResult     MsgType = "hand_result"
 	TypeChatMessage    MsgType = "chat_message"
 	TypeError          MsgType = "error"
-	TypeStackUpdated   MsgType = "stack_updated"
 	TypeSitOut         MsgType = "sit_out_status"
 	TypeReadyStatus    MsgType = "ready_status"
 )
@@ -38,7 +37,6 @@ const (
 	CmdJoinRoom    CmdType = "join_room"
 	CmdAction      CmdType = "action"
 	CmdChat        CmdType = "chat"
-	CmdAddChips    CmdType = "add_chips"
 	CmdSitOut      CmdType = "sit_out"
 	CmdLeaveTable  CmdType = "leave_table"
 	CmdDisconnect  CmdType = "disconnect"
@@ -152,6 +150,8 @@ type ActionTakenPayload struct {
 type ActionTimeoutPayload struct {
 	PlayerID string `json:"player_id"`
 	Action   string `json:"action"` // "fold" or "check"
+	Stack    int64  `json:"stack"`
+	TotalPot int64  `json:"total_pot"`
 }
 
 // PlayerJoinedPayload 在玩家加入或重连时广播。
@@ -230,13 +230,6 @@ type SitOutPayload struct {
 	SitOut    bool   `json:"sit_out"`
 }
 
-// StackUpdatedPayload 在手牌外玩家筹码变化时广播。
-type StackUpdatedPayload struct {
-	PlayerID string `json:"player_id"`
-	Stack    int64  `json:"stack"`
-	Delta    int64  `json:"delta"`
-}
-
 // ---- 传入命令载荷 ----
 
 // JoinRoomCmd 是 CmdJoinRoom 的载荷。
@@ -255,11 +248,6 @@ type ActionCmd struct {
 // ChatCmd 是 CmdChat 的载荷。
 type ChatCmd struct {
 	Text string `json:"text"`
-}
-
-// AddChipsCmd 是 CmdAddChips 的载荷。
-type AddChipsCmd struct {
-	Amount int64 `json:"amount"`
 }
 
 // SitOutCmd 是 CmdSitOut 的载荷。

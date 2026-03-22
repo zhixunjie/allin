@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../../store/game'
 import type { RoundPlayerDetail } from '../../store/game'
 import { useAuthStore } from '../../store/auth'
@@ -124,7 +124,15 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
 }
 
 // ── 主组件 ──────────────────────────────────────────────
-export function RoundResultModal({ duration }: { duration?: number }) {
+export function RoundResultModal({
+  duration,
+  code,
+  onLobby,
+}: {
+  duration?: number
+  code: string        // 房间码，再次买入时发送 join_room 使用
+  onLobby: () => void // 返回大厅回调
+}) {
   const lastResult = useGameStore((s) => s.lastHandResult)
   const readyCount = useGameStore((s) => s.readyCount)
   const readyTotal = useGameStore((s) => s.readyTotal)
@@ -132,41 +140,68 @@ export function RoundResultModal({ duration }: { duration?: number }) {
   const { user } = useAuthStore()
   const [visible, setVisible] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const [myReady, setMyReady] = useState(false)
 
-  // 补充筹码
-  const maxAdd = Math.max(0, (gs.config?.max_buy_in ?? 0) - (gs.mySeat?.stack ?? 0))
-  const canAddChips = gs.mySeat != null && maxAdd > 0 && (user?.chip_balance ?? 0) > 0
-  const [showAddChips, setShowAddChips] = useState(false)
-  const [addAmount, setAddAmount] = useState(0)
+  // ── 破产再次买入 ──
+  const wasSeated = useRef(false)
+  const [brokeOut, setBrokeOut] = useState(false)
+  const [showRebuyPanel, setShowRebuyPanel] = useState(false)
+  const [rebuyError, setRebuyError] = useState('')
+  const minRebuy = gs.config?.min_buy_in ?? 0
+  const maxRebuy = Math.min(gs.config?.max_buy_in ?? 0, user?.chip_balance ?? 0)
+  const hasOpenSeat = gs.seats.length < (gs.config?.max_players ?? 0)
+  const canRebuy = maxRebuy >= minRebuy && hasOpenSeat
+  const [rebuyAmount, setRebuyAmount] = useState(0)
 
+  // 检测本地玩家从有座位变为无座位（破产被踢）
   useEffect(() => {
-    if (!lastResult) { setVisible(false); return }
-    const dur = duration ?? lastResult.nextHandDelaySec
-    setVisible(true)
-    setCountdown(dur)
-    setShowAddChips(false)
-    setMyReady(false)
-    const tick = setInterval(() => setCountdown((n) => n - 1), 1000)
-    const hide = setTimeout(() => setVisible(false), dur * 1000)
-    return () => { clearInterval(tick); clearTimeout(hide) }
-  }, [lastResult])
+    if (gs.mySeat) {
+      wasSeated.current = true
+      if (brokeOut) {
+        // 重新入座成功，关闭弹窗
+        setBrokeOut(false)
+        setShowRebuyPanel(false)
+        setRebuyError('')
+        setVisible(false)
+      }
+    } else if (wasSeated.current && !brokeOut) {
+      setBrokeOut(true)
+      setShowRebuyPanel(false)
+      setRebuyError('')
+      setRebuyAmount(maxRebuy)
+      setVisible(true) // 确保弹窗可见
+    }
+  }, [gs.mySeat])
 
-  function openAddChips() {
-    setAddAmount(Math.min(maxAdd, user?.chip_balance ?? 0))
-    setShowAddChips(true)
-  }
+  // 结算结果出现/消失时控制弹窗显隐；破产时不自动关闭弹窗
+  useEffect(() => {
+    if (lastResult) {
+      const dur = duration ?? lastResult.nextHandDelaySec
+      setVisible(true)
+      setCountdown(dur)
+      const tick = setInterval(() => setCountdown((n) => Math.max(0, n - 1)), 1000)
+      return () => clearInterval(tick)
+    } else if (!brokeOut) {
+      setVisible(false)
+    }
+  }, [lastResult, brokeOut])
 
-  function confirmAddChips() {
-    if (addAmount > 0) wsClient.send('add_chips', { amount: addAmount })
-    setShowAddChips(false)
-  }
+  const handleRebuy = useCallback(() => {
+    setRebuyError('')
+    const off = wsClient.on(WSEventType.ServerError, (p: unknown) => {
+      const err = p as { message?: string; code?: string }
+      setRebuyError(err.message ?? err.code ?? '加入失败')
+      off()
+    })
+    wsClient.send(WSEventType.JoinRoom, { room_code: code, buy_in: rebuyAmount })
+    // 3 秒内未入座则移除监听，避免泄漏
+    setTimeout(() => off(), 3000)
+  }, [code, rebuyAmount])
 
-  if (!visible || !lastResult) return null
+  if (!visible) return null
 
-  const winners = lastResult.winners
-  const bestHand = lastResult.bestHand ?? []
-  const allPlayers = lastResult.allPlayers ?? []
+  const winners = lastResult?.winners ?? []
+  const bestHand = lastResult?.bestHand ?? []
+  const allPlayers = lastResult?.allPlayers ?? []
 
   return (
     /* backdrop */
@@ -178,17 +213,25 @@ export function RoundResultModal({ duration }: { duration?: number }) {
                       shadow-[0_24px_80px_rgba(0,0,0,0.8)]
                       animate-[fadeSlideUp_0.3s_ease]">
 
-        {/* 顶部金色装饰线 */}
-        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+        {/* 顶部装饰线：破产时红色，正常时金色 */}
+        <div className={`h-0.5 w-full bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/60' : 'via-amber-400/60'} to-transparent`} />
 
         <div className="px-8 pt-6 pb-6 flex flex-col gap-5">
 
           {/* ── 标题 ── */}
           <div className="text-center">
-            <p className="text-sm font-black tracking-[0.25em] text-amber-500/70 uppercase">本局结算 · Round Results</p>
+            {brokeOut ? (
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-3xl">💸</span>
+                <p className="text-base font-black text-white">筹码已用完</p>
+                <p className="text-xs text-white/40">你的桌面筹码归零，已离开牌桌</p>
+              </div>
+            ) : (
+              <p className="text-sm font-black tracking-[0.25em] text-amber-500/70 uppercase">本局结算 · Round Results</p>
+            )}
           </div>
 
-          {/* ── 赢家区域 ── */}
+          {/* ── 赢家区域（有结算数据时显示） ── */}
           {winners.length > 0 && (
             <div className="flex flex-col gap-2">
               {winners.map((winner, idx) => (
@@ -221,7 +264,7 @@ export function RoundResultModal({ duration }: { duration?: number }) {
             </div>
           )}
 
-          {/* ── 全场手牌总览 ── */}
+          {/* ── 全场手牌总览（有结算数据时显示） ── */}
           {allPlayers.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-xs font-bold tracking-widest text-white/30 uppercase">All Players</p>
@@ -231,82 +274,105 @@ export function RoundResultModal({ duration }: { duration?: number }) {
             </div>
           )}
 
-          {/* ── 补充筹码面板（展开态） ── */}
-          {showAddChips && (
+          {/* ── 再次买入面板（破产时展开） ── */}
+          {brokeOut && showRebuyPanel && (
             <div className="flex flex-col gap-3 rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3">
-              <div className="flex justify-between text-xs">
-                <span className="text-white/50">账户余额</span>
-                <span className="text-white/70 font-semibold">${(user?.chip_balance ?? 0).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-white/50">补充金额</span>
-                <span className="text-amber-300 font-bold">${addAmount.toLocaleString()}</span>
+              <div className="flex flex-col gap-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-white/50">账户余额</span>
+                  <span className="font-semibold text-white/80">${(user?.chip_balance ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">买入金额</span>
+                  <span className="font-bold text-amber-300">${rebuyAmount.toLocaleString()}</span>
+                </div>
+                <div className="h-px bg-white/8 my-0.5" />
+                <div className="flex justify-between">
+                  <span className="text-white/50">买入后余额</span>
+                  <span className="font-bold text-white/80">${((user?.chip_balance ?? 0) - rebuyAmount).toLocaleString()}</span>
+                </div>
               </div>
               <input
                 type="range"
-                min={gs.config?.big_blind ?? 1}
-                max={Math.min(maxAdd, user?.chip_balance ?? 0)}
+                min={minRebuy}
+                max={maxRebuy}
                 step={gs.config?.big_blind ?? 1}
-                value={addAmount}
-                onChange={(e) => setAddAmount(Number(e.target.value))}
+                value={rebuyAmount}
+                onChange={(e) => setRebuyAmount(Number(e.target.value))}
                 className="w-full accent-amber-400"
               />
+              <div className="flex justify-between text-[10px] text-white/30">
+                <span>最低 ${minRebuy.toLocaleString()}</span>
+                <span>最高 ${maxRebuy.toLocaleString()}</span>
+              </div>
+              {rebuyError && <p className="text-xs text-red-400 text-center">{rebuyError}</p>}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setShowAddChips(false)}
-                  className="flex-1 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 text-xs font-semibold transition-colors"
+                  onClick={() => { setShowRebuyPanel(false); setRebuyError('') }}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:text-white/80 text-sm font-semibold transition-colors"
                 >
-                  取消
+                  返回
                 </button>
                 <button
-                  onClick={confirmAddChips}
-                  disabled={addAmount <= 0}
-                  className="flex-1 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 text-[#0a0f18] text-xs font-black transition-colors"
+                  onClick={handleRebuy}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#0a0f18] text-sm font-black transition-colors"
                 >
-                  确认补充 ${addAmount.toLocaleString()}
+                  确认买入
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── 底部 ── */}
+          {/* ── 底部操作栏 ── */}
           <div className="flex items-center gap-3 pt-1">
-            {canAddChips && !showAddChips && (
-              <button
-                onClick={openAddChips}
-                className="btn btn-sm bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90
-                           border border-white/10 font-semibold text-sm"
-              >
-                补充筹码
-              </button>
-            )}
-            <button
-              onClick={() => {
-                if (!myReady) {
-                  setMyReady(true)
-                  wsClient.send(WSEventType.Ready, {})
-                }
-              }}
-              disabled={myReady}
-              className={[
-                'btn btn-sm flex-1 font-bold tracking-wide text-sm',
-                myReady
-                  ? 'bg-green-600/20 text-green-400 border border-green-500/30 cursor-default'
-                  : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 hover:border-amber-500/50',
-              ].join(' ')}
-            >
-              {myReady ? '已准备' : '开始下一局'}
-            </button>
-            {readyTotal > 0 && (
-              <p className="text-sm text-white/40 flex-shrink-0">{readyCount}/{readyTotal}</p>
-            )}
-            <p className="text-sm text-white/25 flex-shrink-0">{countdown}s</p>
+            {brokeOut && !showRebuyPanel ? (
+              /* 破产状态：返回大厅 / 再次买入 */
+              <>
+                <button
+                  onClick={onLobby}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-white/50 hover:text-white/80 text-sm font-semibold transition-colors"
+                >
+                  返回大厅
+                </button>
+                <button
+                  onClick={() => { setRebuyAmount(maxRebuy); setShowRebuyPanel(true) }}
+                  disabled={!canRebuy}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed text-[#0a0f18] text-sm font-black transition-colors"
+                  title={!hasOpenSeat ? '座位已满' : !canRebuy ? '账户余额不足' : ''}
+                >
+                  再次买入
+                </button>
+                {!hasOpenSeat && (
+                  <p className="text-[10px] text-red-400/70 flex-shrink-0">座位已满</p>
+                )}
+              </>
+            ) : !brokeOut ? (
+              /* 正常状态：开始下一局 */
+              <>
+                <button
+                  onClick={() => {
+                    wsClient.send(WSEventType.Ready, {})
+                    setVisible(false)
+                  }}
+                  className="btn btn-sm flex-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300
+                             border border-amber-500/30 hover:border-amber-500/50 font-bold tracking-wide text-sm"
+                >
+                  开始下一局
+                </button>
+                {readyTotal > 0 && (
+                  <p className="text-sm text-white/40 flex-shrink-0">{readyCount}/{readyTotal}</p>
+                )}
+                <p className="text-sm text-white/25 flex-shrink-0">
+                  {countdown > 0 ? `${countdown}s` : '开局中…'}
+                </p>
+              </>
+            ) : null}
           </div>
 
         </div>
 
-        {/* 底部金色装饰线 */}
-        <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/40 to-transparent" />
+        {/* 底部装饰线 */}
+        <div className={`h-0.5 w-full bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/30' : 'via-amber-400/40'} to-transparent`} />
       </div>
 
       <style>{`

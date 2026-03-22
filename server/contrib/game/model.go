@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/allin/server/contrib/eval"
 	"github.com/allin/server/contrib/room"
@@ -315,6 +316,11 @@ func cardsToStrings(cards []Card) []string {
 // EvaluateHand 返回玩家最佳 7 张牌手牌的评估等级。
 func EvaluateHand(hole [2]Card, community []Card) (uint32, string) {
 	if len(community) < 3 {
+		slog.Error("game: EvaluateHand called with insufficient community cards", "community_len", len(community))
+		return 0xFFFFFFFF, ""
+	}
+	if hole[0].Rank == 0 || hole[1].Rank == 0 {
+		slog.Error("game: EvaluateHand called with undealt hole cards", "hole0", hole[0], "hole1", hole[1])
 		return 0xFFFFFFFF, ""
 	}
 	cards := [7]eval.Card{
