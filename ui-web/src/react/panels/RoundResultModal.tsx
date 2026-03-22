@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../store/game'
 import type { RoundPlayerDetail } from '../../store/game'
+import { useAuthStore } from '../../store/auth'
+import { useGameState } from '../../hooks/useGameState'
+import { wsClient } from '../../api/ws'
 import { RANK_DISPLAY, SUIT_SYMBOLS } from '../../pixi/config/card'
 
 // ── 牌型中文名映射 ───────────────────────────────────────
@@ -50,10 +53,10 @@ function PokerCard({ code, highlight, small }: {
 
   return (
     <div className={`${base} ${border} bg-white flex flex-col items-center justify-center relative flex-shrink-0`}>
-      <span className={`absolute top-0.5 left-1 font-black leading-none ${color} ${small ? 'text-[9px]' : 'text-xs'}`}>
+      <span className={`absolute top-0.5 left-1 font-black leading-none ${color} ${small ? 'text-[10px]' : 'text-sm'}`}>
         {RANK_DISPLAY[rank] ?? rank}
       </span>
-      <span className={`${color} ${small ? 'text-base' : 'text-2xl'} leading-none mt-1`}>
+      <span className={`${color} ${small ? 'text-lg' : 'text-3xl'} leading-none mt-1`}>
         {SUIT_SYMBOLS[suit] ?? suit}
       </span>
     </div>
@@ -71,7 +74,7 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
 
   return (
     <div className={[
-      'flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all',
+      'flex items-center gap-4 px-4 py-3 rounded-xl border transition-all',
       player.is_winner
         ? 'bg-amber-500/10 border-amber-500/40'
         : player.folded
@@ -82,20 +85,20 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
       {/* 头像（含皇冠） */}
       <div className="relative flex-shrink-0">
         {player.is_winner && (
-          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-sm leading-none">👑</span>
+          <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-base leading-none">👑</span>
         )}
-        <div className={`w-7 h-7 rounded-full overflow-hidden bg-white/10 ${player.is_winner ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-[#0a1018]' : ''}`}>
+        <div className={`w-9 h-9 rounded-full overflow-hidden bg-white/10 ${player.is_winner ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-[#0a1018]' : ''}`}>
           <img src={avatarUrl} alt={player.display_name} className="w-full h-full object-cover" />
         </div>
       </div>
 
       {/* 名字 */}
-      <span className={`flex-1 text-xs font-bold truncate ${player.is_winner ? 'text-amber-300' : 'text-white/80'}`}>
+      <span className={`flex-1 text-sm font-bold truncate ${player.is_winner ? 'text-amber-300' : 'text-white/80'}`}>
         {player.display_name}
       </span>
 
       {/* 手牌 */}
-      <div className="flex gap-0.5">
+      <div className="flex gap-1">
         {player.folded
           ? [0, 1].map((i) => <PokerCard key={i} code="?" small />)
           : player.hole.map((c, i) => <PokerCard key={i} code={c} small highlight={player.is_winner} />)
@@ -105,7 +108,7 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
       {/* 牌型标签 */}
       {handLabel && (
         <span className={[
-          'badge badge-sm flex-shrink-0 font-semibold border-0 text-[10px]',
+          'badge badge-sm flex-shrink-0 font-semibold border-0 text-xs',
           player.folded
             ? 'bg-white/10 text-white/40'
             : player.is_winner
@@ -120,19 +123,39 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
 }
 
 // ── 主组件 ──────────────────────────────────────────────
-export function RoundResultModal({ duration = 10 }: { duration?: number }) {
+export function RoundResultModal({ duration }: { duration?: number }) {
   const lastResult = useGameStore((s) => s.lastHandResult)
+  const gs = useGameState()
+  const { user } = useAuthStore()
   const [visible, setVisible] = useState(false)
-  const [countdown, setCountdown] = useState(duration)
+  const [countdown, setCountdown] = useState(0)
+
+  // 补充筹码
+  const maxAdd = Math.max(0, (gs.config?.max_buy_in ?? 0) - (gs.mySeat?.stack ?? 0))
+  const canAddChips = gs.mySeat != null && maxAdd > 0 && (user?.chip_balance ?? 0) > 0
+  const [showAddChips, setShowAddChips] = useState(false)
+  const [addAmount, setAddAmount] = useState(0)
 
   useEffect(() => {
     if (!lastResult) { setVisible(false); return }
+    const dur = duration ?? lastResult.nextHandDelaySec
     setVisible(true)
-    setCountdown(duration)
+    setCountdown(dur)
+    setShowAddChips(false)
     const tick = setInterval(() => setCountdown((n) => n - 1), 1000)
-    const hide = setTimeout(() => setVisible(false), duration * 1000)
+    const hide = setTimeout(() => setVisible(false), dur * 1000)
     return () => { clearInterval(tick); clearTimeout(hide) }
   }, [lastResult])
+
+  function openAddChips() {
+    setAddAmount(Math.min(maxAdd, user?.chip_balance ?? 0))
+    setShowAddChips(true)
+  }
+
+  function confirmAddChips() {
+    if (addAmount > 0) wsClient.send('add_chips', { amount: addAmount })
+    setShowAddChips(false)
+  }
 
   if (!visible || !lastResult) return null
 
@@ -142,10 +165,10 @@ export function RoundResultModal({ duration = 10 }: { duration?: number }) {
 
   return (
     /* backdrop */
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto">
+    <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-auto">
 
       {/* modal box */}
-      <div className="relative w-full max-w-md mx-4 rounded-2xl overflow-hidden
+      <div className="relative w-full max-w-2xl mx-6 rounded-2xl overflow-hidden
                       bg-[#0d1520] border border-white/10
                       shadow-[0_24px_80px_rgba(0,0,0,0.8)]
                       animate-[fadeSlideUp_0.3s_ease]">
@@ -153,38 +176,38 @@ export function RoundResultModal({ duration = 10 }: { duration?: number }) {
         {/* 顶部金色装饰线 */}
         <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
 
-        <div className="px-5 pt-3 pb-4 flex flex-col gap-2.5">
+        <div className="px-8 pt-6 pb-6 flex flex-col gap-5">
 
           {/* ── 标题 ── */}
           <div className="text-center">
-            <p className="text-xs font-black tracking-[0.25em] text-amber-500/70 uppercase">本局结算 · Round Results</p>
+            <p className="text-sm font-black tracking-[0.25em] text-amber-500/70 uppercase">本局结算 · Round Results</p>
           </div>
 
           {/* ── 赢家区域 ── */}
           {winners.length > 0 && (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {winners.map((winner, idx) => (
-                <div key={winner.player_id} className="flex items-center gap-3 py-2.5 px-3
+                <div key={winner.player_id} className="flex items-center gap-4 py-3.5 px-4
                                 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                  <div className="text-2xl">👑</div>
+                  <div className="text-3xl">👑</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-base font-black text-amber-300 truncate">{winner.display_name}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="text-lg font-black text-amber-300 truncate">{winner.display_name}</div>
+                    <div className="flex items-center gap-2 mt-1">
                       {winner.hand_name && (
-                        <span className="badge badge-sm bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold border-0">
+                        <span className="badge badge-sm bg-amber-500/20 text-amber-300 border-amber-500/30 font-bold border-0 text-xs">
                           {handZh(winner.hand_name)}
                         </span>
                       )}
                       {winner.amount > 0 && (
-                        <span className="text-xs text-amber-400/80 font-semibold">+{winner.amount.toLocaleString()} 筹码</span>
+                        <span className="text-sm text-amber-400/80 font-semibold">+{winner.amount.toLocaleString()} 筹码</span>
                       )}
                     </div>
                   </div>
                   {/* 最佳五张仅第一位赢家显示 */}
                   {idx === 0 && bestHand.length > 0 && (
-                    <div className="flex gap-0.5 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0">
                       {bestHand.map((c, i) => (
-                        <PokerCard key={i} code={c} small highlight={i < 2} />
+                        <PokerCard key={i} code={c} highlight={i < 2} />
                       ))}
                     </div>
                   )}
@@ -195,25 +218,72 @@ export function RoundResultModal({ duration = 10 }: { duration?: number }) {
 
           {/* ── 全场手牌总览 ── */}
           {allPlayers.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <p className="text-[9px] font-bold tracking-widest text-white/30 uppercase">All Players</p>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs font-bold tracking-widest text-white/30 uppercase">All Players</p>
               {allPlayers.map((p) => (
                 <PlayerRow key={p.player_id} player={p} />
               ))}
             </div>
           )}
 
+          {/* ── 补充筹码面板（展开态） ── */}
+          {showAddChips && (
+            <div className="flex flex-col gap-3 rounded-xl bg-white/[0.03] border border-white/10 px-4 py-3">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/50">账户余额</span>
+                <span className="text-white/70 font-semibold">${(user?.chip_balance ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-white/50">补充金额</span>
+                <span className="text-amber-300 font-bold">${addAmount.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min={gs.config?.big_blind ?? 1}
+                max={Math.min(maxAdd, user?.chip_balance ?? 0)}
+                step={gs.config?.big_blind ?? 1}
+                value={addAmount}
+                onChange={(e) => setAddAmount(Number(e.target.value))}
+                className="w-full accent-amber-400"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddChips(false)}
+                  className="flex-1 py-1.5 rounded-lg border border-white/10 text-white/40 hover:text-white/70 text-xs font-semibold transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={confirmAddChips}
+                  disabled={addAmount <= 0}
+                  className="flex-1 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 text-[#0a0f18] text-xs font-black transition-colors"
+                >
+                  确认补充 ${addAmount.toLocaleString()}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── 底部 ── */}
-          <div className="flex items-center gap-3 pt-0.5">
+          <div className="flex items-center gap-3 pt-1">
+            {canAddChips && !showAddChips && (
+              <button
+                onClick={openAddChips}
+                className="btn btn-sm bg-white/5 hover:bg-white/10 text-white/60 hover:text-white/90
+                           border border-white/10 font-semibold text-sm"
+              >
+                补充筹码
+              </button>
+            )}
             <button
               onClick={() => setVisible(false)}
               className="btn btn-sm flex-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300
                          border border-amber-500/30 hover:border-amber-500/50
-                         font-bold tracking-wide"
+                         font-bold tracking-wide text-sm"
             >
               开始下一局
             </button>
-            <p className="text-xs text-white/25 flex-shrink-0">{countdown}s</p>
+            <p className="text-sm text-white/25 flex-shrink-0">{countdown}s</p>
           </div>
 
         </div>

@@ -239,6 +239,27 @@
 - [x] 删除 `hooks/useActionTimer.ts`
 - [x] `RoomPage` 移除所有计时器 Banner 相关注释代码（PixiJS `TimerArc` 弧形倒计时保留）
 
-## TODO：已知缺口
+## Phase 15：缺口修复与完善 ✅
 
-（暂无已知功能缺口）
+### Bug 修复：HandHistory 数据解析错误
+- [x] 修正 `HandEntry.result` 类型（从错误的 `Array` 改为 `{ winners, all_players, best_hand, seats }` 对象）
+- [x] `HandHistory.tsx` 改为读 `hand.result.winners`，并通过 `all_players` 建立 `player_id → display_name` 映射，显示可读玩家名
+
+### 买入金额自选（加入房间）
+- [x] `roomStore` 新增 `selectedBuyIn` 字段（0 = 使用服务端默认 max_buy_in）
+- [x] `LobbyPage` 加入确认弹窗：当 `min_buy_in < max_buy_in` 时显示滑块，范围 `[min, min(max, balance)]`
+- [x] `useWebSocket` 在发送 `join_room` 时携带 `selectedBuyIn`（0 时省略，服务端自动用 max）
+
+### 邀请链接复制按钮
+- [x] `RoomPage` 顶部栏「邀请」按钮，点击复制 `/join/:code` 到剪贴板，2 秒后文字恢复
+
+### ChatPanel 恢复挂载
+- [x] `RoomPage` 重新 import 并渲染 `ChatPanel`（折叠状态常驻右下角）
+
+### PROJECT.md 同步更新
+- [x] Section 2 加入 `POST /api/chips/claim`
+- [x] Section 3 加入 `GET /api/rooms/:code/hands`
+- [x] Section 9 筹码流动表加入 `claim_free`
+- [x] Section 10 修正 `players_json` / `result_json` 字段描述
+- [x] Section 11 补充 `selectedBuyIn` 说明
+- [x] Section 13 新增 RoomPage/LobbyPage 功能说明，修正 ChatPanel/HandHistory 描述

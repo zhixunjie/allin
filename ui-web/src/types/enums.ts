@@ -44,10 +44,13 @@ export enum WSEventType {
     HandResult = 'hand_result',        // 本手结算，包含赢家和筹码变动
     ChatMessage = 'chat_message',      // 聊天消息（双向）
     SitOutStatus = 'sit_out_status',   // 玩家离座/归座状态变更
+    ReadyStatus = 'ready_status',      // 结算间隙准备人数广播
+    ServerError = 'error',             // 服务端业务错误响应（含 code / message / ref_seq）
     // ── 客户端 → 服务端（上行） ──
     JoinRoom = 'join_room',            // 请求加入房间
     Action = 'action',                 // 提交玩家操作（fold/check/call/bet/raise/all_in）
     LeaveTable = 'leave_table',        // 主动离桌（仅限手牌间隙）
+    Ready = 'ready',                   // 结算画面点击"开始下一局"
 }
 
 /** 登录/注册模式 */

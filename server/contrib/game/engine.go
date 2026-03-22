@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	handStartDelay  = 5 * time.Second  // 两手牌之间的等待时长，给玩家留出准备时间
-	chatRateLimit   = time.Second      // 聊天消息发送频率上限：每人每秒最多 1 条
+	handStartDelay   = 10 * time.Second // 两手牌之间的等待时长，给玩家留出准备时间
+	chatRateLimit    = time.Second      // 聊天消息发送频率上限：每人每秒最多 1 条
 	emptyGracePeriod = 30 * time.Second // 所有人类玩家离开后，房间被回收前的宽限期
+	botReplaceDelay  = 8 * time.Second  // bot 破产离桌后，等待真实玩家加入的宽限期；超时则补充新 bot
 )
 
 // Engine 驱动一个房间的游戏状态机。
@@ -31,8 +32,11 @@ type Engine struct {
 	registry    *Registry           // 全局引擎注册表，为 nil 时不注册
 	onEmpty     func()              // 所有人类玩家离开后触发的回调（用于回收房间）
 	emptyTimer  *time.Timer         // 宽限期计时器，到期后执行 onEmpty
-	botsSeated  bool                // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
-	handActions []actionLogEntry    // 当前手牌的行动序列，手牌结束后写入历史表
+	botsSeated       bool                // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
+	handActions      []actionLogEntry    // 当前手牌的行动序列，手牌结束后写入历史表
+	botReplaceTimer  *time.Timer         // bot 破产后等待补充的计时器
+	botReplaceC      <-chan time.Time     // botReplaceTimer 对应的 channel，nil 时不触发
+	readyPlayers     map[string]bool     // 在结算画面点击"开始下一局"的玩家集合
 }
 
 // actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
@@ -108,6 +112,16 @@ func (e *Engine) Run() {
 		case <-timerC:
 			timerC = nil
 			e.handleTimeout(resetTimer)
+
+		case <-e.botReplaceC:
+			// bot 破产宽限期结束：若仍有人类玩家且 bot 数量不足，补充新 bot
+			e.botReplaceC = nil
+			if e.hasHumanPlayers() {
+				e.seatBots()
+				if e.gs.Street == StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+					resetTimer(handStartDelay)
+				}
+			}
 		}
 	}
 }
@@ -133,6 +147,8 @@ func (e *Engine) handleMessage(
 		e.handleLeaveTable(msg)
 	case ws.CmdDisconnect:
 		e.handleDisconnect(msg, resetTimer, stopTimer)
+	case ws.CmdReady:
+		e.handleReady(msg, resetTimer)
 	}
 }
 
@@ -606,6 +622,7 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 // 并广播 game_started / hole_cards / cards_dealt 事件，最后提示第一个行动玩家。
 func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.handActions = e.handActions[:0] // 清空行动日志
+	e.readyPlayers = nil              // 清空上一局的准备状态
 	e.gs.HandNum++
 	e.gs.Street = StreetPreFlop
 	e.gs.Community = nil
@@ -986,11 +1003,12 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	}
 
 	rawResult, _ := json.Marshal(struct {
-		Winners    []winEntry     `json:"winners"`
-		Seats      []resultSeat   `json:"seats"`
-		BestHand   []string       `json:"best_hand,omitempty"`
-		AllPlayers []playerDetail `json:"all_players"`
-	}{winners, resultSeats, bestHand, allPlayers})
+		Winners          []winEntry     `json:"winners"`
+		Seats            []resultSeat   `json:"seats"`
+		BestHand         []string       `json:"best_hand,omitempty"`
+		AllPlayers       []playerDetail `json:"all_players"`
+		NextHandDelaySec int            `json:"next_hand_delay_sec"`
+	}{winners, resultSeats, bestHand, allPlayers, int(handStartDelay.Seconds())})
 	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
@@ -1001,9 +1019,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
-	if len(e.gs.EligibleToStart()) >= 2 {
-		resetTimer(handStartDelay)
-	}
+	e.scheduleNextHand(resetTimer)
 }
 
 // awardUncontested 将底池颁发给最后一个活跃玩家（其他人都弃牌了）。
@@ -1054,11 +1070,13 @@ func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)
 		})
 	}
 	rawResult, _ := json.Marshal(struct {
-		Winners    []uWinner `json:"winners"`
-		AllPlayers []uPlayer `json:"all_players"`
+		Winners          []uWinner `json:"winners"`
+		AllPlayers       []uPlayer `json:"all_players"`
+		NextHandDelaySec int       `json:"next_hand_delay_sec"`
 	}{
-		Winners:    []uWinner{{winner.UserID, total}},
-		AllPlayers: uPlayers,
+		Winners:          []uWinner{{winner.UserID, total}},
+		AllPlayers:       uPlayers,
+		NextHandDelaySec: int(handStartDelay.Seconds()),
 	})
 	e.hub.Broadcast(ws.MustEvent(ws.TypeHandResult, json.RawMessage(rawResult)))
 
@@ -1071,9 +1089,7 @@ func (e *Engine) awardUncontested(winner *Player, resetTimer func(time.Duration)
 
 	e.gs.Street = StreetIdle
 	e.gs.ActionSeat = -1
-	if len(e.gs.EligibleToStart()) >= 2 {
-		resetTimer(handStartDelay)
-	}
+	e.scheduleNextHand(resetTimer)
 }
 
 // checkHandOver 检查断线弃牌后手牌是否结束。
@@ -1085,13 +1101,19 @@ func (e *Engine) checkHandOver(resetTimer func(time.Duration), stopTimer func())
 }
 
 // kickBrokePlayers 移除手牌结束后筹码归零的玩家。
+// 若有 bot 被踢出，启动 botReplaceDelay 计时器；
+// 计时器到期时若仍有人类玩家，则补充新 bot（见 Run() botReplaceC case）。
 func (e *Engine) kickBrokePlayers() {
+	brokeBotKicked := false
 	for _, p := range e.gs.Seats {
 		if p == nil || p.Stack > 0 {
 			continue
 		}
 		uid := p.UserID
 		seatIdx := p.SeatIndex
+		if p.IsBot {
+			brokeBotKicked = true
+		}
 		e.gs.UnseatPlayer(uid)
 		slog.Info("game: player broke, unseated", "room", e.room.Code, "player", uid)
 		e.hub.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
@@ -1100,6 +1122,94 @@ func (e *Engine) kickBrokePlayers() {
 		}))
 	}
 	e.maybeStartEmptyTimer()
+
+	// bot 破产后启动宽限期计时器，等待真实玩家加入
+	if brokeBotKicked && e.hasHumanPlayers() {
+		if e.botReplaceTimer != nil {
+			e.botReplaceTimer.Stop()
+		}
+		t := time.NewTimer(botReplaceDelay)
+		e.botReplaceTimer = t
+		e.botReplaceC = t.C
+	}
+}
+
+// hasHumanPlayers 返回牌桌上是否还有至少一名真实（非 bot）玩家。
+func (e *Engine) hasHumanPlayers() bool {
+	for _, p := range e.gs.Seats {
+		if p != nil && !IsBotID(p.UserID) {
+			return true
+		}
+	}
+	return false
+}
+
+// ---- 准备系统 ----
+
+// scheduleNextHand 在手牌结算后安排下一手的开始。
+// 若合格玩家 ≥2，广播初始准备状态并启动 handStartDelay 计时器。
+// Bot 玩家被视为自动准备好，若此时所有合格玩家都已准备，则缩短到 500ms 直接开始。
+func (e *Engine) scheduleNextHand(resetTimer func(time.Duration)) {
+	if len(e.gs.EligibleToStart()) < 2 {
+		return
+	}
+	// 重置准备集合，并为所有 bot 自动标记准备。
+	e.readyPlayers = make(map[string]bool)
+	for _, p := range e.gs.Seats {
+		if p != nil && IsBotID(p.UserID) && !p.SitOut && !p.Disconnected && p.Stack > 0 {
+			e.readyPlayers[p.UserID] = true
+		}
+	}
+	e.broadcastReadyStatus()
+	if e.allEligibleReady() {
+		resetTimer(500 * time.Millisecond)
+	} else {
+		resetTimer(handStartDelay)
+	}
+}
+
+// handleReady 处理玩家发送的 ready 命令（在结算画面点击"开始下一局"）。
+func (e *Engine) handleReady(msg ws.InboundMessage, resetTimer func(time.Duration)) {
+	if e.gs.Street != StreetIdle {
+		return
+	}
+	if e.readyPlayers == nil {
+		e.readyPlayers = make(map[string]bool)
+	}
+	e.readyPlayers[msg.SenderID] = true
+	e.broadcastReadyStatus()
+	if e.allEligibleReady() {
+		resetTimer(500 * time.Millisecond)
+	}
+}
+
+// broadcastReadyStatus 广播当前准备人数给所有客户端。
+func (e *Engine) broadcastReadyStatus() {
+	eligible := e.gs.EligibleToStart()
+	readyCount := 0
+	for _, p := range eligible {
+		if e.readyPlayers[p.UserID] {
+			readyCount++
+		}
+	}
+	e.hub.Broadcast(ws.MustEvent(ws.TypeReadyStatus, struct {
+		ReadyCount int `json:"ready_count"`
+		TotalCount int `json:"total_count"`
+	}{readyCount, len(eligible)}))
+}
+
+// allEligibleReady 返回是否所有合格玩家都已准备。
+func (e *Engine) allEligibleReady() bool {
+	eligible := e.gs.EligibleToStart()
+	if len(eligible) < 2 {
+		return false
+	}
+	for _, p := range eligible {
+		if !e.readyPlayers[p.UserID] {
+			return false
+		}
+	}
+	return true
 }
 
 // saveHandHistory 异步将手牌结果写入 DB，不阻塞引擎 goroutine。

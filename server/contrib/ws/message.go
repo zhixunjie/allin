@@ -27,7 +27,9 @@ const (
 	TypeError          MsgType = "error"
 	TypeStackUpdated   MsgType = "stack_updated"
 	TypeSitOut         MsgType = "sit_out_status"
+	TypeReadyStatus    MsgType = "ready_status"
 )
+
 
 // CmdType 是客户端 → 服务端的命令类型。
 type CmdType string
@@ -40,6 +42,7 @@ const (
 	CmdSitOut      CmdType = "sit_out"
 	CmdLeaveTable  CmdType = "leave_table"
 	CmdDisconnect  CmdType = "disconnect"
+	CmdReady       CmdType = "ready"
 )
 
 // Envelope 是所有 WebSocket 消息的通用包装。
@@ -91,7 +94,7 @@ type ConnectedPayload struct {
 	DisplayName  string      `json:"display_name"`
 	RoomCode     string      `json:"room_code"`
 	ChipBalance  int64       `json:"chip_balance"` // 买入后账户余额
-	GameSnapshot interface{} `json:"game_snapshot,omitempty"`
+	GameSnapshot any `json:"game_snapshot,omitempty"`
 }
 
 // ---- 游戏事件载荷（服务端 → 客户端） ----

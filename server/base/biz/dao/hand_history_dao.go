@@ -20,9 +20,10 @@ type HandHistoryRecord struct {
 
 // HandHistoryEntry 是查询接口返回给前端的简化视图。
 type HandHistoryEntry struct {
-	HandNum    int             `db:"hand_num"    json:"hand_num"`
-	ResultJSON json.RawMessage `db:"result_json" json:"result"`
-	PlayedAt   time.Time       `db:"played_at"   json:"played_at"`
+	HandNum     int             `db:"hand_num"     json:"hand_num"`
+	ResultJSON  json.RawMessage `db:"result_json"  json:"result"`
+	ActionsJSON json.RawMessage `db:"actions_json" json:"actions"`
+	PlayedAt    time.Time       `db:"played_at"    json:"played_at"`
 }
 
 // Save 插入一条手牌历史记录。
@@ -42,7 +43,7 @@ func (d *handHistoryDao) Save(r HandHistoryRecord) error {
 func (d *handHistoryDao) GetByRoomCode(code string, limit int) ([]HandHistoryEntry, error) {
 	var rows []HandHistoryEntry
 	err := DBM.Select(&rows,
-		`SELECT hh.hand_num, hh.result_json, hh.played_at
+		`SELECT hh.hand_num, hh.result_json, hh.actions_json, hh.played_at
 		 FROM hand_history hh
 		 JOIN room_history rh ON hh.room_id = rh.id
 		 WHERE rh.room_code = ?

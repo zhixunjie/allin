@@ -1,7 +1,7 @@
 /** 按人数对应的位置名称顺序（从庄家开始顺时针） */
 const POS_NAMES_BY_COUNT: Record<number, string[]> = {
   2: ['BTN', 'BB'],
-  3: ['BTN', 'SB', 'BB'],
+  3: ['BTN/UTG', 'SB', 'BB'],
   4: ['BTN', 'SB', 'BB', 'UTG'],
   5: ['BTN', 'SB', 'BB', 'UTG', 'CO'],
   6: ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'],

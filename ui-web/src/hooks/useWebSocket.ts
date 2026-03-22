@@ -18,6 +18,7 @@ import type {
 } from '../store/game'
 import { useChatStore } from '../store/chat'
 import { authAPI } from '../api/http'
+import { useRoomStore } from '../store/room'
 import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
 
 function refreshBalance() {
@@ -98,11 +99,13 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     // ── 连接建立后加入房间 ────────────────────────────────────────────
     // Open 事件：WS 握手完成时触发（包括断线重连后）
     on(WSInternalEvent.Open, () => {
-      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode })
+      const buyIn = useRoomStore.getState().selectedBuyIn
+      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode, ...(buyIn > 0 ? { buy_in: buyIn } : {}) })
     })
     // 若 WS 已经处于 open 状态（如快速重渲染），直接发送
     if (wsClient.isOpen) {
-      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode })
+      const buyIn = useRoomStore.getState().selectedBuyIn
+      wsClient.send(WSEventType.JoinRoom, { room_code: roomCode, ...(buyIn > 0 ? { buy_in: buyIn } : {}) })
     }
 
     // ── 清理 ──────────────────────────────────────────────────────────

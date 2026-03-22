@@ -125,6 +125,28 @@ curl http://localhost:8080/health
 - **错误处理**：`fmt.Errorf("xxx failed: %w", err)`
 - **错误不忽略**：禁止用 `_` 丢弃 `error`；后台 goroutine 中用 `slog.Error` 记录
 
+### 前端数据实体字段注释规范
+
+前端 TypeScript 中声明的数据实体（`interface` / `type`）的每个字段，**必须**在字段后面写行内注释，说明字段含义、取值范围或使用场景。
+
+```ts
+// ✅ 正确
+interface SeatSnapshot {
+  seat_index: number      // 座位号 0–8
+  user_id: string         // 玩家唯一 ID（bot 以 "bot_" 开头）
+  stack: number           // 桌面筹码余额（未参与下注部分）
+  bet: number             // 本街已下注金额
+  folded: boolean         // 是否已弃牌
+}
+
+// ❌ 错误（缺少注释）
+interface SeatSnapshot {
+  seat_index: number
+  user_id: string
+  stack: number
+}
+```
+
 ---
 
 ## Code Patterns

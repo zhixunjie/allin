@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect, useCallback } from 'react'
+import { useState, FormEvent, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { roomAPI, chipsAPI, authAPI } from '../../api/http'
 import type { RoomConfig } from '../../api/http'
@@ -14,10 +14,21 @@ interface ConfirmDialogProps {
   action: '创建房间' | '加入房间'
   onConfirm: () => void
   onCancel: () => void
+  minBuyIn?: number
+  maxBuyIn?: number
+  onBuyInChange?: (v: number) => void
 }
 
-function ConfirmDialog({ buyIn, balance, action, onConfirm, onCancel }: ConfirmDialogProps) {
-  const remaining = balance - buyIn
+function ConfirmDialog({ buyIn, balance, action, onConfirm, onCancel, minBuyIn, maxBuyIn, onBuyInChange }: ConfirmDialogProps) {
+  const [localBuyIn, setLocalBuyIn] = useState(buyIn)
+  const showSlider = action === '加入房间' && minBuyIn !== undefined && maxBuyIn !== undefined && minBuyIn < maxBuyIn
+  const effectiveBuyIn = showSlider ? localBuyIn : buyIn
+  const remaining = balance - effectiveBuyIn
+
+  function handleBuyInChange(v: number) {
+    setLocalBuyIn(v)
+    onBuyInChange?.(v)
+  }
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
@@ -37,11 +48,34 @@ function ConfirmDialog({ buyIn, balance, action, onConfirm, onCancel }: ConfirmD
             <h2 className="text-base font-black text-white mt-0.5">{action}</h2>
           </div>
 
+          {/* 买入金额滑块（仅加入场景，且 min < max） */}
+          {showSlider && (
+            <div className="flex flex-col gap-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-white/50">买入金额</span>
+                <span className="font-bold text-amber-300">${localBuyIn.toLocaleString()}</span>
+              </div>
+              <input
+                type="range"
+                min={minBuyIn}
+                max={Math.min(maxBuyIn!, balance)}
+                step={Math.max(1, Math.floor((maxBuyIn! - minBuyIn!) / 20))}
+                value={localBuyIn}
+                onChange={(e) => handleBuyInChange(Number(e.target.value))}
+                className="w-full accent-amber-400"
+              />
+              <div className="flex justify-between text-[10px] text-white/30">
+                <span>最低 ${minBuyIn!.toLocaleString()}</span>
+                <span>最高 ${Math.min(maxBuyIn!, balance).toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
           {/* 金额明细 */}
           <div className="flex flex-col gap-1.5 rounded-xl bg-white/[0.03] border border-white/8 px-4 py-3 text-sm">
             <div className="flex justify-between items-center">
               <span className="text-white/50">买入筹码</span>
-              <span className="font-bold text-amber-300">${buyIn.toLocaleString()}</span>
+              <span className="font-bold text-amber-300">${effectiveBuyIn.toLocaleString()}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-white/50">当前余额</span>
@@ -89,7 +123,8 @@ function ConfirmDialog({ buyIn, balance, action, onConfirm, onCancel }: ConfirmD
 export default function LobbyPage() {
   const navigate = useNavigate()
   const { user, clearAuth } = useAuthStore()
-  const setRoom = useRoomStore((s) => s.setRoom)
+  const { setRoom, setSelectedBuyIn } = useRoomStore()
+  const joinBuyInRef = useRef(0)
 
   // 创建房间表单
   const [smallBlind,     setSmallBlind]     = useState('1')
@@ -102,6 +137,12 @@ export default function LobbyPage() {
 
   // 大盲 = 小盲 × 2（自动联动）
   const bigBlind = Number(smallBlind) * 2
+
+  // 最大买入 = 100 BB，最小买入 = 20 BB（随小盲变化自动联动）
+  useEffect(() => {
+    setMaxBuyIn(String(bigBlind * 100))
+    setMinBuyIn(String(bigBlind * 20))
+  }, [bigBlind])
 
   // 加入房间
   const [joinCode, setJoinCode] = useState('')
@@ -203,15 +244,25 @@ export default function LobbyPage() {
     setLoading(true)
     try {
       const room = await roomAPI.get(code)
-      const buyIn = room.config.max_buy_in
       const balance = user?.chip_balance ?? 0
-      if (balance < buyIn) {
-        setError(`余额不足：需要 $${buyIn.toLocaleString()}，当前余额 $${balance.toLocaleString()}`)
+      const minBuyIn = room.config.min_buy_in
+      const maxBuyIn = room.config.max_buy_in
+      if (balance < minBuyIn) {
+        setError(`余额不足：最低买入 $${minBuyIn.toLocaleString()}，当前余额 $${balance.toLocaleString()}`)
         return
       }
-      askConfirm({ buyIn, balance, action: '加入房间' }, () => {
+      joinBuyInRef.current = Math.min(maxBuyIn, balance)
+      askConfirm({
+        buyIn: joinBuyInRef.current,
+        balance,
+        action: '加入房间',
+        minBuyIn,
+        maxBuyIn,
+        onBuyInChange: (v) => { joinBuyInRef.current = v },
+      }, () => {
         closeConfirm()
         setRoom(room)
+        setSelectedBuyIn(joinBuyInRef.current)
         navigate(`/room/${room.code}`)
       })
     } catch (err: unknown) {

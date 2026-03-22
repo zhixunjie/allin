@@ -76,9 +76,37 @@ export const authAPI = {
   me: () => http.get<User>('/me', true),
 }
 
+export interface HandWinner {
+  player_id: string   // 赢家玩家 ID
+  amount: number      // 本手获得的筹码总额（已合并主池+边池）
+  hand_name?: string  // 获胜牌型名称（如 "Full House"），无竞争时为空
+}
+
+export interface HandPlayer {
+  player_id: string    // 玩家唯一 ID
+  display_name: string // 显示名称
+  hole: string[]       // 手牌字符串数组（如 ["Ac","Kd"]）；弃牌者为空数组
+  hand_name?: string   // 最终牌型名称；弃牌者或未到摊牌阶段时为空
+  folded: boolean      // 是否在本手牌中弃牌
+  is_winner: boolean   // 是否为本手赢家（可能多人平分）
+}
+
+export interface HandAction {
+  player_id: string // 执行行动的玩家 ID
+  action: string    // 行动类型：fold / check / call / bet / raise / all_in
+  amount: number    // 行动金额；fold / check 为 0
+  street: string    // 行动所在街道：preflop / flop / turn / river
+}
+
 export interface HandEntry {
   hand_num: number
-  result: Array<{ player_id: string; amount: number; hand_name?: string }>
+  result: {
+    winners: HandWinner[]
+    all_players: HandPlayer[]
+    best_hand?: string[]
+    seats?: Array<{ player_id: string; stack: number }>
+  }
+  actions: HandAction[]
   played_at: string
 }
 

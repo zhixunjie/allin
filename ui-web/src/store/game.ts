@@ -14,6 +14,8 @@ export interface GameStartedPayload {
   dealer_seat: number // 庄家座位（服务端索引）
   sb_seat: number     // 小盲座位
   bb_seat: number     // 大盲座位
+  small_blind: number // 小盲金额
+  big_blind: number   // 大盲金额
 }
 
 export interface HoleCardsPayload {
@@ -65,6 +67,7 @@ export interface HandResultPayload {
     folded: boolean
     is_winner: boolean
   }>
+  next_hand_delay_sec?: number // 下一手开始前的等待秒数（服务端 handStartDelay）
 }
 
 export interface SitOutPayload {
@@ -145,12 +148,12 @@ export interface HandWinner {
 
 /** 结算弹窗中每位玩家的详情 */
 export interface RoundPlayerDetail {
-  player_id: string
-  display_name: string
+  player_id: string    // 玩家唯一 ID
+  display_name: string // 显示名称
   hole: string[]       // 两张手牌（弃牌者为 []，未公开者为 ['?','?']）
-  hand_name?: string   // 英文牌型名
-  folded: boolean
-  is_winner: boolean
+  hand_name?: string   // 英文牌型名（如 "Two Pair"）；弃牌者为空
+  folded: boolean      // 是否在本手牌中弃牌
+  is_winner: boolean   // 是否为本手赢家
 }
 
 /** 本手结算结果（用于展示结算弹窗） */
@@ -158,6 +161,17 @@ export interface LastHandResult {
   winners: HandWinner[]
   bestHand?: string[]              // 赢家最佳五张（用于顶部展示）
   allPlayers?: RoundPlayerDetail[] // 全场玩家手牌汇总
+  nextHandDelaySec: number         // 倒计时总秒数（来自服务端 next_hand_delay_sec）
+}
+
+// ── 行动日志（当局实时记录） ──
+
+export interface ActionLogEntry {
+  player_id: string    // 执行行动的玩家 ID
+  display_name: string // 玩家显示名称（用于日志展示）
+  action: PlayerAction // 行动类型：fold / check / call / bet / raise / all_in
+  amount: number       // 行动金额；fold / check 为 0
+  street: Street       // 行动所在街道（preflop / flop / turn / river）
 }
 
 // ── Store 状态定义 ──
@@ -169,6 +183,9 @@ interface GameStoreState extends GameSnapshot {
   callAmount: number           // 跟注所需金额（用于 ActionPanel 显示）
   minRaiseAmount: number       // 最小加注额（用于 BetSlider 下限）
   lastHandResult: LastHandResult | null // 最近一手结算结果，null 表示无需展示
+  actionLog: ActionLogEntry[]  // 当局行动流水（game_started 时清空）
+  readyCount: number           // 结算间隙已准备的玩家数
+  readyTotal: number           // 结算间隙合格玩家总数
 
   setMyUserId: (id: string) => void
   applyConnected: (payload: ConnectedPayload) => void
@@ -208,6 +225,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   callAmount: 0,
   minRaiseAmount: 0,
   lastHandResult: null,
+  actionLog: [],
 
   setMyUserId: (id) => set({ myUserId: id }),
 
@@ -221,7 +239,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     }
   },
 
-  // 新一手开始：重置所有座位状态，保留玩家列表
+  // 新一手开始：重置所有座位状态，保留玩家列表，清空行动日志
   applyGameStarted: (payload) => {
     set({
       hand_num: payload.hand_num,
@@ -230,10 +248,17 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       community: [],
       pot: 0,
       action_seat: -1,
-      current_bet: 0,
+      current_bet: payload.big_blind,
       myHole: [],
       deadlineTs: null,
-      seats: get().seats.map((s) => ({ ...s, bet: 0, folded: false, all_in: false, hole: undefined })),
+      actionLog: [],
+      lastHandResult: null,
+      seats: get().seats.map((s) => {
+        let bet = 0
+        if (s.seat_index === payload.sb_seat) bet = Math.min(payload.small_blind, s.stack)
+        if (s.seat_index === payload.bb_seat) bet = Math.min(payload.big_blind, s.stack)
+        return { ...s, bet, folded: false, all_in: false, hole: undefined }
+      }),
     })
   },
 
@@ -279,22 +304,33 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     })
   },
 
-  // 玩家已行动：更新底池、该玩家的筹码/下注/状态
+  // 玩家已行动：更新底池、该玩家的筹码/下注/状态，追加行动日志
   applyActionTaken: (payload) => {
-    set((state) => ({
-      pot: payload.total_pot,
-      deadlineTs: null,
-      seats: state.seats.map((s) => {
-        if (s.user_id !== payload.player_id) return s
-        return {
-          ...s,
-          stack: payload.stack,
-          bet: payload.action === PlayerAction.Fold ? s.bet : payload.amount,
-          folded: payload.action === PlayerAction.Fold ? true : s.folded,
-          all_in: payload.action === PlayerAction.AllIn ? true : s.all_in,
-        }
-      }),
-    }))
+    set((state) => {
+      const seat = state.seats.find((s) => s.user_id === payload.player_id)
+      const entry: ActionLogEntry = {
+        player_id: payload.player_id,
+        display_name: seat?.display_name ?? payload.player_id,
+        action: payload.action,
+        amount: payload.amount,
+        street: state.street,
+      }
+      return {
+        pot: payload.total_pot,
+        deadlineTs: null,
+        actionLog: [...state.actionLog, entry],
+        seats: state.seats.map((s) => {
+          if (s.user_id !== payload.player_id) return s
+          return {
+            ...s,
+            stack: payload.stack,
+            bet: payload.action === PlayerAction.Fold ? s.bet : payload.amount,
+            folded: payload.action === PlayerAction.Fold ? true : s.folded,
+            all_in: payload.action === PlayerAction.AllIn ? true : s.all_in,
+          }
+        }),
+      }
+    })
   },
 
   // 摊牌：公开各玩家手牌
@@ -311,14 +347,25 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   // 本手结算：更新各玩家筹码，记录赢家/手牌信息，重置街道为 idle
   applyHandResult: (payload) => {
     set((state) => {
+      // 同一玩家可能赢多个底池（主池+边池），按 player_id 合并后只展示一行
+      const mergedWinners = payload.winners.reduce<HandWinner[]>((acc, w) => {
+        const existing = acc.find((e) => e.player_id === w.player_id)
+        if (existing) {
+          existing.amount += w.amount
+        } else {
+          acc.push({
+            player_id: w.player_id,
+            display_name: state.seats.find((s) => s.user_id === w.player_id)?.display_name ?? w.player_id,
+            amount: w.amount,
+            hand_name: w.hand_name,
+          })
+        }
+        return acc
+      }, [])
       const lastHandResult: LastHandResult = {
-        winners: payload.winners.map((w) => ({
-          player_id: w.player_id,
-          display_name: state.seats.find((s) => s.user_id === w.player_id)?.display_name ?? w.player_id,
-          amount: w.amount,
-          hand_name: w.hand_name,
-        })),
+        winners: mergedWinners,
         bestHand: payload.best_hand,
+        nextHandDelaySec: payload.next_hand_delay_sec ?? 10,
         allPlayers: payload.all_players?.map((p) => ({
           player_id: p.player_id,
           display_name: p.display_name,
@@ -403,5 +450,6 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       callAmount: 0,
       minRaiseAmount: 0,
       lastHandResult: null,
+      actionLog: [],
     }),
 }))

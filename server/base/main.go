@@ -62,7 +62,7 @@ func main() {
 	// Hertz server
 	h := server.New(
 		server.WithHostPorts(viper.GetString("server.addr")),
-		server.WithExitWaitTime(10*time.Second),
+		server.WithExitWaitTime(4*time.Second),
 	)
 
 	// CORS

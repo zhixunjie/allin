@@ -65,6 +65,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 | POST | `/api/auth/register` | 无 | 注册，初始筹码 10,000 |
 | POST | `/api/auth/login` | 无 | 登录，返回 JWT |
 | GET | `/api/me` | JWT | 查询当前用户信息 |
+| POST | `/api/chips/claim` | JWT | 余额 < 1000 时领取 10,000 免费筹码 |
 | GET | `/health` | 无 | 健康检查 |
 
 ### 注册逻辑 (`UserSvc.Register`)
@@ -95,6 +96,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 |------|------|------|------|
 | POST | `/api/rooms` | JWT | 创建房间 |
 | GET | `/api/rooms/:code` | 无 | 查询房间信息 |
+| GET | `/api/rooms/:code/hands` | JWT | 查询房间最近 20 手记录 |
 
 ### 创建房间逻辑 (`room.Manager.Create`)
 
@@ -461,6 +463,7 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 | 加入房间（买入） | `-buyIn` | `buy_in` | roomCode |
 | 离开/断线/踢出（现金兑出） | `+stack` | `cash_out` | roomCode |
 | 补充筹码 | `-added` | `add_chips` | roomCode |
+| 领取免费筹码 | `+10,000` | `claim_free` | — |
 
 ### `AdjustChips` 实现
 
@@ -487,9 +490,9 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 |------|------|
 | `room_id` | 房间数据库 ID |
 | `hand_num` | 手牌编号（从 1 递增） |
-| `players_json` | 座位快照（player_id/display_name/hole/hand_name/folded/is_winner） |
+| `players_json` | 座位快照（player_id/display_name/seat_index/stack） |
 | `actions_json` | 完整行动序列（PlayerID/Action/Amount/Street） |
-| `result_json` | 赢家及金额列表 |
+| `result_json` | 完整结算对象 `{ winners, seats, best_hand, all_players }`，同时作为 WS `hand_result` payload 广播 |
 | `played_at` | 手牌完成时间戳 |
 
 ### 行动日志收集流程
@@ -508,8 +511,8 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 | Store | 文件 | 职责 |
 |-------|------|------|
 | `useGameStore` | `store/game.ts` | 游戏状态（GameSnapshot + 本地扩展字段） |
-| `useAuthStore` | `store/auth.ts` | 用户认证（token/user） |
-| `useRoomStore` | `store/room.ts` | 房间信息 |
+| `useAuthStore` | `store/auth.ts` | 用户认证（token/user），`updateChipBalance` 同步余额 |
+| `useRoomStore` | `store/room.ts` | 房间信息 + `selectedBuyIn`（加入时用户选择的买入额，0=服务端默认） |
 | `useChatStore` | `store/chat.ts` | 聊天消息列表（最多 200 条） |
 | `useConnectionStore` | `store/connection.ts` | WebSocket 连接状态 |
 
@@ -627,8 +630,8 @@ root (Container)
 |------|------|------|
 | `ActionPanel` | `panels/ActionPanel.tsx` | 行动按钮，仅 `isMyTurn` 时渲染 |
 | `BetSlider` | `panels/BetSlider.tsx` | 下注滑块，含 1/4、1/2、3/4、pot 倍快捷预设 |
-| `ChatPanel` | `panels/ChatPanel.tsx` | 聊天窗口（最多 200 条历史） |
-| `HandHistory` | `panels/HandHistory.tsx` | 历史手牌记录展示 |
+| `ChatPanel` | `panels/ChatPanel.tsx` | 聊天窗口（折叠/展开切换，最多 200 条历史，1s 限速） |
+| `HandHistory` | `panels/HandHistory.tsx` | 历史手牌记录面板（按需展示，从 `/api/rooms/:code/hands` 拉取，赢家显示 display_name） |
 | `RoomInfo` | `panels/RoomInfo.tsx` | 房间信息（盲注/买入范围/在线人数） |
 | `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张） |
 | `ConnectionBanner` | `components/ConnectionBanner.tsx` | 断线提示横幅 |
@@ -641,11 +644,25 @@ root (Container)
 - 下注金额默认为 `minRaiseAmount`，范围 `[minBet, maxBet]`，支持底池比例快捷设置
 - 全押始终显示
 
+### RoomPage 功能
+
+- **「邀请」按钮**：复制 `/join/:code` 链接到剪贴板，2 秒后恢复文字
+- **「历史」按钮**：切换 `HandHistory` 面板显示/隐藏
+- **「补充筹码」按钮**：仅在 `Street.Idle` 且有可补空间时显示，弹窗含金额输入 + 25%/50%/全补快捷按钮
+- **聊天面板**：始终挂载，折叠状态下右下角显示消息徽标
+
 ### 离桌逻辑（`RoomPage`）
 
 1. 点击「离开牌桌」先发送 WS 命令 `leave_table`
 2. 再跳转 `/lobby`（前端不等待服务端响应）
 3. 手牌进行中服务端拒绝 `leave_table`（`hand_in_progress` 错误），不影响前端跳转
+
+### LobbyPage 功能
+
+- **进入时刷新余额**：`useEffect` 调用 `GET /api/me` 同步离桌后 cashOut 金额
+- **领取免费筹码**：余额 < 1000 时头部显示「领取筹码」按钮，调用 `POST /api/chips/claim`
+- **加入房间买入自选**：确认弹窗内含滑块，范围 `[min_buy_in, min(max_buy_in, balance)]`；选定值存入 `roomStore.selectedBuyIn`，WS 连接后发送 `join_room` 时附带
+- **邀请链接处理**：路由 `/join/:code` 自动填充加入表单的房间码
 
 ---
 
