@@ -1,230 +1,697 @@
-# AllIn — 熟人组局德州扑克
+# AllIn — 功能点与实现逻辑全览
 
-## 产品定位
-
-面向熟人圈子的 No-Limit Texas Hold'em Cash Game 平台。
-玩家通过 **房间码** 或 **邀请链接** 加入私人牌局，虚拟筹码娱乐，先做 PC Web，后续扩展 H5 / iOS / Android。
+> 最后更新：2026-03-22
 
 ---
 
-## 技术栈
+## 目录
 
-| 层 | 选型 |
-|----|------|
-| 后端语言 | Go 1.25 |
-| HTTP 框架 | Hertz v0.10.4（CloudWeGo） |
-| WebSocket | gorilla/websocket（via contrib/ws） |
-| 配置管理 | Viper（`server/base/config.yaml`） |
-| 数据库访问 | sqlx + go-sql-driver/mysql |
-| 持久化 | MySQL 8.0（AutoMigrate 自动建表） |
-| 鉴权 | JWT HS256，7 天有效期 |
-| 游戏状态 | 纯内存（Go struct + channel 单写者模式） |
-| 手牌评估 | 纯 Go 枚举 C(7,5)=21 种五牌组合（HandRanks.dat 为可选加速） |
-| 前端构建 | Vite 5 + TypeScript |
-| UI | React 18 + CSS Modules |
-| 2D 渲染 | PixiJS v8（WebGL，程序化渲染，无外部图片） |
-| 状态管理 | Zustand |
-| 路由 | React Router v6 |
+1. [系统架构](#1-系统架构)
+2. [用户系统](#2-用户系统)
+3. [房间系统](#3-房间系统)
+4. [WebSocket 通信层](#4-websocket-通信层)
+5. [游戏引擎（状态机）](#5-游戏引擎状态机)
+6. [手牌评估器](#6-手牌评估器)
+7. [边底池算法](#7-边底池算法)
+8. [AI Bot 系统](#8-ai-bot-系统)
+9. [筹码账务系统](#9-筹码账务系统)
+10. [手牌历史持久化](#10-手牌历史持久化)
+11. [前端状态管理](#11-前端状态管理)
+12. [前端 PixiJS 渲染](#12-前端-pixijs-渲染)
+13. [前端 React 面板](#13-前端-react-面板)
+14. [数据库表结构](#14-数据库表结构)
 
 ---
 
-## 目录结构
+## 1. 系统架构
+
+### 分层结构
 
 ```
-allin/
-├── server/                     # Go 后端（单 module: github.com/allin/server）
-│   ├── base/                   # 微服务主体
-│   │   ├── main.go             # 启动入口（Hertz + Viper）
-│   │   ├── router.go           # 路由注册
-│   │   ├── config.yaml         # 本地配置
-│   │   └── biz/
-│   │       ├── handler/        # HTTP Handler（User / Room）
-│   │       ├── service/        # 业务逻辑（UserSvc / RoomSvc）
-│   │       ├── dao/            # 数据访问（userDao / roomDao + AutoMigrate）
-│   │       ├── mw/             # 中间件（JWT）
-│   │       └── model/          # 数据模型（User struct + 错误定义）
-│   ├── contrib/                # 可复用组件
-│   │   ├── ws/                 # WebSocket Hub + Client + Handler
-│   │   ├── room/               # RoomManager（内存 + GC）
-│   │   ├── game/               # 游戏引擎（状态机 + AI bot）
-│   │   ├── eval/               # 手牌评估器
-│   │   └── auth/               # JWT 签发/验证 + bcrypt
-│   └── go.mod
-│
-├── ui-web/                     # React + PixiJS 前端
-│   ├── src/
-│   │   ├── api/                # HTTP + WebSocket 客户端
-│   │   ├── store/              # Zustand stores（auth / room / game / chat）
-│   │   ├── pixi/               # PixiJS 场景 + 组件
-│   │   ├── react/              # React 页面 + 面板
-│   │   └── hooks/
-│   ├── vite.config.ts
-│   └── package.json
-│
-└── docs/
-    ├── PROJECT.md              # 本文档
-    └── PROGRESS.md             # 实现进度
+客户端 (React + PixiJS)
+    ↕ HTTP REST (Hertz)
+    ↕ WebSocket (gorilla/websocket via adaptor)
+server/base/biz/handler  →  service  →  dao
+                                          ↕ sqlx / MySQL
+server/contrib/ws/Hub   ←→  game/Engine
+                              ↕
+                        contrib/room/Manager
+                        contrib/eval (手牌评估)
 ```
+
+### 无循环依赖原则
+
+- `contrib/game` 导入 `contrib/ws`、`contrib/room`、`contrib/eval`、`base/biz/dao`
+- `contrib/ws` 不导入 `contrib/game`（通过 `ws.Handler.SetEngineStarter` 回调注入 Engine 工厂，在 `main.go` 完成装配）
+- `contrib/room/manager` 直接调用 `base/biz/dao.RoomDao`
+
+### 关键常量
+
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `handStartDelay` | 5s | 两手牌之间的等待时间 |
+| `chatRateLimit` | 1s | 聊天消息限速 |
+| `emptyGracePeriod` | 30s | 人类全离场后 bot 清场宽限期 |
+| 默认 `ActionTimeSec` | 30s | 玩家行动超时时间 |
 
 ---
 
-## 本地开发环境
+## 2. 用户系统
 
-### 依赖
+### HTTP 接口
 
-- Go 1.25+
-- Node.js 20+
-- MySQL 8.0（本地 `127.0.0.1:13306`，root 无密码，`allin` 库已存在）
+| 方法 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| POST | `/api/auth/register` | 无 | 注册，初始筹码 10,000 |
+| POST | `/api/auth/login` | 无 | 登录，返回 JWT |
+| GET | `/api/me` | JWT | 查询当前用户信息 |
+| GET | `/health` | 无 | 健康检查 |
 
-### 启动后端
+### 注册逻辑 (`UserSvc.Register`)
 
-```bash
-cd server
-go run ./base
-# 首次启动自动建表，输出：dao: auto-migrated 4 tables
-# 健康检查：curl http://localhost:8080/health
-```
+1. 校验用户名/密码/显示名非空
+2. `bcrypt` 哈希密码（`auth/password.go`）
+3. `userDao.Create` 写库，主键冲突返回 `ErrUsernameTaken`（HTTP 409）
+4. `auth/jwt.go` 签发 HS256 JWT（7 天有效期，密钥从 `config.yaml` 读取）
 
-### 启动前端
+### 登录逻辑 (`UserSvc.Login`)
 
-```bash
-cd ui-web
-npm install
-npm run dev
-# 默认 http://localhost:5173，端口占用时顺延
-```
+1. `userDao.GetByUsername` 查询，未找到返回 `ErrUserNotFound`（HTTP 401）
+2. `bcrypt.CompareHashAndPassword` 验证密码
+3. 签发 JWT，返回 token + 用户信息
 
-### 验证后端是否已在运行
+### JWT 中间件 (`mw.JWTMiddleware`)
 
-```bash
-curl http://localhost:8080/health
-```
+- 从 `Authorization: Bearer <token>` 提取 token
+- `auth/jwt.go` 解析并校验，将 `userID` 注入 Hertz context（`mw.GetUserID(c)` 取出）
 
 ---
 
-## HTTP API
+## 3. 房间系统
 
-### 鉴权
+### HTTP 接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/auth/register` | 注册：`{ username, password, display_name }` |
-| POST | `/api/auth/login` | 登录：`{ username, password }` → `{ token, user }` |
-| GET  | `/api/me` | 当前用户信息（需 JWT） |
+| 方法 | 路径 | 鉴权 | 说明 |
+|------|------|------|------|
+| POST | `/api/rooms` | JWT | 创建房间 |
+| GET | `/api/rooms/:code` | 无 | 查询房间信息 |
 
-### 房间
+### 创建房间逻辑 (`room.Manager.Create`)
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/rooms` | 创建房间：`{ small_blind, big_blind, min_buy_in, max_buy_in, max_players, bot_count, bot_style }` |
-| GET  | `/api/rooms/:code` | 获取房间快照（邀请链接预览） |
+1. `validateConfig` 校验房间参数：
+   - `big_blind == small_blind * 2`
+   - `min_buy_in >= big_blind * 10`
+   - `max_buy_in >= min_buy_in`
+   - `max_players` 在 2–9 之间
+   - `bot_count` 在 0 到 `max_players-1` 之间
+   - `bot_style` 只能是 `mixed/aggressive/passive/random`
+   - `action_time_sec` 在 5–120 之间（0 时默认为 30）
+2. 生成唯一 6 位房间码（最多重试 10 次）
+3. `dao.RoomDao.Persist` 写库（`room_history` 表）
+4. 注册到内存 `rooms map[string]*Room`
+5. 在 `ws.Handler.ServeWS` 中为该房间创建 `Hub` + `Engine`，分别在独立 goroutine 中运行
 
-### WebSocket
+### 房间 GC (`Manager.StartGC`)
 
-```
-GET /api/ws?room=XXXXXX
-Authorization: Bearer <token>
-```
+- 每 5 分钟扫描一次
+- 条件：无连接客户端 && 空闲时长 > 30 分钟
+- 满足条件则 `Manager.Close`：从内存移除 + 数据库标记 `ended_at`
 
-或：`GET /api/ws?room=XXXXXX&token=<jwt>`
+### 优雅关闭
+
+- 监听 `SIGTERM`，调用 `game.Registry.StopAll()`，关闭所有引擎 goroutine
 
 ---
 
-## WebSocket 消息协议
+## 4. WebSocket 通信层
 
-### 公共信封
+### 连接建立 (`ws.Handler.ServeWS`)
+
+1. Upgrade HTTP → WebSocket（`gorilla/websocket`，通过 Hertz `adaptor.HertzHandler` 桥接）
+2. 从 JWT（query param `token` 或 `Authorization` header）解析 `userID` 和 `displayName`
+3. 创建或复用该房间的 `Hub`，按需启动 `Hub.Run()` 和 `Engine.Run()`
+4. 创建 `Client`，注册到 Hub（`hub.register <- client`）
+5. 启动 `client.writePump`（goroutine）和 `client.readPump`（当前 goroutine）
+
+### Hub (`contrib/ws/hub.go`)
+
+- `clients map[string]*Client`（以 userID 为键）
+- `Inbound chan InboundMessage`（容量 256，游戏引擎消费）
+- `register / unregister chan *Client` 序列化注册操作，避免并发写 map
+- 客户端断开时自动向 `Inbound` 注入 `CmdDisconnect` 消息
+
+### 消息信封格式
 
 ```json
-{
-  "type": "action_required",
-  "seq": 42,
-  "ts": 1710000000000,
-  "payload": { ... }
-}
+{ "type": "action_required", "seq": 42, "ts": 1710000000000, "payload": { ... } }
 ```
 
-### 服务端事件（Server → Client）
+### 服务端 → 客户端（事件类型）
 
-| type | 触发时机 |
-|------|---------|
-| `connected` | 连接建立，下发完整 GameSnapshot |
-| `player_joined` | 玩家入座 |
-| `player_left` | 玩家断线 |
-| `game_started` | 新手牌开始 |
-| `hole_cards` | 仅发给持牌玩家（2 张底牌） |
-| `cards_dealt` | 通知他人某座位已发牌 |
-| `street_started` | 翻/转/河牌街开始，含公共牌 |
-| `action_required` | 轮到某玩家行动，含 `deadline_ts` |
-| `action_taken` | 某玩家完成行动 |
-| `action_timeout` | 超时自动弃牌/看牌 |
-| `showdown` | 摊牌，含所有玩家底牌 |
-| `hand_result` | 赢家 + 金额 + 各玩家剩余筹码 |
-| `chat_message` | 聊天消息 |
-| `error` | 命令错误响应 |
-
-### 客户端命令（Client → Server）
-
-| type | 说明 |
+| 类型 | 说明 |
 |------|------|
-| `join_room` | 入座，含 `room_code` |
-| `action` | `fold/check/call/bet/raise/all_in` + `amount` |
-| `chat` | 聊天文本 |
-| `add_chips` | 补充筹码 |
-| `sit_out` | 暂离 |
+| `connected` | WS 握手成功，附带游戏快照（重连场景） |
+| `player_joined` | 玩家入座或重连（`is_reconnect` 区分） |
+| `player_left` | 玩家离场 |
+| `game_started` | 新一手牌开始（含庄/盲座位信息） |
+| `hole_cards` | 私密发送本人手牌（仅当事人） |
+| `cards_dealt` | 广播哪些座位收到了手牌（仅座位列表，不含牌面） |
+| `street_started` | 新街道开始（含公共牌/底池） |
+| `action_required` | 轮到某玩家行动（含截止时间戳、跟注额、最小加注额） |
+| `action_taken` | 玩家已行动（含行动类型/金额/剩余筹码/总底池） |
+| `action_timeout` | 玩家行动超时，自动弃牌或过牌 |
+| `showdown` | 摊牌，公开各玩家手牌及牌型 |
+| `hand_result` | 本手结算（含 winners/seats/best_hand/all_players） |
+| `chat_message` | 聊天消息中继 |
+| `sit_out_status` | 玩家离座/归座状态变更 |
+| `stack_updated` | 玩家筹码变化（补充筹码后广播） |
+| `error` | 错误响应（含错误码 code、RefSeq） |
+
+### 客户端 → 服务端（命令类型）
+
+| 类型 | 说明 |
+|------|------|
+| `join_room` | 加入房间（含 `room_code`、可选 `buy_in`） |
+| `action` | 玩家行动（`fold/check/call/bet/raise/all_in` + `amount`） |
+| `chat` | 发送聊天消息（限 1–200 字符，1 秒限速） |
+| `add_chips` | 补充筹码（手牌间隙，从账户余额扣除） |
+| `sit_out` | 离座/归座切换 |
+| `leave_table` | 主动离桌（仅限手牌间隙） |
 
 ---
 
-## 游戏规则
+## 5. 游戏引擎（状态机）
 
-- **模式**：No-Limit Texas Hold'em，现金局（Cash Game）
-- **最大玩家数**：2-9 人
-- **筹码**：虚拟筹码，可在手牌间补充
-- **行动计时**：默认 30 秒，超时自动最优行动（可看牌则看牌，否则弃牌）
-- **边底池**：支持多人全押产生的边底池，自动正确计算归属
+### 架构
 
----
+- 每个房间一个 `Engine` 实例，在独立 goroutine 中运行 `Engine.Run()`
+- **单 goroutine** 处理所有状态变更，无需加锁
+- `select` 监听三个 channel：`hub.Inbound`（玩家消息）、`timerC`（可重置计时器）、`quit`（退出）
+- `timerC = nil` 时该分支永不触发（惰性定时器实现可重置效果）
 
-## AI Bot 风格系统
-
-### 风格人设参数表
-
-| 参数 | 含义 | TAG（紧凶） | LAG（松凶） | Station（松被动） | Rock（紧被动） |
-|------|------|:-----------:|:-----------:|:-----------------:|:--------------:|
-| PreflopEnterThreshold | 主动入局所需最低 preflop 强度 | 0.65 | 0.35 | 0.30 | 0.78 |
-| PreflopRaiseThreshold | preflop 选择加注而非跟注的门槛 | 0.80 | 0.50 | 0.85 | 0.92 |
-| PostflopBetThreshold  | postflop 主动下注所需最低强度  | 0.55 | 0.35 | 0.70 | 0.72 |
-| PostflopFoldThreshold | postflop 面对下注时弃牌的强度上限 | 0.30 | 0.15 | 0.05 | 0.48 |
-| BluffRate             | 手牌偏弱时仍激进行动的概率 | 0.08 | 0.22 | 0.02 | 0.02 |
-
-### 风格主题（RoomConfig.BotStyle）
-
-| 值 | 中文 | 分配规则 |
-|----|------|---------|
-| `mixed`（默认/空） | 混合 | 按序号循环：TAG→LAG→Station→Rock |
-| `aggressive` | 激进 | 按序号交替：TAG→LAG→TAG→LAG… |
-| `passive` | 被动 | 按序号交替：Rock→Station→Rock… |
-| `random` | 随机 | 每个 bot 独立随机选一种 |
-
-### 手牌强度映射
-
-**Preflop（无公共牌）**：对子 `0.5 + (rank-2)/24×0.5`，非对子按点数和归一化，同花 +0.04，连牌 +0.02。
-
-**Postflop 成牌类别**：
-
-| 牌型 | 强度 | 牌型 | 强度 |
-|------|:----:|------|:----:|
-| 同花顺 | 1.00 | 三条 | 0.60 |
-| 四条   | 0.95 | 两对 | 0.45 |
-| 葫芦   | 0.88 | 一对 | 0.30 |
-| 同花   | 0.78 | 高牌 | 0.15 |
-| 顺子   | 0.70 | | |
-
----
-
-## 邀请链接格式
+### 街道状态机
 
 ```
-https://allin.example.com/join/XXXXXX
+Idle → PreFlop → Flop → Turn → River → Showdown → Idle
+              ↘ (只剩 1 名活跃玩家)
+                 awardUncontested → Idle
 ```
 
-前端读取 URL 参数中的 6 位房间码，请求 `/api/rooms/:code` 显示房间信息后引导用户加入。
+### 手牌开始流程 (`startHand`)
+
+1. 清空 `handActions` 行动日志（`handActions = handActions[:0]`）
+2. `HandNum++`，`Street = PreFlop`，清空公共牌
+3. `nextEligibleSeatAfter` 移动庄家按钮
+4. 单挑（2 人）：庄家 = 小盲，对方 = 大盲；多人：庄家右 = 小盲，再右 = 大盲
+5. 重置所有玩家状态（`Bet/TotalBet/Folded/AllIn/ActedThisStreet/Hole`）
+6. `postBlind`：扣除盲注（筹码不足则全押）
+7. 洗牌（Fisher-Yates），轮转发牌（座位顺序先各发 1 张，共发 2 轮）
+8. 广播 `game_started`
+9. `SendTo` 私密发送各玩家手牌（`hole_cards`），广播 `cards_dealt`（仅座位列表）
+10. 单挑时庄家翻牌前先行动；多人时从大盲左边第一个合格玩家开始
+11. 广播 `action_required`，启动行动计时器
+
+### 行动处理 (`handleAction`)
+
+1. 解析 `ActionCmd` payload
+2. `ValidateAction` 校验合法性：
+   - 游戏必须处于活跃街道（非 Idle/Showdown）
+   - 必须是当前行动座位
+   - 玩家未弃牌/未全押
+   - `check`：当前无欠注
+   - `call`：当前有欠注可跟
+   - `bet`：当前无下注且金额 >= 大盲
+   - `raise`：当前有下注且目标总额 >= `CurrentBet + MinRaise`，且筹码足以加注
+   - `all_in`：筹码 > 0
+3. `ApplyAction` 修改内存状态（激进行为重置其他玩家 `ActedThisStreet = false`）
+4. 追加到 `handActions` 日志（PlayerID/Action/Amount/Street）
+5. 广播 `action_taken`
+6. `advanceOrEnd`
+
+### `ApplyAction` 细节
+
+| 行动 | 逻辑 |
+|------|------|
+| `fold` | `Folded = true`，`ActedThisStreet = true` |
+| `check` | `ActedThisStreet = true` |
+| `call` | 扣除 `min(toCall, stack)`，筹码耗尽则 `AllIn = true` |
+| `bet` | 设置 `CurrentBet`，更新 `MinRaise = amount`；激进行为重置其他人 |
+| `raise` | 目标总额赋值给 `Bet`，更新 `MinRaise = raiseBy`；激进行为重置其他人 |
+| `all_in` | 全部筹码入池，若超过 `CurrentBet` 则更新 `CurrentBet` 和 `MinRaise` |
+
+### 推进逻辑 (`advanceOrEnd`)
+
+1. `ActivePlayers()`（未弃/未离座）只剩 1 人 → `awardUncontested`
+2. `BettingRoundOver()`：所有未弃/未离/未全押玩家都已行动且 `Bet >= CurrentBet` → `nextStreet`
+3. `nextActableSeat`（未弃/未离/未全押）返回下一个行动座位 → 广播 `action_required`
+4. 若无可行动座位（全员全押）→ `nextStreet`
+
+### 街道推进 (`nextStreet`)
+
+1. 重置 `Bet=0`、`ActedThisStreet=false`、`CurrentBet=0`、`MinRaise=BB`
+2. PreFlop → Flop（发 3 张），Flop → Turn（发 1 张），Turn → River（发 1 张），River → `runShowdown`
+3. 广播 `street_started`
+4. 若 `CanAct()` 为空（全员全押）：`ActionSeat=-1`，设 2 秒定时器自动推进
+5. 否则翻牌后从庄家左边第一个活跃玩家开始
+
+### 行动超时 (`handleTimeout`)
+
+- `Street == Idle`：手牌开始计时器触发，`EligibleToStart() >= 2` 则 `startHand`
+- `ActionSeat == -1`：全员全押自动推进，调用 `nextStreet`
+- 否则：`Bet >= CurrentBet` 则自动 `check`，否则自动 `fold`，广播 `action_timeout`，追加行动日志
+
+### 摊牌 (`runShowdown`)
+
+1. 公开所有未弃牌玩家手牌，调用 `EvaluateHand` 计算牌型名，广播 `showdown`
+2. `BuildPots` 计算主池和边池
+3. 逐池：`EvaluateHand` 找最强玩家（rank 最小），平分底池，余数归第一赢家
+4. 取首位赢家最佳五张 `BestFiveStrings`
+5. 构建 `all_players`（含弃牌者信息），广播 `hand_result`
+6. 异步 `saveHandHistory`，调用 `kickBrokePlayers`、`cleanupDisconnected`
+7. `Street = Idle`，`EligibleToStart() >= 2` 则启动 `handStartDelay` 计时器
+
+### 未摊牌颁奖 (`awardUncontested`)
+
+- 活跃玩家仅剩 1 人时，将所有玩家 `TotalBet` 之和全部颁给该玩家
+- 广播 `hand_result`（赢家手牌不公开，`all_players` 中弃牌者手牌为空）
+- 同样异步保存历史，执行清理逻辑
+
+### 断线处理 (`handleDisconnect`)
+
+- Bot ID 注入的假消息直接忽略（`IsBotID` 检测）
+- **手牌间隙断线**：立即离座，`cashOut` 返还筹码，广播 `player_left`，调用 `maybeStartEmptyTimer`
+- **手牌中断线**：
+  - `Disconnected = true`，保留座位
+  - 若当前轮到该玩家：执行 `ApplyAction(fold)`，`advanceOrEnd`
+  - 否则：直接 `Folded = true`，`checkHandOver`
+
+### 断线重连 (`handleJoinRoom` 重连路径)
+
+- `FindPlayer` 找到同 userID 且 `Disconnected == true`
+- 清除标记，`sendSnapshot` 发送当前快照
+- 广播 `player_joined`（`is_reconnect: true`）
+
+### 手牌结束后清理 (`cleanupDisconnected`)
+
+- 遍历所有 `Disconnected == true` 的玩家，离座并 `cashOut`，广播 `player_left`
+
+### 筹码归零踢出 (`kickBrokePlayers`)
+
+- 遍历所有 `Stack == 0` 的玩家，离座，广播 `player_left`
+- 调用 `maybeStartEmptyTimer`
+
+### 空场处理 (`maybeStartEmptyTimer`)
+
+- 统计人类玩家数，若为 0：移除所有 bot 座位，`botsSeated = false`
+- 启动 30 秒宽限期（`time.AfterFunc`），触发 `onEmpty` 回调（`Manager.Close`）
+
+### 补充筹码 (`handleAddChips`)
+
+- 仅允许手牌间隙（`Street == Idle`）
+- 新筹码量 = `min(stack + amount, MaxBuyIn)`，计算实际增量
+- 查 DB 校验余额充足，`AdjustChips(-added, "add_chips", roomCode)` 扣除
+- 广播 `stack_updated`
+
+### 离座/归座 (`handleSitOut`)
+
+- 广播 `sit_out_status`
+- 离座且当前轮到该玩家：自动弃牌，`advanceOrEnd`
+- 归座且 `Street == Idle` 且 `EligibleToStart() >= 2`：启动 `handStartDelay` 计时器
+
+### 主动离桌 (`handleLeaveTable`)
+
+- 仅允许手牌间隙，否则返回 `hand_in_progress` 错误
+- 离座 `cashOut`，广播 `player_left`，调用 `maybeStartEmptyTimer`
+
+### `EligibleToStart` 判定条件
+
+玩家同时满足：`!SitOut && !Disconnected && Stack > 0`
+
+---
+
+## 6. 手牌评估器
+
+**文件：** `server/contrib/eval/eval.go`、`describe.go`、`table.go`
+
+### 双路径评估
+
+- **快速路径**：`HandRanks.dat`（Two Plus Two 查找表）加载成功后使用，O(7) 查表
+- **纯 Go 路径**：枚举 C(7,5)=21 种五牌组合，每组调用 `evaluateFive`，取最低等级
+
+### `evaluateFive` 编码规则
+
+`uint32 = cat<<20 | (15-v1)<<16 | (15-v2)<<12 | ...`（值越小越好）
+
+| cat | 牌型 | cat | 牌型 |
+|-----|------|-----|------|
+| 0 | 同花顺 | 4 | 顺子 |
+| 1 | 四条 | 5 | 三条 |
+| 2 | 葫芦 | 6 | 两对 |
+| 3 | 同花 | 7 | 一对 |
+| — | — | 8 | 高牌 |
+
+- 顺子特殊：A-2-3-4-5（轮子）最高牌按 5 计算
+- `BestFive`：遍历 21 种组合返回构成最佳手牌的 5 张牌（用于摊牌展示）
+
+### 调用接口
+
+- `game.EvaluateHand(hole, community)` → `(rank uint32, handName string)`
+- `game.BestFiveStrings(hole, community)` → `[]string`（公共牌 < 3 张时返回 nil）
+
+---
+
+## 7. 边底池算法
+
+**文件：** `server/contrib/game/pot.go`
+
+### 算法步骤
+
+1. 收集所有 `TotalBet > 0` 的玩家，按 `TotalBet` 升序排列
+2. 逐层迭代（每个新的 cap 对应一个底池）：
+   - `amount`：所有玩家在 `(prevCap, cap]` 区间贡献之和
+   - `eligible`：未弃牌且 `TotalBet >= cap` 的玩家列表
+3. 返回 `[]Pot{Amount, Eligible}`
+
+### 特性
+
+- 弃牌玩家的超额下注贡献到底池但无资格赢取
+- 全押玩家只能赢取其自身覆盖范围内的底池
+- 平分时余数在 `runShowdown` 中归第一赢家
+
+---
+
+## 8. AI Bot 系统
+
+**文件：** `server/contrib/game/bot.go`
+
+### Bot 标识
+
+- UserID 格式：`bot_<roomCode>_<index>`
+- `IsBotID` 检测 `"bot_"` 前缀，所有跳过 DB 操作的逻辑都依赖此判断
+- 显示名从预设名单循环：Alice / Bob / Charlie / Diana / Eve / Frank / Grace / Henry / Ivy / Jack
+
+### 入座时机
+
+- 首次有人类玩家加入时（`!e.botsSeated`），`seatBots()` 一次性入座全部 bot
+- 人类全离场后清除所有 bot，`botsSeated = false`；若有人类重新加入则再次入座
+
+### 四种风格参数
+
+| 风格 | 类型 | Enter | Raise | Bet | Fold | Bluff |
+|------|------|:-----:|:-----:|:---:|:----:|:-----:|
+| TAG | 紧凶 | 0.65 | 0.80 | 0.55 | 0.30 | 0.08 |
+| LAG | 松凶 | 0.35 | 0.50 | 0.35 | 0.15 | 0.22 |
+| Station | 松被动 | 0.30 | 0.85 | 0.70 | 0.05 | 0.02 |
+| Rock | 紧被动 | 0.78 | 0.92 | 0.72 | 0.48 | 0.02 |
+
+### 风格主题分配
+
+| 房间 `bot_style` | 分配规则 |
+|------|------|
+| `mixed`（默认/空） | TAG→LAG→Station→Rock 循环 |
+| `aggressive` | TAG→LAG 交替 |
+| `passive` | Rock→Station 交替 |
+| `random` | 每个 bot 独立随机 |
+
+### 手牌强度评估
+
+**Preflop**：
+- 口袋对子：`0.5 + (rank-2)/24.0 * 0.5`（22≈0.54，AA=1.0）
+- 非对子：`(hi+lo-4)/(14+13-4)`，同花 +0.04，连牌 +0.02
+
+**Postflop（公共牌 < 5 张）**：退回 Preflop 估算（避免零值填充导致评估越界）
+
+**Postflop（公共牌 = 5 张）**：`EvaluateHand` 取 `rank>>20` 分类映射到强度表：
+`[同花顺=1.0, 四条=0.95, 葫芦=0.88, 同花=0.78, 顺子=0.70, 三条=0.60, 两对=0.45, 一对=0.30, 高牌=0.15]`
+
+### 决策逻辑 (`decideBotAction`)
+
+**Preflop 无需跟注**（BB 免费过牌）：
+- 强度 >= `RaiseThreshold` → raise(3×BB)；否则 → check
+
+**Preflop 需跟注**：
+- 强度 < `EnterThreshold` 且随机 > `BluffRate` → fold
+- 强度 >= `RaiseThreshold` → raise(3×BB)
+- 否则 → call（筹码不足则 all_in）
+
+**Postflop 无人下注**：
+- 强度 >= `BetThreshold` 或随机 < `BluffRate` → bet(0.6×pot，不低于 BB，不超过 stack 则 all_in)
+- 否则 → check
+
+**Postflop 面对下注**：
+- 强度 < `FoldThreshold` 且随机 > `BluffRate` → fold
+- 强度 >= `BetThreshold * 1.3` → raise(2.5×currentBet)
+- 否则 → call（筹码不足则 all_in）
+
+### 行动调度 (`scheduleAIAction`)
+
+- 快照当前局面数据（只读），在新 goroutine 中延迟 1–3 秒后通过 `hub.Inbound` 注入行动
+- 与真人走完全相同的 `ValidateAction → ApplyAction` 路径，过期行动被校验拒绝后静默丢弃
+
+---
+
+## 9. 筹码账务系统
+
+**文件：** `server/base/biz/dao/user_dao.go`
+
+### 筹码流动时机
+
+| 事件 | 方向 | reason | ref_id |
+|------|------|--------|--------|
+| 加入房间（买入） | `-buyIn` | `buy_in` | roomCode |
+| 离开/断线/踢出（现金兑出） | `+stack` | `cash_out` | roomCode |
+| 补充筹码 | `-added` | `add_chips` | roomCode |
+
+### `AdjustChips` 实现
+
+事务操作：`UPDATE users SET chip_balance = chip_balance + ?` + `INSERT INTO chip_ledger`（完整审计日志）
+
+### 余额校验
+
+- **买入时**：查 `chip_balance >= buyIn`，不足返回 `insufficient_chips` 错误
+- **补充时**：同样查库校验，新 stack 上限为 `MaxBuyIn`（超出部分截断后计算实际增量）
+
+### Bot 跳过 DB
+
+`IsBotID` 检测，bot 的所有筹码操作直接跳过数据库，stack 仅存在内存中
+
+---
+
+## 10. 手牌历史持久化
+
+**文件：** `server/base/biz/dao/hand_history_dao.go`、`engine.go`
+
+### 记录字段（`hand_history` 表）
+
+| 字段 | 内容 |
+|------|------|
+| `room_id` | 房间数据库 ID |
+| `hand_num` | 手牌编号（从 1 递增） |
+| `players_json` | 座位快照（player_id/display_name/hole/hand_name/folded/is_winner） |
+| `actions_json` | 完整行动序列（PlayerID/Action/Amount/Street） |
+| `result_json` | 赢家及金额列表 |
+| `played_at` | 手牌完成时间戳 |
+
+### 行动日志收集流程
+
+1. `startHand` 时 `handActions = handActions[:0]` 清空
+2. `handleAction`（真人和 bot 行动）追加 `actionLogEntry`
+3. `handleTimeout`（超时自动行动）也追加记录
+4. `runShowdown` / `awardUncontested` 结束后，异步 goroutine 调用 `HandHistoryDao.Save()`，不阻塞引擎主循环
+
+---
+
+## 11. 前端状态管理
+
+### Store 架构
+
+| Store | 文件 | 职责 |
+|-------|------|------|
+| `useGameStore` | `store/game.ts` | 游戏状态（GameSnapshot + 本地扩展字段） |
+| `useAuthStore` | `store/auth.ts` | 用户认证（token/user） |
+| `useRoomStore` | `store/room.ts` | 房间信息 |
+| `useChatStore` | `store/chat.ts` | 聊天消息列表（最多 200 条） |
+| `useConnectionStore` | `store/connection.ts` | WebSocket 连接状态 |
+
+### `useGameStore` 关键字段（超出 GameSnapshot 的扩展）
+
+| 字段 | 说明 |
+|------|------|
+| `myUserId` | 本客户端用户 ID |
+| `myHole` | 本人手牌（`hole_cards` 单独下发，不经过 seats） |
+| `deadlineTs` | 当前行动截止时间（Unix 毫秒），驱动 `TimerArc` 倒计时 |
+| `callAmount` | 跟注所需金额（`action_required` 更新） |
+| `minRaiseAmount` | 最小加注额（`action_required` 更新） |
+| `lastHandResult` | 上一手结算结果，驱动 `RoundResultModal` 显示，idle 时为 null |
+
+### WS 事件 → Store 方法映射
+
+| WS 事件 | Store 方法 | 核心逻辑 |
+|---------|-----------|---------|
+| `connected` | `applyConnected` | 记录 myUserId；若附带快照则同步整局状态 |
+| `game_started` | `applyGameStarted` | 重置座位下注/弃牌/全押/手牌状态，清空公共牌 |
+| `hole_cards` | `applyHoleCards` | 仅更新 `myHole`（服务端只发给当事人） |
+| `cards_dealt` | `applyCardsDealt` | 为已发牌座位设置背面占位 `['?','?']` |
+| `street_started` | `applyStreetStarted` | 同步公共牌/底池/街道，重置本街下注 |
+| `action_required` | `applyActionRequired` | 更新行动座位、倒计时、跟注/加注参数 |
+| `action_taken` | `applyActionTaken` | 更新底池；更新该玩家筹码/下注/弃牌/全押状态 |
+| `action_timeout` | `applyActionTaken` | 与 action_taken 相同处理（视为自动行动） |
+| `showdown` | `applyShowdown` | 公开各玩家手牌，`street = Showdown` |
+| `hand_result` | `applyHandResult` | 更新各玩家筹码，记录 `lastHandResult`，`street = Idle` |
+| `player_joined` | `applyPlayerJoined` | 追加新座位（重连时若已存在则跳过） |
+| `player_left` | `applyPlayerLeft` | 从座位列表移除 |
+| `sit_out_status` | `applySitOut` | 更新座位 `sit_out` 字段 |
+| `stack_updated` | `applyStackUpdated` | 更新指定座位 `stack` |
+
+### `useWebSocket` hook 生命周期
+
+- `roomCode / token` 变化时重新建立连接
+- WS `Open` 事件后自动发送 `join_room` 命令；若 WS 已 open 则直接发送（快速重渲染场景）
+- 断线自动重连（指数退避，由 `wsClient` 实现）
+- 组件卸载时：取消所有事件监听 → `wsClient.disconnect()` → 重置 gameStore 和 chatStore
+
+### `useGameState` 派生状态
+
+- `isMyTurn`：`action_seat === myServerSeat`
+- `canCheck`：`callAmount === 0`（无欠注）
+- `canCall`：`callAmount > 0`
+- `canBet`：`current_bet === 0`（无人下注）
+- `canRaise`：`current_bet > 0`
+
+---
+
+## 12. 前端 PixiJS 渲染
+
+### 技术要点
+
+- PixiJS v8，WebGL 渲染，程序化绘制（无外部图片资源）
+- 画布固定比例 1200×700（`aspectRatio: 1200/700`，防 CSS 垂直拉伸）
+
+### 场景层级（`TableScene`）
+
+```
+root (Container)
+ ├─ 背景层    深空底色 + 星空颗粒 + 环境光晕
+ ├─ 牌桌层    椭圆木框 + 毛毡绿 + 装饰线 + 位置标签
+ ├─ 座位层    9 个 SeatSprite（0-8 号）
+ │   ├─ 头像圆框（多层扩散光晕，本地/远端色调区分）
+ │   ├─ 显示名 15px / 筹码 14px / 位置标签 12px
+ │   ├─ 下注徽章 13px
+ │   └─ 手牌（CardSprite × 2，右偏移 18px 避免与光晕重叠）
+ ├─ 公共牌区  CardSprite × 5
+ ├─ TimerArc  行动倒计时弧（绑定 deadlineTs）
+ ├─ PotDisplay 底池金额
+ ├─ 街道标签  当前街道名称
+ └─ 庄家按钮  Dealer Button 图形
+```
+
+### 座位旋转
+
+本地玩家始终旋转到底部（`displayIdx = 0`）：
+- `server → display`：`(serverIdx - myServerSeat + 9) % 9`
+- `display → server`：`(displayIdx + myServerSeat) % 9`
+- `SEAT_POSITIONS[displayIdx]` 映射到画布坐标
+
+### 数据驱动
+
+- `useGameStore.subscribe` 驱动，状态变化时调用对应 `update*()` 方法
+- `DealAnimation`：发牌动画（牌从庄家位置飞向各玩家）
+- `ChipAnimation`：筹码动画（筹码从玩家位置飞向底池）
+
+### 核心组件
+
+| 组件 | 说明 |
+|------|------|
+| `CardSprite` | 单张牌，程序化绘制正面/背面，支持翻转动画 |
+| `SeatSprite` | 座位，含头像/名字/筹码/手牌/下注标签/光晕/bot 标识（🤖 前缀 + 蓝色边框） |
+| `PotDisplay` | 底池金额显示 |
+| `TimerArc` | 圆弧倒计时，绑定 `deadlineTs` |
+| `CasinoChip` | 筹码图形（用于 ChipAnimation） |
+
+---
+
+## 13. 前端 React 面板
+
+### 页面路由
+
+| 路径 | 页面 | 说明 |
+|------|------|------|
+| `/login` | `LoginPage` | 登录/注册表单 |
+| `/lobby` | `LobbyPage` | 大厅，创建/加入房间 |
+| `/room/:code` | `RoomPage` | 游戏房间（PixiJS canvas + React 覆盖层） |
+| `/lab/*` | `LabPage` | 组件调试实验室（开发用） |
+
+### 面板组件
+
+| 组件 | 文件 | 说明 |
+|------|------|------|
+| `ActionPanel` | `panels/ActionPanel.tsx` | 行动按钮，仅 `isMyTurn` 时渲染 |
+| `BetSlider` | `panels/BetSlider.tsx` | 下注滑块，含 1/4、1/2、3/4、pot 倍快捷预设 |
+| `ChatPanel` | `panels/ChatPanel.tsx` | 聊天窗口（最多 200 条历史） |
+| `HandHistory` | `panels/HandHistory.tsx` | 历史手牌记录展示 |
+| `RoomInfo` | `panels/RoomInfo.tsx` | 房间信息（盲注/买入范围/在线人数） |
+| `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张） |
+| `ConnectionBanner` | `components/ConnectionBanner.tsx` | 断线提示横幅 |
+
+### ActionPanel 行动逻辑
+
+- `canCheck`：无欠注时显示过牌按钮
+- `canCall`：有欠注时显示跟注按钮（附带金额）
+- `canBet/canRaise`：决定显示「下注」还是「加注」
+- 下注金额默认为 `minRaiseAmount`，范围 `[minBet, maxBet]`，支持底池比例快捷设置
+- 全押始终显示
+
+### 离桌逻辑（`RoomPage`）
+
+1. 点击「离开牌桌」先发送 WS 命令 `leave_table`
+2. 再跳转 `/lobby`（前端不等待服务端响应）
+3. 手牌进行中服务端拒绝 `leave_table`（`hand_in_progress` 错误），不影响前端跳转
+
+---
+
+## 14. 数据库表结构
+
+### `users`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK AUTO_INCREMENT | 用户 ID |
+| `username` | VARCHAR UNIQUE | 登录名 |
+| `password_hash` | VARCHAR | bcrypt 哈希 |
+| `display_name` | VARCHAR | 显示名 |
+| `chip_balance` | BIGINT | 账户筹码余额 |
+| `created_at` | DATETIME | 注册时间 |
+
+### `room_history`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK | 房间 ID |
+| `code` | VARCHAR UNIQUE | 6 位房间码 |
+| `host_user_id` | BIGINT | 创建者 ID |
+| `config_json` | JSON | 房间配置快照 |
+| `created_at` | DATETIME | 创建时间 |
+| `ended_at` | DATETIME NULL | 关闭时间（GC 或 SIGTERM 后写入） |
+
+### `hand_history`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK | 记录 ID |
+| `room_id` | BIGINT | 房间 ID |
+| `hand_num` | INT | 手牌编号 |
+| `players_json` | JSON | 座位信息快照 |
+| `actions_json` | JSON | 完整行动日志 |
+| `result_json` | JSON | 赢家/金额信息 |
+| `played_at` | DATETIME | 手牌完成时间 |
+
+### `chip_ledger`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | BIGINT PK | 记录 ID |
+| `user_id` | BIGINT | 用户 ID |
+| `delta` | BIGINT | 变动金额（正数=增加，负数=减少） |
+| `reason` | VARCHAR | 原因（`buy_in` / `cash_out` / `add_chips`） |
+| `ref_id` | VARCHAR | 关联 ID（房间码） |
+| `created_at` | DATETIME | 变动时间 |
