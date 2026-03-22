@@ -1,7 +1,7 @@
 # 实现进度
 
 > 最后更新：2026-03-22
-> 当前阶段：Phase 12 完成
+> 当前阶段：Phase 17 完成
 
 ---
 
@@ -263,3 +263,73 @@
 - [x] Section 10 修正 `players_json` / `result_json` 字段描述
 - [x] Section 11 补充 `selectedBuyIn` 说明
 - [x] Section 13 新增 RoomPage/LobbyPage 功能说明，修正 ChatPanel/HandHistory 描述
+
+---
+
+## Phase 16：游戏体验完善 ✅
+
+### 代码文档补全
+- [x] `server/contrib/game/engine.go`：补全所有函数 doc comment（`startHand`、`postBlind`、`dealHoleCards`、`dealCommunity`、`advanceOrEnd`、`nextStreet`、`CanAct`、`broadcastActionRequired`、`runShowdown`、`nextEligibleSeatAfter`、`sendSnapshot`、`max64`）
+- [x] `server/contrib/eval/describe.go`：为 `categoryNames` 数组每项添加中文说明注释
+- [x] `server/contrib/game/model.go`：`Street` 类型增加完整状态机图注释，每个常量附加中文说明
+
+### 位置标签修正（3 人桌）
+- [x] `ui-web/src/pixi/utils/position.ts`：3 人桌 BTN 标签改为 `'BTN/UTG'`，反映其兼任 Under-the-Gun 的双重角色
+
+### PRE-FLOP 盲注金额展示修复
+- [x] `server/contrib/game/engine.go`：`game_started` 事件 payload 补充 `small_blind` / `big_blind` 字段
+- [x] `ui-web/src/store/game.ts`：`GameStartedPayload` 接口增加 `small_blind` / `big_blind` 字段
+- [x] `applyGameStarted`：按 `sb_seat` / `bb_seat` 对应的座位重新设置 `bet` 初始值，翻牌前盲注金额正确显示在桌面
+
+### 多赢家重复展示修复
+- [x] `ui-web/src/store/game.ts`：`applyHandResult` 中对 `winners` 数组按 `player_id` 做 reduce 合并，同一玩家赢得主池+边池时筹码累加为一条记录，不再重复显示
+
+### 本地玩家破产弹窗
+- [x] `ui-web/src/react/pages/RoomPage.tsx`：检测 `gs.mySeat` 从非空变为空（且非首次进入），触发「筹码已用完」弹窗（`z-[50]`）
+- [x] 弹窗提供「返回大厅」和「再次买入」两个选项
+- [x] 「再次买入」子界面：滑块选择金额（`[min_buy_in, min(max_buy_in, chip_balance)]`）、入座前校验座位是否已满、订阅 `ServerError` 捕获拒绝原因
+- [x] 入座成功（`gs.mySeat` 恢复非空）自动关闭弹窗
+
+### AI Bot 破产后自动补位
+- [x] `server/contrib/game/engine.go`：新增 `botReplaceDelay = 8s` 常量和 `botReplaceC <-chan time.Time` 定时器通道（Engine struct 第四个 select case）
+- [x] `kickBrokePlayers`：检测被踢出的破产 bot，若场内仍有人类玩家则启动 8 秒宽限期计时器
+- [x] 宽限期结束后调用 `seatBots()` 补充 bot 席位，若 `Street == Idle` 且满足开局条件则触发下一手倒计时
+- [x] 新增 `hasHumanPlayers()` 辅助函数
+
+### TypeScript 接口字段注释规范
+- [x] 新增项目规范：前端所有 TS `interface` 字段后必须跟行内注释（`// 中文说明`）
+- [x] `ui-web/src/api/http.ts`：补全 `HandWinner` / `HandPlayer` / `HandAction` 接口字段注释
+- [x] `ui-web/src/store/game.ts`：补全 `RoundPlayerDetail` / `ActionLogEntry` 接口字段注释
+- [x] 规范写入 `CLAUDE.md`（Data Model Conventions 章节）
+
+### 创建房间默认买入值优化
+- [x] `ui-web/src/react/pages/LobbyPage.tsx`：监听 `bigBlind` 变化，自动将 `maxBuyIn` 设为 `100 × BB`、`minBuyIn` 设为 `20 × BB`
+
+### 弹窗层级优化
+- [x] `RoundResultModal`：`z-index` 提升至 `z-[70]`，高于破产弹窗（`z-[50]`），结算界面始终优先展示
+
+### 补充筹码合并至结算弹窗
+- [x] 移除 `RoomPage` 中独立的「补充筹码」弹窗及相关状态（`canAddChips`、`maxAdd`、`addAmount` 等）
+- [x] `RoundResultModal`：在结算期间若满足补充条件（已入座 + 桌面筹码低于上限 + 账户有余额），底部显示「补充筹码」按钮，展开后可滑块选额并确认，减少弹窗层数
+
+---
+
+## Phase 17：准备系统（全员同意立即开局） ✅
+
+### 后端
+- [x] `server/contrib/ws/message.go`：新增 `CmdReady = "ready"`（客户端→服务端）
+- [x] `server/contrib/game/engine.go`：`handStartDelay` 从 5s 改为 10s
+- [x] `Engine` struct 新增 `readyPlayers map[string]bool` 字段
+- [x] `handleMessage` 新增 `CmdReady → handleReady` 分发
+- [x] `startHand`：每手开始时清空 `readyPlayers`
+- [x] `runShowdown` / `awardUncontested`：结算后改调 `scheduleNextHand`（替换原内联 `resetTimer`）
+- [x] 新增 `scheduleNextHand`：重置准备集合、Bot 自动标记准备、广播初始准备状态；若全员已准备则 500ms 后直接开局，否则等待 `handStartDelay`
+- [x] 新增 `handleReady`：收到玩家 ready 命令后标记、广播；若全员准备则立即缩短倒计时
+- [x] 新增 `broadcastReadyStatus`：广播 `{ ready_count, total_count }` 给所有客户端
+- [x] 新增 `allEligibleReady`：判断所有合格玩家是否均已准备
+
+### 前端
+- [x] `ui-web/src/types/enums.ts`：新增 `ReadyStatus = 'ready_status'`（下行）、`Ready = 'ready'`（上行）
+- [x] `ui-web/src/store/game.ts`：新增 `readyCount` / `readyTotal` 状态字段及 `applyReadyStatus` 方法；`applyGameStarted` / `reset` 时清零
+- [x] `ui-web/src/hooks/useWebSocket.ts`：监听 `ready_status` 事件，路由到 `applyReadyStatus`
+- [x] `ui-web/src/react/panels/RoundResultModal.tsx`：「开始下一局」按钮点击后发送 `ready` 命令并变为绿色「已准备」状态；底部显示 `readyCount/readyTotal` 准备人数

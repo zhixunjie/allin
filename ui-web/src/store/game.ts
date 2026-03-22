@@ -201,6 +201,7 @@ interface GameStoreState extends GameSnapshot {
   applyPlayerLeft: (payload: PlayerLeftPayload) => void
   applySitOut: (payload: SitOutPayload) => void
   applyStackUpdated: (payload: StackUpdatedPayload) => void
+  applyReadyStatus: (payload: { ready_count: number; total_count: number }) => void
   reset: () => void
 }
 
@@ -226,6 +227,8 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
   minRaiseAmount: 0,
   lastHandResult: null,
   actionLog: [],
+  readyCount: 0,
+  readyTotal: 0,
 
   setMyUserId: (id) => set({ myUserId: id }),
 
@@ -253,6 +256,8 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       deadlineTs: null,
       actionLog: [],
       lastHandResult: null,
+      readyCount: 0,
+      readyTotal: 0,
       seats: get().seats.map((s) => {
         let bet = 0
         if (s.seat_index === payload.sb_seat) bet = Math.min(payload.small_blind, s.stack)
@@ -441,6 +446,11 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     }))
   },
 
+  // 结算间隙准备状态更新
+  applyReadyStatus: (payload) => {
+    set({ readyCount: payload.ready_count, readyTotal: payload.total_count })
+  },
+
   // 离开房间时完整重置
   reset: () =>
     set({
@@ -451,5 +461,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
       minRaiseAmount: 0,
       lastHandResult: null,
       actionLog: [],
+      readyCount: 0,
+      readyTotal: 0,
     }),
 }))

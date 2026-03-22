@@ -76,6 +76,7 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     on(WSEventType.Showdown,       (p) => store().applyShowdown(p as ShowdownPayload))
     on(WSEventType.HandResult,     (p) => store().applyHandResult(p as HandResultPayload))
     on(WSEventType.SitOutStatus,   (p) => store().applySitOut(p as SitOutPayload))
+    on(WSEventType.ReadyStatus,    (p) => store().applyReadyStatus(p as { ready_count: number; total_count: number })) // 结算间隙准备人数广播
     on('stack_updated', (p) => {
       const payload = p as StackUpdatedPayload
       store().applyStackUpdated(payload)

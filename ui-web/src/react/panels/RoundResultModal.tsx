@@ -4,6 +4,7 @@ import type { RoundPlayerDetail } from '../../store/game'
 import { useAuthStore } from '../../store/auth'
 import { useGameState } from '../../hooks/useGameState'
 import { wsClient } from '../../api/ws'
+import { WSEventType } from '../../types/enums'
 import { RANK_DISPLAY, SUIT_SYMBOLS } from '../../pixi/config/card'
 
 // ── 牌型中文名映射 ───────────────────────────────────────
@@ -125,10 +126,13 @@ function PlayerRow({ player }: { player: RoundPlayerDetail }) {
 // ── 主组件 ──────────────────────────────────────────────
 export function RoundResultModal({ duration }: { duration?: number }) {
   const lastResult = useGameStore((s) => s.lastHandResult)
+  const readyCount = useGameStore((s) => s.readyCount)
+  const readyTotal = useGameStore((s) => s.readyTotal)
   const gs = useGameState()
   const { user } = useAuthStore()
   const [visible, setVisible] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [myReady, setMyReady] = useState(false)
 
   // 补充筹码
   const maxAdd = Math.max(0, (gs.config?.max_buy_in ?? 0) - (gs.mySeat?.stack ?? 0))
@@ -142,6 +146,7 @@ export function RoundResultModal({ duration }: { duration?: number }) {
     setVisible(true)
     setCountdown(dur)
     setShowAddChips(false)
+    setMyReady(false)
     const tick = setInterval(() => setCountdown((n) => n - 1), 1000)
     const hide = setTimeout(() => setVisible(false), dur * 1000)
     return () => { clearInterval(tick); clearTimeout(hide) }
@@ -276,13 +281,25 @@ export function RoundResultModal({ duration }: { duration?: number }) {
               </button>
             )}
             <button
-              onClick={() => setVisible(false)}
-              className="btn btn-sm flex-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300
-                         border border-amber-500/30 hover:border-amber-500/50
-                         font-bold tracking-wide text-sm"
+              onClick={() => {
+                if (!myReady) {
+                  setMyReady(true)
+                  wsClient.send(WSEventType.Ready, {})
+                }
+              }}
+              disabled={myReady}
+              className={[
+                'btn btn-sm flex-1 font-bold tracking-wide text-sm',
+                myReady
+                  ? 'bg-green-600/20 text-green-400 border border-green-500/30 cursor-default'
+                  : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 hover:border-amber-500/50',
+              ].join(' ')}
             >
-              开始下一局
+              {myReady ? '已准备' : '开始下一局'}
             </button>
+            {readyTotal > 0 && (
+              <p className="text-sm text-white/40 flex-shrink-0">{readyCount}/{readyTotal}</p>
+            )}
             <p className="text-sm text-white/25 flex-shrink-0">{countdown}s</p>
           </div>
 
