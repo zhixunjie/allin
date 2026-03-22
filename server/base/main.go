@@ -60,7 +60,7 @@ func initGame(roomManager *room.Manager) (*ws.Handler, *engine.Registry) {
 		eng := engine.NewEngine(rc, rm, registry)
 		eng.SetOnEmpty(func() {
 			service.Room.Close(rm.Code)
-			wsHandler.RemoveHub(rm.Code)
+			wsHandler.RemoveRoomConn(rm.Code)
 			slog.Info("room: closed after last player left", "code", rm.Code)
 		})
 		go eng.Run()

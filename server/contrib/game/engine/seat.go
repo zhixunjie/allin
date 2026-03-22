@@ -24,7 +24,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 		if existing.Disconnected {
 			existing.Disconnected = false
 			e.sendSnapshot(msg.SenderID)
-			e.rc.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+			e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
 				PlayerID:    existing.UserID,
 				DisplayName: existing.DisplayName,
 				SeatIndex:   existing.SeatIndex,
@@ -90,7 +90,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	}
 	e.gs.SeatPlayer(p)
 
-	e.rc.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
 		PlayerID:    p.UserID,
 		DisplayName: p.DisplayName,
 		SeatIndex:   p.SeatIndex,
@@ -130,7 +130,7 @@ func (e *Engine) seatBots() {
 		if !e.gs.SeatPlayer(p) {
 			break // 没有更多座位
 		}
-		e.rc.Broadcast(ws.MustEvent(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
 			PlayerID:    p.UserID,
 			DisplayName: p.DisplayName,
 			SeatIndex:   p.SeatIndex,
@@ -158,7 +158,7 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 
 	if e.gs.Street == state.StreetIdle {
 		// 手牌间隙断线：立即离座并返还筹码。
-		e.rc.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
 			PlayerID:  p.UserID,
 			SeatIndex: p.SeatIndex,
 		}))
@@ -211,7 +211,7 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 	}
 	p.SitOut = cmd.SitOut
 
-	e.rc.Broadcast(ws.MustEvent(ws.TypeSitOut, ws.SitOutPayload{
+	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeSitOut, ws.SitOutPayload{
 		PlayerID:  p.UserID,
 		SeatIndex: p.SeatIndex,
 		SitOut:    p.SitOut,
@@ -248,7 +248,7 @@ func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
 	e.gs.UnseatPlayer(msg.SenderID)
 	e.cashOut(msg.SenderID, stack)
 	e.room.Touch()
-	e.rc.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
 		PlayerID:  msg.SenderID,
 		SeatIndex: seatIdx,
 	}))
@@ -287,7 +287,7 @@ func (e *Engine) cleanupDisconnected() {
 		stack := p.Stack
 		e.gs.UnseatPlayer(uid)
 		e.cashOut(uid, stack)
-		e.rc.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
 			PlayerID:  uid,
 			SeatIndex: seatIdx,
 		}))
@@ -311,7 +311,7 @@ func (e *Engine) kickBrokePlayers() {
 		}
 		e.gs.UnseatPlayer(uid)
 		slog.Info("game: player broke, unseated", "room", e.room.Code, "player", uid)
-		e.rc.Broadcast(ws.MustEvent(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
 			PlayerID:  uid,
 			SeatIndex: seatIdx,
 		}))

@@ -86,7 +86,7 @@ func (e *Engine) sendSnapshot(userID string) {
 			payload.ChipBalance = u.ChipBalance
 		}
 	}
-	e.rc.SendTo(userID, ws.MustEvent(ws.TypeConnected, payload))
+	e.rc.SendTo(userID, ws.MustNewEnvelope(ws.TypeConnected, payload))
 }
 
 // sendError 向指定玩家发送错误事件。
@@ -96,7 +96,7 @@ func (e *Engine) sendError(userID string, code ws.ErrCode, refSeq int64, msgOver
 	if len(msgOverride) > 0 && msgOverride[0] != "" {
 		msg = msgOverride[0]
 	}
-	e.rc.SendTo(userID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
+	e.rc.SendTo(userID, ws.MustNewEnvelope(ws.TypeError, ws.ErrorPayload{
 		Code: code, Message: msg, RefSeq: refSeq,
 	}))
 }

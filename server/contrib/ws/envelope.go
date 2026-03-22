@@ -13,8 +13,8 @@ type Envelope struct {
 	Payload json.RawMessage `json:"payload"` // 具体事件载荷，按 Type 解析为对应 Payload 结构体
 }
 
-// NewEvent 构建一个带当前时间戳的服务端事件信封。
-func NewEvent(msgType MsgType, payload any) (Envelope, error) {
+// NewEnvelope 构建一个带当前时间戳的服务端事件信封。
+func NewEnvelope(msgType MsgType, payload any) (Envelope, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return Envelope{}, err
@@ -26,9 +26,9 @@ func NewEvent(msgType MsgType, payload any) (Envelope, error) {
 	}, nil
 }
 
-// MustEvent 类似 NewEvent，但在序列化错误时 panic（对已知类型安全）。
-func MustEvent(msgType MsgType, payload any) Envelope {
-	e, err := NewEvent(msgType, payload)
+// MustNewEnvelope 类似 NewEnvelope，但在序列化错误时 panic（对已知类型安全）。
+func MustNewEnvelope(msgType MsgType, payload any) Envelope {
+	e, err := NewEnvelope(msgType, payload)
 	if err != nil {
 		panic(err)
 	}

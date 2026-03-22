@@ -116,6 +116,14 @@ curl http://localhost:8080/health
 - Host: `127.0.0.1:13306` / User: `root` / Password: (empty)
 - 数据库：`allin`
 
+### Redis
+
+- Addr: `127.0.0.1:7000` / Password: (empty)（Cluster 模式）
+
+### Kafka
+
+- Brokers: `127.0.0.1:9092`
+
 ---
 
 ## Data Model Conventions
@@ -192,3 +200,147 @@ func register(h *server.Hertz, ...) {
     api.POST("/xxx", mw.JWTMiddleware(), handler.Xxx.Create)
 }
 ```
+
+## Database Operations
+
+> 所有 DB 访问通过 DAO；INSERT/UPDATE 优先使用 NamedExec 风格
+
+### MySQL JSON Scan/Value
+
+```go
+type Extend struct {
+    Uid int64 `json:"uid,omitempty"`
+}
+
+func (m Extend) Value() (driver.Value, error) { return json.Marshal(m) }
+
+func (m *Extend) Scan(val interface{}) error {
+    switch v := val.(type) {
+    case []byte:
+        if len(v) == 0 { return nil }
+        return json.Unmarshal(v, &m)
+    case string:
+        if len(v) == 0 { return nil }
+        return json.Unmarshal([]byte(v), &m)
+    default:
+        return errors.New("unsupported type")
+    }
+}
+```
+
+### Query Row / Rows
+
+```go
+// 单行
+func (d *XXXXDao) GetXXXX(ctx context.Context, id int64) (item *model.XXXX, err error) {
+    item = new(model.XXXX)
+    query := fmt.Sprintf(`SELECT * FROM %v WHERE id = ?`, model.TableNameXXXX)
+    err = SLAVE.Unsafe().GetContext(ctx, item, query, id)
+    return
+}
+
+// IN 多行
+func (d *XXXXDao) GetByIds(ctx context.Context, ids []int64) (list []*model.XXXX, err error) {
+    if len(ids) == 0 { return }
+    query := fmt.Sprintf(`SELECT * FROM %s WHERE id IN (?)`, model.TableNameXXXX)
+    query, args, err := sqlx.In(query, ids)
+    if err != nil { return }
+    query = SLAVE.Rebind(query)
+    err = SLAVE.Unsafe().SelectContext(ctx, &list, query, args...)
+    return
+}
+```
+
+### Insert (NamedExec)
+
+```go
+func (d *XXXXDao) Create(ctx context.Context, item *model.XXXX) (err error) {
+    insertFields := `name, created_at, updated_at`
+    valuesFields := `:name, :created_at, :updated_at`
+    query := fmt.Sprintf(`INSERT INTO %v (%v) VALUES (%v)`, model.TableNameXXXX, insertFields, valuesFields)
+    _, err = MASTER.NamedExecContext(ctx, query, item)
+    return
+}
+```
+
+### Update (NamedExec)
+
+```go
+func (d *XXXXDao) Update(ctx context.Context, item *model.XXXX) (rowAffected int64, err error) {
+    updateFields := `name = :name, updated_at = :updated_at`
+    query := fmt.Sprintf(`UPDATE %v SET %v WHERE id = :id`, model.TableNameXXXX, updateFields)
+    result, err := MASTER.NamedExecContext(ctx, query, item)
+    if err != nil { return }
+    rowAffected, _ = result.RowsAffected()
+    return
+}
+
+// 带状态检查的状态变更
+func (d *XXXXDao) UpdateStatus(ctx context.Context, id int64, srcStatus, dstStatus int, ts int64) (err error) {
+    query := fmt.Sprintf(`UPDATE %v SET status=?, updated_at=? WHERE id=? AND status=?`, model.TableNameXXXX)
+    result, err := MASTER.ExecContext(ctx, query, dstStatus, ts, id, srcStatus)
+    if err != nil { return }
+    if rowAffected, _ := result.RowsAffected(); rowAffected == 0 {
+        err = fmt.Errorf("status not change: %v", id)
+    }
+    return
+}
+```
+
+### Soft Delete
+
+```go
+func (d *XXXXDao) Delete(ctx context.Context, id int64) (err error) {
+    ts := gutil.GetNow()
+    query := fmt.Sprintf(`UPDATE %v SET updated_at=?, deleted_at=? WHERE id=?`, model.TableNameXXXX)
+    _, err = MASTER.ExecContext(ctx, query, ts, ts, id)
+    return
+}
+```
+
+### Batch Update (JOIN)
+
+```go
+var selects []string
+var args []any
+for _, p := range params {
+    selects = append(selects, "SELECT ? AS id, ? AS delta")
+    args = append(args, p.ID, p.Delta)
+}
+subQuery := strings.Join(selects, " UNION ALL ")
+query := fmt.Sprintf(`UPDATE %s t JOIN (%s) u ON t.id = u.id SET t.count = t.count + u.delta`, tbName, subQuery)
+_, err = MASTER.ExecContext(ctx, query, args...)
+```
+
+### Insert On Duplicate
+
+```go
+query := fmt.Sprintf(`INSERT INTO %s (%v) VALUES (%v) ON DUPLICATE KEY UPDATE count = VALUES(count)`,
+    tbName, insertFields, valuesFields)
+_, err = MASTER.NamedExecContext(ctx, query, items)
+```
+
+### Transaction
+
+```go
+err = gutil.Trans(dao.MASTER, func(tx *sqlx.Tx) (err error) {
+    err = dao.XXXX.Create(ctx, tx, item)
+    return
+})
+```
+
+### DAO with db.Search（列表查询）
+
+```go
+func (d *XXXXAdminDao) GetList(ctx context.Context, req *model.GetListXXXXAdminReq) (list []*model.XXXX, total int64, err error) {
+    query := fmt.Sprintf(`SELECT * FROM %s`, model.TableNameXXXX)
+    searchReq := db.BuildSearchReq(req.Page, req.PageSize).Sort("id", db.OrderTypeDESC).EnableCountTotal()
+    if req.FilterUID > 0 { searchReq.Equal("uid", req.FilterUID) }
+    total, err = db.Search(SLAVE.Unsafe(), &list, query, searchReq)
+    return
+}
+```
+
+---
+
+## 

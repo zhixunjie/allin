@@ -103,8 +103,8 @@ func (h *Handler) getOrCreateRoomConn(rm *room.Room) *RoomConn {
 	return rc
 }
 
-// RemoveHub 移除已关闭房间的 RoomConn。
-func (h *Handler) RemoveHub(code string) {
+// RemoveRoomConn 移除已关闭房间的 RoomConn。
+func (h *Handler) RemoveRoomConn(code string) {
 	h.roomConnsMu.Lock()
 	delete(h.roomConns, code)
 	h.roomConnsMu.Unlock()

@@ -37,7 +37,6 @@ type SeatSnapshot struct {
 	Hole         []string `json:"hole,omitempty"`         // 底牌（仅对请求玩家自身可见）
 }
 
-
 // Snapshot 构建 GameSnapshot，仅为 viewerID 填充手牌。
 func (gs *GameStateMachine) Snapshot(viewerID string) GameSnapshot {
 	snap := GameSnapshot{
