@@ -1,13 +1,17 @@
 package state
 
-import "testing"
+import (
+	"testing"
 
-func mkPlayer(id string, totalBet int64, folded bool) *Player {
-	return &Player{UserID: id, TotalBet: totalBet, Folded: folded}
+	"github.com/allin/server/contrib/game/model"
+)
+
+func mkPlayer(id string, totalBet int64, folded bool) *model.Player {
+	return &model.Player{UserID: id, TotalBet: totalBet, Folded: folded}
 }
 
-func seats(players ...*Player) [9]*Player {
-	var s [9]*Player
+func seats(players ...*model.Player) [9]*model.Player {
+	var s [9]*model.Player
 	for i, p := range players {
 		s[i] = p
 	}
@@ -162,7 +166,7 @@ func TestPot_SinglePlayer(t *testing.T) {
 }
 
 func TestPot_Empty(t *testing.T) {
-	var s [9]*Player
+	var s [9]*model.Player
 	pots := BuildPots(s)
 	if len(pots) != 0 {
 		t.Fatalf("expected 0 pots, got %d", len(pots))

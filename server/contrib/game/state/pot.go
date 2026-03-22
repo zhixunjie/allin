@@ -1,6 +1,10 @@
 package state
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/allin/server/contrib/game/model"
+)
 
 // Pot 表示主池或边池。
 type Pot struct {
@@ -10,7 +14,7 @@ type Pot struct {
 
 // BuildPots 根据所有玩家的 TotalBet 金额计算主池和边池。
 // 应在所有下注完成后调用（未被跟注的下注已退回筹码）。
-func BuildPots(seats [9]*Player) []Pot {
+func BuildPots(seats [9]*model.Player) []Pot {
 	type contrib struct {
 		userID   string
 		totalBet int64

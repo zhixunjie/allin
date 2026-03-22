@@ -3,6 +3,7 @@ package bot
 import (
 	"math/rand/v2"
 
+	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 )
 
@@ -52,7 +53,7 @@ func (p *Personality) decide(sit state.BotSituation) (state.Action, int64) {
 	toCall := sit.CurrentBet - sit.PlayerBet
 	r := rand.Float64()
 
-	if sit.Street == state.StreetPreFlop {
+	if sit.Street == model.StreetPreFlop {
 		if toCall <= 0 {
 			if strength >= p.PreflopRaiseThreshold {
 				return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.BigBlind*3, sit.BigBlind)
@@ -137,7 +138,7 @@ func rankVal(r byte) int {
 }
 
 // preflopStrength 在没有公共牌时估算底牌强度，返回 0.0–1.0。
-func preflopStrength(hole [2]state.Card) float64 {
+func preflopStrength(hole [2]model.Card) float64 {
 	r1 := rankVal(hole[0].Rank)
 	r2 := rankVal(hole[1].Rank)
 	suited := hole[0].Suit == hole[1].Suit
@@ -166,7 +167,7 @@ func preflopStrength(hole [2]state.Card) float64 {
 var catStrength = [9]float64{1.0, 0.95, 0.88, 0.78, 0.70, 0.60, 0.45, 0.30, 0.15}
 
 // postflopStrength 在有公共牌时评估最佳成牌强度，返回 0.0–1.0。
-func postflopStrength(hole [2]state.Card, community []state.Card) float64 {
+func postflopStrength(hole [2]model.Card, community []model.Card) float64 {
 	if len(community) < 5 {
 		return preflopStrength(hole)
 	}
@@ -182,8 +183,8 @@ func postflopStrength(hole [2]state.Card, community []state.Card) float64 {
 }
 
 // handStrength 按当前街道分派到 preflop 或 postflop 强度计算。
-func handStrength(street state.Street, hole [2]state.Card, community []state.Card) float64 {
-	if street == state.StreetPreFlop || len(community) < 3 {
+func handStrength(street model.Street, hole [2]model.Card, community []model.Card) float64 {
+	if street == model.StreetPreFlop || len(community) < 3 {
 		return preflopStrength(hole)
 	}
 	return postflopStrength(hole, community)

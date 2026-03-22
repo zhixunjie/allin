@@ -9,6 +9,7 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	botpkg "github.com/allin/server/contrib/game/bot"
+	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
@@ -83,7 +84,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(tim
 		return
 	}
 
-	p := &state.Player{
+	p := &model.Player{
 		UserID:      msg.SenderID,
 		DisplayName: msg.DisplayName,
 		Stack:       buyIn,
@@ -108,7 +109,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(tim
 	e.sendSnapshot(msg.SenderID)
 
 	// 如果有 ≥2 个合格玩家且没有正在进行的手牌，则自动开始。
-	if e.gs.Street == state.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+	if e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 		resetTimer(handStartDelay)
 	}
 }
@@ -120,7 +121,7 @@ func (e *Engine) seatBots() {
 		if e.gs.FindPlayer(uid) != nil {
 			continue // 已入座
 		}
-		p := &state.Player{
+		p := &model.Player{
 			UserID:      uid,
 			DisplayName: botpkg.GenUserName(i),
 			Stack:       e.room.Config.MaxBuyIn,
@@ -156,7 +157,7 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage, resetTimer func(t
 		return
 	}
 
-	if e.gs.Street == state.StreetIdle {
+	if e.gs.Street == model.StreetIdle {
 		// 手牌间隙断线：立即离座并返还筹码。
 		e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  p.UserID,
@@ -218,14 +219,14 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.
 	}))
 
 	// 离座：若在活跃手牌中且轮到该玩家，自动弃牌。
-	if cmd.SitOut && e.gs.Street != state.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
+	if cmd.SitOut && e.gs.Street != model.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
 		e.gs.ApplyAction(p.UserID, state.ActionFold, 0)
 		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
 		return
 	}
 	// 归座：若处于空闲且满足开局条件，启动计时器。
-	if !cmd.SitOut && e.gs.Street == state.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+	if !cmd.SitOut && e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 		resetTimer(handStartDelay)
 	}
 }
@@ -235,7 +236,7 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.
 // handleLeaveTable 处理玩家主动离桌请求。
 // 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
 func (e *Engine) handleLeaveTable(msg protocol.InboundMessage) {
-	if e.gs.Street != state.StreetIdle {
+	if e.gs.Street != model.StreetIdle {
 		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
 		return
 	}

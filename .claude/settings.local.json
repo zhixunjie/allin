@@ -35,7 +35,9 @@
       "Bash(grep -r \"badge\\\\|Badge\\\\|seat.*label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx)",
       "Bash(wc -l /Users/dev/Desktop/Project/Go/allin/server/contrib/game/*.go)",
       "Bash(go test:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git -C /Users/dev/Desktop/Project/Go/allin status --short)",
+      "Bash(git:*)"
     ]
   }
 }

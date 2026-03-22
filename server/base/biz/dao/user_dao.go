@@ -13,11 +13,8 @@ type userDao struct{}
 
 // Create 插入新用户行，并将自增 ID 写回 u.ID。
 func (d *userDao) Create(u *model.User) error {
-	result, err := DBM.Exec(
-		`INSERT INTO `+model.TableNameUser+` (username, password_hash, display_name, chip_balance, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt,
-	)
+	query := fmt.Sprintf(`INSERT INTO %s (username, password_hash, display_name, chip_balance, created_at) VALUES (?, ?, ?, ?, ?)`, model.TableNameUser)
+	result, err := DBM.Exec(query, u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt)
 	if err != nil {
 		if isDuplicateEntry(err) {
 			return model.ErrUsernameTaken
@@ -35,10 +32,8 @@ func (d *userDao) Create(u *model.User) error {
 // GetByUsername 返回指定用户名的用户，不存在时返回 ErrUserNotFound。
 func (d *userDao) GetByUsername(username string) (*model.User, error) {
 	u := &model.User{}
-	err := DBM.Get(u,
-		`SELECT id, username, password_hash, display_name, chip_balance, created_at
-		 FROM `+model.TableNameUser+` WHERE username = ?`, username,
-	)
+	query := fmt.Sprintf(`SELECT id, username, password_hash, display_name, chip_balance, created_at FROM %s WHERE username = ?`, model.TableNameUser)
+	err := DBM.Get(u, query, username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, model.ErrUserNotFound
@@ -51,10 +46,8 @@ func (d *userDao) GetByUsername(username string) (*model.User, error) {
 // GetByID 返回指定 ID 的用户，不存在时返回 ErrUserNotFound。
 func (d *userDao) GetByID(id int64) (*model.User, error) {
 	u := &model.User{}
-	err := DBM.Get(u,
-		`SELECT id, username, password_hash, display_name, chip_balance, created_at
-		 FROM `+model.TableNameUser+` WHERE id = ?`, id,
-	)
+	query := fmt.Sprintf(`SELECT id, username, password_hash, display_name, chip_balance, created_at FROM %s WHERE id = ?`, model.TableNameUser)
+	err := DBM.Get(u, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, model.ErrUserNotFound
@@ -73,13 +66,14 @@ func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) e
 	defer tx.Rollback() //nolint:errcheck
 
 	if _, err := tx.Exec(
-		`UPDATE `+model.TableNameUser+` SET chip_balance = chip_balance + ? WHERE id = ?`, delta, userID,
+		fmt.Sprintf(`UPDATE %s SET chip_balance = chip_balance + ? WHERE id = ?`, model.TableNameUser),
+		delta, userID,
 	); err != nil {
 		return fmt.Errorf("userDao.AdjustChips: update: %w", err)
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO `+model.TableNameChipLedger+` (user_id, delta, reason, ref_id, created_at)
-		 VALUES (?, ?, ?, ?, NOW())`, userID, delta, reason, refID,
+		fmt.Sprintf(`INSERT INTO %s (user_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, ?, NOW())`, model.TableNameChipLedger),
+		userID, delta, reason, refID,
 	); err != nil {
 		return fmt.Errorf("userDao.AdjustChips: ledger: %w", err)
 	}

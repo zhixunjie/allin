@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/allin/server/contrib/game/bot"
+	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/room"
 	"github.com/allin/server/contrib/ws"
@@ -24,7 +25,7 @@ type Engine struct {
 	rc              *ws.RoomConn               // 该房间的 WebSocket 消息总线
 	room            *room.Room                 // 房间元数据与配置
 	gs              *state.GameStateMachine    // 游戏状态（街道、座位、下注等）
-	deck            []state.Card               // 当前手牌使用的洗牌牌组（每手重置）
+	deck            []model.Card               // 当前手牌使用的洗牌牌组（每手重置）
 	bot             *bot.Bot                   // AI 行动调度器，持有 RoomConn 引用
 	quit            chan struct{}               // 关闭此 channel 通知 Run() 退出
 	chatLimiter     map[string]time.Time       // 各玩家最近一次聊天时间，用于频率限制
@@ -58,7 +59,7 @@ func NewEngine(rc *ws.RoomConn, rm *room.Room, registry *Registry) *Engine {
 		bot:         bot.New(rc),
 		chatLimiter: make(map[string]time.Time),
 		gs: &state.GameStateMachine{
-			Street:     state.StreetIdle,
+			Street:     model.StreetIdle,
 			ActionSeat: -1,
 			DealerSeat: -1,
 			Config:     cfg,
@@ -118,7 +119,7 @@ func (e *Engine) Run() {
 			e.botReplaceC = nil
 			if e.hasHumanPlayers() {
 				e.seatBots()
-				if e.gs.Street == state.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+				if e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 					resetTimer(handStartDelay)
 				}
 			}
@@ -133,19 +134,26 @@ func (e *Engine) handleMessage(
 	stopTimer func(),
 ) {
 	switch msg.Env.Type {
-	case protocol.CmdJoinRoom: // 玩家加入或重连：分配座位、扣除买入、广播状态
+	// 玩家加入或重连：分配座位、扣除买入、广播状态
+	case protocol.CmdJoinRoom:
 		e.handleJoinRoom(msg, resetTimer)
-	case protocol.CmdAction: // 玩家行动（fold/check/call/bet/raise/all_in）：校验合法性、推进状态机
+	// 玩家行动（fold/check/call/bet/raise/all_in）：校验合法性、推进状态机
+	case protocol.CmdAction:
 		e.handleAction(msg, resetTimer, stopTimer)
-	case protocol.CmdChat: // 聊天消息：限速后广播给房间内所有人
+	// 聊天消息：限速后广播给房间内所有人
+	case protocol.CmdChat:
 		e.handleChat(msg)
-	case protocol.CmdSitOut: // 离座/归座切换：更新 SitOut 标志，影响下一手参与资格
+	// 离座/归座切换：更新 SitOut 标志，影响下一手参与资格
+	case protocol.CmdSitOut:
 		e.handleSitOut(msg, resetTimer, stopTimer)
-	case protocol.CmdLeaveTable: // 主动离桌：仅限手牌间隙，归还筹码并移除座位
+	// 主动离桌：仅限手牌间隙，归还筹码并移除座位
+	case protocol.CmdLeaveTable:
 		e.handleLeaveTable(msg)
-	case protocol.CmdDisconnect: // 客户端优雅断开：手牌中保留座位并标记 Disconnected，间隙则直接离桌
+	// 客户端优雅断开：手牌中保留座位并标记 Disconnected，间隙则直接离桌
+	case protocol.CmdDisconnect:
 		e.handleDisconnect(msg, resetTimer, stopTimer)
-	case protocol.CmdReady: // 结算画面点击"准备"：全员准备后提前 500ms 开始下一手
+	// 结算画面点击"准备"：全员准备后提前 500ms 开始下一手
+	case protocol.CmdReady:
 		e.handleReady(msg, resetTimer)
 	}
 }

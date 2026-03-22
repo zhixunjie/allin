@@ -8,7 +8,7 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	bizmodel "github.com/allin/server/base/biz/model"
-	"github.com/allin/server/contrib/game/state"
+	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
 )
@@ -54,7 +54,7 @@ func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
 
 // nextEligibleSeatAfter 在 eligible 列表中找到座位号严格大于 from 的下一个座位（循环）。
 // from == -1 时返回第一个 eligible 玩家的座位；用于庄家/盲注/行动顺序推进。
-func (e *Engine) nextEligibleSeatAfter(from int, eligible []*state.Player) int {
+func (e *Engine) nextEligibleSeatAfter(from int, eligible []*model.Player) int {
 	if from == -1 {
 		if len(eligible) > 0 {
 			return eligible[0].SeatIndex

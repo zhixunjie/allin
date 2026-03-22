@@ -6,6 +6,7 @@ import (
 	"time"
 
 	botpkg "github.com/allin/server/contrib/game/bot"
+	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
@@ -18,7 +19,7 @@ import (
 //  2. ActionSeat == -1：全员全押，无人可行动，自动推进到下一街道。
 //  3. 正常行动超时：对当前行动玩家执行自动弃牌（有下注则 fold，否则 check）。
 func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
-	if e.gs.Street == state.StreetIdle {
+	if e.gs.Street == model.StreetIdle {
 		if len(e.gs.EligibleToStart()) >= 2 {
 			e.startHand(resetTimer)
 		}
@@ -137,7 +138,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.handActions = e.handActions[:0]
 	e.readyPlayers = nil
 	e.gs.HandNum++
-	e.gs.Street = state.StreetPreFlop
+	e.gs.Street = model.StreetPreFlop
 	e.gs.Community = nil
 
 	eligible := e.gs.EligibleToStart()
@@ -159,7 +160,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 			p.Folded = false
 			p.AllIn = false
 			p.ActedThisStreet = false
-			p.Hole = [2]state.Card{}
+			p.Hole = [2]model.Card{}
 		}
 	}
 
@@ -213,7 +214,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 }
 
 // postBlind 强制玩家下盲注：若筹码不足则全押，更新 Bet / TotalBet / Stack。
-func postBlind(p *state.Player, amount int64) {
+func postBlind(p *model.Player, amount int64) {
 	if p == nil {
 		return
 	}
@@ -285,16 +286,16 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 	e.gs.MinRaise = e.gs.Config.BigBlind
 
 	switch e.gs.Street {
-	case state.StreetPreFlop:
-		e.gs.Street = state.StreetFlop
+	case model.StreetPreFlop:
+		e.gs.Street = model.StreetFlop
 		e.dealCommunity(3)
-	case state.StreetFlop:
-		e.gs.Street = state.StreetTurn
+	case model.StreetFlop:
+		e.gs.Street = model.StreetTurn
 		e.dealCommunity(1)
-	case state.StreetTurn:
-		e.gs.Street = state.StreetRiver
+	case model.StreetTurn:
+		e.gs.Street = model.StreetRiver
 		e.dealCommunity(1)
-	case state.StreetRiver:
+	case model.StreetRiver:
 		e.runShowdown(resetTimer)
 		return
 	}
@@ -347,7 +348,7 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 
 // runShowdown 执行摊牌流程：展示手牌、分配底池、广播结果、写入历史、启动下一手。
 func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
-	e.gs.Street = state.StreetShowdown
+	e.gs.Street = model.StreetShowdown
 	e.gs.ActionSeat = -1
 
 	type reveal struct {
@@ -485,13 +486,13 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
-	e.gs.Street = state.StreetIdle
+	e.gs.Street = model.StreetIdle
 	e.gs.ActionSeat = -1
 	e.scheduleNextHand(resetTimer)
 }
 
 // awardUncontested 将底池颁发给最后一个活跃玩家（其他人都弃牌了）。
-func (e *Engine) awardUncontested(winner *state.Player, resetTimer func(time.Duration)) {
+func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Duration)) {
 	maxOther := int64(0)
 	for _, p := range e.gs.Seats {
 		if p != nil && p.UserID != winner.UserID && p.TotalBet > maxOther {
@@ -553,7 +554,7 @@ func (e *Engine) awardUncontested(winner *state.Player, resetTimer func(time.Dur
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
-	e.gs.Street = state.StreetIdle
+	e.gs.Street = model.StreetIdle
 	e.gs.ActionSeat = -1
 	e.scheduleNextHand(resetTimer)
 }
@@ -589,7 +590,7 @@ func (e *Engine) scheduleNextHand(resetTimer func(time.Duration)) {
 
 // handleReady 处理玩家发送的 ready 命令（在结算画面点击"开始下一局"）。
 func (e *Engine) handleReady(msg protocol.InboundMessage, resetTimer func(time.Duration)) {
-	if e.gs.Street != state.StreetIdle {
+	if e.gs.Street != model.StreetIdle {
 		return
 	}
 	if e.readyPlayers == nil {

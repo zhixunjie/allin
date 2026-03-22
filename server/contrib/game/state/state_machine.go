@@ -1,7 +1,9 @@
 package state
 
+import "github.com/allin/server/contrib/game/model"
+
 // SeatPlayer 将玩家安排到第一个空座位，成功返回 true，无座位返回 false。
-func (gs *GameStateMachine) SeatPlayer(p *Player) bool {
+func (gs *GameStateMachine) SeatPlayer(p *model.Player) bool {
 	for i := range gs.Seats {
 		if gs.Seats[i] == nil {
 			p.SeatIndex = i
@@ -23,7 +25,7 @@ func (gs *GameStateMachine) UnseatPlayer(userID string) {
 }
 
 // FindPlayer 返回指定 userID 的玩家，不存在则返回 nil。
-func (gs *GameStateMachine) FindPlayer(userID string) *Player {
+func (gs *GameStateMachine) FindPlayer(userID string) *model.Player {
 	for _, p := range gs.Seats {
 		if p != nil && p.UserID == userID {
 			return p
@@ -33,8 +35,8 @@ func (gs *GameStateMachine) FindPlayer(userID string) *Player {
 }
 
 // ActivePlayers 返回未弃牌、未离座的玩家。
-func (gs *GameStateMachine) ActivePlayers() []*Player {
-	var out []*Player
+func (gs *GameStateMachine) ActivePlayers() []*model.Player {
+	var out []*model.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut {
 			out = append(out, p)
@@ -55,8 +57,8 @@ func (gs *GameStateMachine) SeatedCount() int {
 }
 
 // EligibleToStart 返回可以参与新一手牌的玩家：未离座、未断线、有筹码。
-func (gs *GameStateMachine) EligibleToStart() []*Player {
-	var out []*Player
+func (gs *GameStateMachine) EligibleToStart() []*model.Player {
+	var out []*model.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.SitOut && !p.Disconnected && p.Stack > 0 {
 			out = append(out, p)
@@ -107,8 +109,8 @@ func (gs *GameStateMachine) BettingRoundOver() bool {
 }
 
 // CanAct 返回所有仍可参与下注决策的玩家：未弃牌、未离座、未全押。
-func (gs *GameStateMachine) CanAct() []*Player {
-	var out []*Player
+func (gs *GameStateMachine) CanAct() []*model.Player {
+	var out []*model.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut && !p.AllIn {
 			out = append(out, p)

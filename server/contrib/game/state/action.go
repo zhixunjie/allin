@@ -2,6 +2,8 @@ package state
 
 import (
 	"fmt"
+
+	"github.com/allin/server/contrib/game/model"
 )
 
 // Action 表示玩家行动类型（值必须与 ws.ActionCmd.Action 的 JSON 字段匹配）。
@@ -18,7 +20,7 @@ const (
 
 // ValidateAction 检查给定的行动对该玩家是否合法。
 func (gs *GameStateMachine) ValidateAction(userID string, action Action, amount int64) error {
-	if gs.Street == StreetIdle || gs.Street == StreetShowdown {
+	if gs.Street == model.StreetIdle || gs.Street == model.StreetShowdown {
 		return ErrGameNotActive
 	}
 	p := gs.FindPlayer(userID)
