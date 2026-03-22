@@ -162,9 +162,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	}
 
 	if e.gs.SeatedCount() >= e.room.Config.MaxPlayers {
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code: "room_full", Message: "room is full",
-		}))
+		e.sendError(msg.SenderID, ws.ErrRoomFull, msg.Env.Seq)
 		return
 	}
 
@@ -178,40 +176,30 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	minBuyIn := e.room.Config.MinBuyIn
 	maxBuyIn := e.room.Config.MaxBuyIn
 	if buyIn < minBuyIn || buyIn > maxBuyIn {
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code:    "invalid_buy_in",
-			Message: fmt.Sprintf("buy_in must be between %d and %d", minBuyIn, maxBuyIn),
-		}))
+		e.sendError(msg.SenderID, ws.ErrInvalidBuyIn, msg.Env.Seq,
+			fmt.Sprintf("buy_in must be between %d and %d", minBuyIn, maxBuyIn))
 		return
 	}
 
 	// 从用户账户扣除买入金额（bot 跳过 DB 操作）
 	senderIntID, parseErr := strconv.ParseInt(msg.SenderID, 10, 64)
 	if parseErr != nil {
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code: "user_not_found", Message: "user not found",
-		}))
+		e.sendError(msg.SenderID, ws.ErrUserNotFound, msg.Env.Seq)
 		return
 	}
 	u, err := bizdao.UserDao.GetByID(senderIntID)
 	if err != nil {
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code: "user_not_found", Message: "user not found",
-		}))
+		e.sendError(msg.SenderID, ws.ErrUserNotFound, msg.Env.Seq)
 		return
 	}
 	if u.ChipBalance < buyIn {
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code: "insufficient_chips",
-			Message: fmt.Sprintf("insufficient chips: need $%d, have $%d", buyIn, u.ChipBalance),
-		}))
+		e.sendError(msg.SenderID, ws.ErrInsufficientChips, msg.Env.Seq,
+			fmt.Sprintf("insufficient chips: need $%d, have $%d", buyIn, u.ChipBalance))
 		return
 	}
 	if err := bizdao.UserDao.AdjustChips(senderIntID, -buyIn, "buy_in", e.room.Code); err != nil {
 		slog.Error("game: failed to deduct buy-in", "user", msg.SenderID, "err", err)
-		e.hub.SendTo(msg.SenderID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
-			Code: "server_error", Message: "failed to process buy-in",
-		}))
+		e.sendError(msg.SenderID, ws.ErrServerError, msg.Env.Seq, "failed to process buy-in")
 		return
 	}
 
@@ -299,15 +287,14 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 		return
 	}
 
-	// 活跃手牌中断线：保留座位，标记断线，自动弃牌。
+	// 活跃手牌中断线：保留座位，标记断线。
+	// 若正轮到该玩家行动则立即自动弃牌；否则仅标记断线，
+	// 等轮到他时由超时逻辑处理，给断线重连留出时间。
 	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
 		ApplyAction(e.gs, p.UserID, ActionFold, 0)
 		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
-	} else {
-		p.Folded = true
-		e.checkHandOver(resetTimer, stopTimer)
 	}
 }
 
@@ -335,12 +322,12 @@ func (e *Engine) handleAction(
 ) {
 	var cmd ws.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, "bad_payload", "invalid action payload", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrBadPayload, msg.Env.Seq)
 		return
 	}
 
 	if err := ValidateAction(e.gs, msg.SenderID, Action(cmd.Action), cmd.Amount); err != nil {
-		e.sendError(msg.SenderID, "invalid_action", err.Error(), msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 
@@ -400,21 +387,21 @@ func (e *Engine) handleChat(msg ws.InboundMessage) {
 
 func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 	if e.gs.Street != StreetIdle {
-		e.sendError(msg.SenderID, "hand_in_progress", "can only add chips between hands", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
 		return
 	}
 	var cmd ws.AddChipsCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, "bad_payload", "invalid add_chips payload", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrBadPayload, msg.Env.Seq)
 		return
 	}
 	p := e.gs.FindPlayer(msg.SenderID)
 	if p == nil {
-		e.sendError(msg.SenderID, "not_seated", "you are not seated", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrNotSeated, msg.Env.Seq)
 		return
 	}
 	if cmd.Amount <= 0 {
-		e.sendError(msg.SenderID, "invalid_amount", "amount must be positive", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrInvalidAmount, msg.Env.Seq)
 		return
 	}
 	newStack := p.Stack + cmd.Amount
@@ -429,22 +416,22 @@ func (e *Engine) handleAddChips(msg ws.InboundMessage) {
 	// 从 DB 账户余额扣除（bot 跳过）。
 	uid, err := strconv.ParseInt(msg.SenderID, 10, 64)
 	if err != nil {
-		e.sendError(msg.SenderID, "server_error", "invalid user id", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrServerError, msg.Env.Seq)
 		return
 	}
 	u, err := bizdao.UserDao.GetByID(uid)
 	if err != nil {
-		e.sendError(msg.SenderID, "user_not_found", "user not found", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrUserNotFound, msg.Env.Seq)
 		return
 	}
 	if u.ChipBalance < added {
-		e.sendError(msg.SenderID, "insufficient_chips",
-			fmt.Sprintf("insufficient chips: need $%d, have $%d", added, u.ChipBalance), msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrInsufficientChips, msg.Env.Seq,
+			fmt.Sprintf("insufficient chips: need $%d, have $%d", added, u.ChipBalance))
 		return
 	}
 	if err := bizdao.UserDao.AdjustChips(uid, -added, "add_chips", e.room.Code); err != nil {
 		slog.Error("game: failed to deduct add_chips", "user", msg.SenderID, "err", err)
-		e.sendError(msg.SenderID, "server_error", "failed to process add chips", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrServerError, msg.Env.Seq, "failed to process add chips")
 		return
 	}
 
@@ -493,7 +480,7 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 
 func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
 	if e.gs.Street != StreetIdle {
-		e.sendError(msg.SenderID, "hand_in_progress", "can only leave between hands", msg.Env.Seq)
+		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
 		return
 	}
 	p := e.gs.FindPlayer(msg.SenderID)
@@ -1150,7 +1137,13 @@ func (e *Engine) sendSnapshot(userID string) {
 	e.hub.SendTo(userID, ws.MustEvent(ws.TypeConnected, payload))
 }
 
-func (e *Engine) sendError(userID, code, msg string, refSeq int64) {
+// sendError 向指定玩家发送错误事件。
+// msgOverride 可选，不传则使用 ErrCode 的默认描述。
+func (e *Engine) sendError(userID string, code ws.ErrCode, refSeq int64, msgOverride ...string) {
+	msg := code.Message()
+	if len(msgOverride) > 0 && msgOverride[0] != "" {
+		msg = msgOverride[0]
+	}
 	e.hub.SendTo(userID, ws.MustEvent(ws.TypeError, ws.ErrorPayload{
 		Code: code, Message: msg, RefSeq: refSeq,
 	}))

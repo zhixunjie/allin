@@ -1,5 +1,5 @@
 import { useState, FormEvent, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { roomAPI } from '../../api/http'
 import type { RoomConfig } from '../../api/http'
 import { useAuthStore } from '../../store/auth'
@@ -211,6 +211,7 @@ export default function LobbyPage() {
       <header className={styles.header}>
         <span className={styles.logo}>AllIn</span>
         <div className={styles.userInfo}>
+          <Link to="/lab" className={styles.logoutBtn} style={{ textDecoration: 'none' }}>Lab</Link>
           <span className={styles.userName}>{user?.display_name ?? user?.username}</span>
           <span className={styles.chips}>
             <span className={styles.chipIcon}>$</span>

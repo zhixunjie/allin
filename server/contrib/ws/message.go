@@ -174,11 +174,49 @@ type ChatPayload struct {
 	Ts          int64  `json:"ts"`
 }
 
+// ErrCode 是服务端错误码枚举。
+type ErrCode string
+
+const (
+	ErrRoomFull          ErrCode = "room_full"
+	ErrInvalidBuyIn      ErrCode = "invalid_buy_in"
+	ErrUserNotFound      ErrCode = "user_not_found"
+	ErrInsufficientChips ErrCode = "insufficient_chips"
+	ErrServerError       ErrCode = "server_error"
+	ErrBadPayload        ErrCode = "bad_payload"
+	ErrInvalidAction     ErrCode = "invalid_action"
+	ErrHandInProgress    ErrCode = "hand_in_progress"
+	ErrNotSeated         ErrCode = "not_seated"
+	ErrInvalidAmount     ErrCode = "invalid_amount"
+)
+
+// errMessages 是 ErrCode 到默认错误消息的映射。
+var errMessages = map[ErrCode]string{
+	ErrRoomFull:          "room is full",
+	ErrInvalidBuyIn:      "invalid buy-in amount",
+	ErrUserNotFound:      "user not found",
+	ErrInsufficientChips: "insufficient chips",
+	ErrServerError:       "internal server error",
+	ErrBadPayload:        "invalid payload",
+	ErrInvalidAction:     "invalid action",
+	ErrHandInProgress:    "hand is in progress",
+	ErrNotSeated:         "you are not seated",
+	ErrInvalidAmount:     "amount must be positive",
+}
+
+// Message 返回该错误码对应的默认描述。
+func (c ErrCode) Message() string {
+	if msg, ok := errMessages[c]; ok {
+		return msg
+	}
+	return string(c)
+}
+
 // ErrorPayload 承载对客户端命令的错误响应。
 type ErrorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	RefSeq  int64  `json:"ref_seq"`
+	Code    ErrCode `json:"code"`
+	Message string  `json:"message"`
+	RefSeq  int64   `json:"ref_seq"`
 }
 
 // SitOutPayload 在玩家离座/归座时广播。
