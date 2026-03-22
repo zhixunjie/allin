@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+
+	"github.com/allin/server/contrib/ws/protocol"
 )
 
 // RoomConn 管理单个房间的所有 WebSocket 客户端。
@@ -15,7 +17,7 @@ type RoomConn struct {
 	clients map[string]*Client
 
 	// 来自客户端的入站消息（由游戏引擎处理）。
-	Inbound chan InboundMessage
+	Inbound chan protocol.InboundMessage
 
 	// 注册管理通道。
 	register   chan *Client
@@ -24,19 +26,12 @@ type RoomConn struct {
 	mu sync.RWMutex
 }
 
-// InboundMessage 将客户端命令与发送者元数据包装在一起。
-type InboundMessage struct {
-	SenderID    string
-	DisplayName string
-	Env         CmdEnvelope
-}
-
 // NewRoomConn 为给定房间创建一个新的 RoomConn。
 func NewRoomConn(roomCode string) *RoomConn {
 	return &RoomConn{
 		roomCode:   roomCode,
 		clients:    make(map[string]*Client),
-		Inbound:    make(chan InboundMessage, 256),
+		Inbound:    make(chan protocol.InboundMessage, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
@@ -62,16 +57,16 @@ func (rc *RoomConn) Run() {
 			slog.Info("ws: client unregistered", "room", rc.roomCode, "user", client.UserID)
 
 			// 通知游戏引擎有玩家断开连接。
-			rc.Inbound <- InboundMessage{
+			rc.Inbound <- protocol.InboundMessage{
 				SenderID: client.UserID,
-				Env:      CmdEnvelope{Type: CmdDisconnect},
+				Env:      protocol.CmdEnvelope{Type: protocol.CmdDisconnect},
 			}
 		}
 	}
 }
 
 // Broadcast 向房间内所有已连接的客户端发送消息。
-func (rc *RoomConn) Broadcast(env Envelope) {
+func (rc *RoomConn) Broadcast(env protocol.Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
 		slog.Error("ws: broadcast marshal", "err", err)
@@ -89,7 +84,7 @@ func (rc *RoomConn) Broadcast(env Envelope) {
 }
 
 // SendTo 向一个特定客户端发送消息（例如手牌）。
-func (rc *RoomConn) SendTo(userID string, env Envelope) {
+func (rc *RoomConn) SendTo(userID string, env protocol.Envelope) {
 	data, err := json.Marshal(env)
 	if err != nil {
 		slog.Error("ws: send marshal", "err", err)

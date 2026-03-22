@@ -1,6 +1,12 @@
-package game
+package state
 
 import "sort"
+
+// Pot 表示主池或边池。
+type Pot struct {
+	Amount   int64    // 池中筹码总额
+	Eligible []string // 有资格赢得该池的用户 ID 列表
+}
 
 // BuildPots 根据所有玩家的 TotalBet 金额计算主池和边池。
 // 应在所有下注完成后调用（未被跟注的下注已退回筹码）。

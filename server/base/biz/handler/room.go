@@ -6,8 +6,6 @@ import (
 
 	"github.com/cloudwego/hertz/pkg/app"
 
-	"github.com/allin/server/base/biz/dao"
-	"github.com/allin/server/base/biz/model"
 	"github.com/allin/server/base/biz/mw"
 	"github.com/allin/server/base/biz/service"
 	"github.com/allin/server/contrib/room"
@@ -53,13 +51,10 @@ func (*RoomHandler) Get(ctx context.Context, c *app.RequestContext) {
 // 返回该房间最近 20 手的结果摘要。
 func (*RoomHandler) GetHands(ctx context.Context, c *app.RequestContext) {
 	code := strings.ToUpper(strings.TrimSpace(c.Param("code")))
-	entries, err := dao.HandHistoryDao.GetByRoomCode(code, 20)
+	entries, err := service.Room.GetHands(code, 20)
 	if err != nil {
 		c.JSON(500, map[string]string{"error": "server error"})
 		return
-	}
-	if entries == nil {
-		entries = []model.HandHistoryEntry{}
 	}
 	c.JSON(200, entries)
 }

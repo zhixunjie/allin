@@ -1,12 +1,12 @@
-package game
+package engine
 
 import "sync"
 
 // Registry 跟踪所有活跃引擎以支持优雅关闭。
 type Registry struct {
-	mu      sync.Mutex
-	engines map[*Engine]struct{}
-	wg      sync.WaitGroup
+	mu      sync.Mutex           // 保护 engines map 的并发访问
+	engines map[*Engine]struct{} // 活跃引擎集合
+	wg      sync.WaitGroup       // 等待所有引擎退出
 }
 
 // NewRegistry 创建一个空的引擎注册表。

@@ -17,12 +17,12 @@ type EngineStarter func(rc *RoomConn, rm *room.Room)
 
 // Handler 负责处理 WebSocket 升级请求，并维护每个房间的 RoomConn 生命周期。
 type Handler struct {
-	roomManager   *room.Manager  // 用于按房间码查询房间元数据
-	jwtSecret     string         // JWT 验证密钥，从 config.yaml 注入
-	engineStarter EngineStarter  // 创建 RoomConn 时触发的回调，用于启动游戏引擎
+	roomManager   *room.Manager // 用于按房间码查询房间元数据
+	jwtSecret     string        // JWT 验证密钥，从 config.yaml 注入
+	engineStarter EngineStarter // 创建 RoomConn 时触发的回调，用于启动游戏引擎
 
-	roomConnsMu sync.RWMutex          // 保护 roomConns 并发读写
-	roomConns   map[string]*RoomConn  // 活跃 RoomConn 索引，key = 房间码
+	roomConnsMu sync.RWMutex         // 保护 roomConns 并发读写
+	roomConns   map[string]*RoomConn // 活跃 RoomConn 索引，key = 房间码
 }
 
 func NewHandler(roomManager *room.Manager, jwtSecret string) *Handler {

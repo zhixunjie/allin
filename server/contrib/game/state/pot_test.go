@@ -1,8 +1,6 @@
-package game
+package state
 
-import (
-	"testing"
-)
+import "testing"
 
 func mkPlayer(id string, totalBet int64, folded bool) *Player {
 	return &Player{UserID: id, TotalBet: totalBet, Folded: folded}

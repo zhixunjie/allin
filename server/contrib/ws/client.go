@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/allin/server/contrib/ws/protocol"
 	"github.com/gorilla/websocket"
 )
 
@@ -18,11 +19,11 @@ const (
 
 // Client 是与房间 RoomConn 关联的单个 WebSocket 连接。
 type Client struct {
-	hub         *RoomConn
-	conn        *websocket.Conn
-	send        chan []byte
-	UserID      string
-	DisplayName string
+	rc          *RoomConn       // 所属房间的消息总线
+	conn        *websocket.Conn // 底层 WebSocket 连接
+	send        chan []byte      // 出站消息队列，由 WritePump 消费
+	UserID      string          // 玩家用户 ID
+	DisplayName string          // 玩家显示名称
 }
 
 var upgrader = websocket.Upgrader{
@@ -34,28 +35,28 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// NewClient 将 HTTP 连接升级为 WebSocket 并注册到 hub。
-func NewClient(hub *RoomConn, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
+// NewClient 将 HTTP 连接升级为 WebSocket 并注册到 RoomConn。
+func NewClient(rc *RoomConn, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, err
 	}
 	c := &Client{
-		hub:         hub,
+		rc:          rc,
 		conn:        conn,
 		send:        make(chan []byte, 256),
 		UserID:      userID,
 		DisplayName: displayName,
 	}
-	hub.register <- c
+	rc.register <- c
 	return c, nil
 }
 
-// ReadPump 从 WebSocket 连接读取消息并转发到 hub。
+// ReadPump 从 WebSocket 连接读取消息并转发到 RoomConn。
 // 此方法应在独立的 goroutine 中调用。
 func (c *Client) ReadPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.rc.unregister <- c
 		c.conn.Close()
 	}()
 
@@ -75,13 +76,13 @@ func (c *Client) ReadPump() {
 			break
 		}
 
-		var env CmdEnvelope
+		var env protocol.CmdEnvelope
 		if err := jsonUnmarshal(data, &env); err != nil {
 			slog.Warn("ws: invalid envelope", "user", c.UserID, "err", err)
 			continue
 		}
 
-		c.hub.Inbound <- InboundMessage{
+		c.rc.Inbound <- protocol.InboundMessage{
 			SenderID:    c.UserID,
 			DisplayName: c.DisplayName,
 			Env:         env,
@@ -103,7 +104,7 @@ func (c *Client) WritePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// Hub 关闭了通道。
+				// RoomConn 关闭了通道。
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}

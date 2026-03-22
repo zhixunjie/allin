@@ -1,7 +1,6 @@
-package game
+package state
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -9,29 +8,22 @@ import (
 type Action string
 
 const (
-	ActionFold  Action = "fold"
-	ActionCheck Action = "check"
-	ActionCall  Action = "call"
-	ActionBet   Action = "bet"
-	ActionRaise Action = "raise"
-	ActionAllIn Action = "all_in"
-)
-
-var (
-	ErrNotYourTurn    = errors.New("not your turn")
-	ErrInvalidAction  = errors.New("invalid action")
-	ErrInvalidAmount  = errors.New("invalid amount")
-	ErrGameNotActive  = errors.New("game not active")
+	ActionFold  Action = "fold"   // 弃牌：放弃本手
+	ActionCheck Action = "check"  // 让牌：无需跟注时过牌
+	ActionCall  Action = "call"   // 跟注：跟上当前最大下注
+	ActionBet   Action = "bet"    // 下注：本街首次主动投入筹码
+	ActionRaise Action = "raise"  // 加注：在已有下注基础上继续提高
+	ActionAllIn Action = "all_in" // 全押：将所有筹码投入底池
 )
 
 // ValidateAction 检查给定的行动对该玩家是否合法。
-func ValidateAction(gs *GameState, userID string, action Action, amount int64) error {
+func (gs *GameStateMachine) ValidateAction(userID string, action Action, amount int64) error {
 	if gs.Street == StreetIdle || gs.Street == StreetShowdown {
 		return ErrGameNotActive
 	}
 	p := gs.FindPlayer(userID)
 	if p == nil {
-		return errors.New("player not seated")
+		return ErrPlayerNotSeated
 	}
 	if gs.ActionSeat != p.SeatIndex {
 		return ErrNotYourTurn
@@ -51,7 +43,6 @@ func ValidateAction(gs *GameState, userID string, action Action, amount int64) e
 		return nil
 
 	case ActionCall:
-		// 有下注可跟时，跟注始终合法。
 		if p.Bet >= gs.CurrentBet {
 			return fmt.Errorf("%w: no bet to call, use check", ErrInvalidAction)
 		}
@@ -73,7 +64,6 @@ func ValidateAction(gs *GameState, userID string, action Action, amount int64) e
 		if gs.CurrentBet == 0 {
 			return fmt.Errorf("%w: no bet to raise, use bet", ErrInvalidAction)
 		}
-		// 玩家的总投入额（当前下注 + 从筹码中加注的金额）
 		toCall := gs.CurrentBet - p.Bet
 		minRaiseTotal := gs.CurrentBet + gs.MinRaise
 		if amount < minRaiseTotal && amount != p.Stack+p.Bet {
@@ -97,7 +87,7 @@ func ValidateAction(gs *GameState, userID string, action Action, amount int64) e
 
 // ApplyAction 修改 gs 以应用已验证的行动。
 // 如果行动是激进行为（下注/加注）需要其他人重新行动，则返回 true。
-func ApplyAction(gs *GameState, userID string, action Action, amount int64) bool {
+func (gs *GameStateMachine) ApplyAction(userID string, action Action, amount int64) bool {
 	p := gs.FindPlayer(userID)
 	if p == nil {
 		return false
@@ -115,7 +105,6 @@ func ApplyAction(gs *GameState, userID string, action Action, amount int64) bool
 	case ActionCall:
 		toCall := gs.CurrentBet - p.Bet
 		if toCall > p.Stack {
-			// 全押跟注
 			toCall = p.Stack
 			p.AllIn = true
 		}
@@ -138,7 +127,7 @@ func ApplyAction(gs *GameState, userID string, action Action, amount int64) bool
 		aggression = true
 
 	case ActionRaise:
-		newTotal := amount // 'amount' is the total the player wants to have bet after this action
+		newTotal := amount
 		if newTotal > p.Bet+p.Stack {
 			newTotal = p.Bet + p.Stack
 			p.AllIn = true
@@ -169,7 +158,7 @@ func ApplyAction(gs *GameState, userID string, action Action, amount int64) bool
 		}
 	}
 
-	// 如果是激进行为：重置所有其他活跃非全押玩家的 ActedThisStreet。
+	// 激进行为：重置所有其他活跃非全押玩家的 ActedThisStreet。
 	if aggression {
 		for _, op := range gs.Seats {
 			if op != nil && op.UserID != userID && !op.Folded && !op.SitOut && !op.AllIn {

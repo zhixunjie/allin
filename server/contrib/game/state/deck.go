@@ -1,12 +1,12 @@
-package game
+package state
 
 import "math/rand/v2"
 
 var ranks = []byte{'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
 var suits = []byte{'c', 'd', 'h', 's'}
 
-// newDeck 返回一副新洗好的 52 张牌。
-func newDeck() []Card {
+// NewShuffledDeck 返回一副新洗好的 52 张牌。
+func NewShuffledDeck() []Card {
 	deck := make([]Card, 0, 52)
 	for _, r := range ranks {
 		for _, s := range suits {

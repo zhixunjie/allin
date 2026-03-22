@@ -32,7 +32,9 @@
       "Bash(find /Users/dev/Desktop/Project/Go/allin/server/contrib/eval -name *.go)",
       "Bash(find /Users/dev/Desktop/Project/Go/allin/server/contrib/game -name *.go)",
       "Bash(grep -r \"BTN\\\\|SB\\\\|BB\\\\|UTG\\\\|positionLabel\\\\|position_label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
-      "Bash(grep -r \"badge\\\\|Badge\\\\|seat.*label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"badge\\\\|Badge\\\\|seat.*label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx)",
+      "Bash(wc -l /Users/dev/Desktop/Project/Go/allin/server/contrib/game/*.go)",
+      "Bash(go test:*)"
     ]
   }
 }

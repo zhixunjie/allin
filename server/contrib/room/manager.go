@@ -2,7 +2,6 @@ package room
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -11,26 +10,20 @@ import (
 	"github.com/allin/server/base/biz/dao"
 )
 
-var (
-	ErrNotFound     = errors.New("room not found")
-	ErrRoomFull     = errors.New("room is full")
-	ErrCodeConflict = errors.New("code generation conflict, retry")
-)
-
-// Manager holds all active rooms in memory.
+// Manager 在内存中维护所有活跃房间。
 type Manager struct {
 	mu    sync.RWMutex
-	rooms map[string]*Room // key = room code
+	rooms map[string]*Room // key = 房间码
 }
 
-// NewManager creates a new Manager.
+// NewManager 创建一个新的 Manager。
 func NewManager() *Manager {
 	return &Manager{rooms: make(map[string]*Room)}
 }
 
-// Create validates config, generates a unique code, persists to DB, and registers in memory.
+// Create 校验配置、生成唯一房间码、持久化到 DB 并注册到内存。
 func (m *Manager) Create(hostUserID int64, cfg RoomConfig) (*Room, error) {
-	if err := validateConfig(cfg); err != nil {
+	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 
@@ -60,7 +53,7 @@ func (m *Manager) Create(hostUserID int64, cfg RoomConfig) (*Room, error) {
 	return r, nil
 }
 
-// Get returns the room for the given code.
+// Get 根据房间码返回对应的房间，不存在则返回 ErrNotFound。
 func (m *Manager) Get(code string) (*Room, error) {
 	m.mu.RLock()
 	r, ok := m.rooms[code]
@@ -71,7 +64,7 @@ func (m *Manager) Get(code string) (*Room, error) {
 	return r, nil
 }
 
-// Close removes the room from memory and marks it ended in DB.
+// Close 将房间从内存中移除，并在 DB 中标记为已结束。
 func (m *Manager) Close(code string) {
 	m.mu.Lock()
 	delete(m.rooms, code)
@@ -80,7 +73,7 @@ func (m *Manager) Close(code string) {
 	dao.RoomDao.MarkEnded(code)
 }
 
-// generateUniqueCode generates an unused room code (up to 10 attempts).
+// generateUniqueCode 生成一个未被占用的房间码，最多尝试 10 次。
 func (m *Manager) generateUniqueCode() (string, error) {
 	for i := 0; i < 10; i++ {
 		code, err := GenerateCode()
@@ -97,7 +90,7 @@ func (m *Manager) generateUniqueCode() (string, error) {
 	return "", ErrCodeConflict
 }
 
-// StartGC starts a background goroutine that removes rooms idle longer than idleTimeout.
+// StartGC 启动后台 goroutine，定期清理空闲超过 idleTimeout 的房间。
 func (m *Manager) StartGC(interval, idleTimeout time.Duration, clientCount func(string) int) {
 	go func() {
 		ticker := time.NewTicker(interval)
@@ -122,38 +115,4 @@ func (m *Manager) gc(idleTimeout time.Duration, clientCount func(string) int) {
 		m.Close(code)
 		slog.Info("room: GC removed idle room", "code", code)
 	}
-}
-
-func validateConfig(cfg RoomConfig) error {
-	if cfg.SmallBlind <= 0 {
-		return errors.New("small_blind must be positive")
-	}
-	if cfg.BigBlind != cfg.SmallBlind*2 {
-		return errors.New("big_blind must be 2x small_blind")
-	}
-	if cfg.MinBuyIn < cfg.BigBlind*10 {
-		return errors.New("min_buy_in must be at least 10x big_blind")
-	}
-	if cfg.MaxBuyIn < cfg.MinBuyIn {
-		return errors.New("max_buy_in must be >= min_buy_in")
-	}
-	if cfg.MaxPlayers < 2 || cfg.MaxPlayers > 9 {
-		return errors.New("max_players must be between 2 and 9")
-	}
-	if cfg.BotCount < 0 || cfg.BotCount >= cfg.MaxPlayers {
-		return errors.New("bot_count must be >= 0 and < max_players")
-	}
-	switch cfg.BotStyle {
-	case "", "mixed", "aggressive", "passive", "random":
-		// valid
-	default:
-		return errors.New("bot_style must be mixed, aggressive, passive, or random")
-	}
-	if cfg.ActionTimeSec == 0 {
-		cfg.ActionTimeSec = 30
-	}
-	if cfg.ActionTimeSec < 5 || cfg.ActionTimeSec > 120 {
-		return errors.New("action_time_sec must be between 5 and 120")
-	}
-	return nil
 }

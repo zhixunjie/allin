@@ -16,7 +16,7 @@ type UserSvc struct{}
 
 func NewUserSvc() *UserSvc { return &UserSvc{} }
 
-// Register validates input, creates user with 10 000 chip welcome bonus, issues JWT.
+// Register 校验注册参数，创建用户（初始筹码 10000），返回用户信息和 JWT。
 func (svc *UserSvc) Register(username, password, displayName string) (*model.User, string, error) {
 	username = strings.TrimSpace(username)
 	displayName = strings.TrimSpace(displayName)
@@ -48,7 +48,7 @@ func (svc *UserSvc) Register(username, password, displayName string) (*model.Use
 	return u, token, nil
 }
 
-// Login verifies credentials and issues JWT.
+// Login 验证账号密码，成功后签发 JWT。
 func (svc *UserSvc) Login(username, password string) (*model.User, string, error) {
 	u, err := dao.UserDao.GetByUsername(username)
 	if err != nil {
@@ -65,7 +65,7 @@ func (svc *UserSvc) Login(username, password string) (*model.User, string, error
 	return u, token, nil
 }
 
-// GetByID returns the user with the given ID.
+// GetByID 根据用户 ID 查询用户信息。
 func (svc *UserSvc) GetByID(id int64) (*model.User, error) {
 	return dao.UserDao.GetByID(id)
 }
