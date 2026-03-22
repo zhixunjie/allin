@@ -7,6 +7,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 
 	"github.com/allin/server/base/biz/dao"
+	"github.com/allin/server/base/biz/model"
 	"github.com/allin/server/base/biz/mw"
 	"github.com/allin/server/base/biz/service"
 	"github.com/allin/server/contrib/room"
@@ -58,7 +59,7 @@ func (*RoomHandler) GetHands(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 	if entries == nil {
-		entries = []dao.HandHistoryEntry{}
+		entries = []model.HandHistoryEntry{}
 	}
 	c.JSON(200, entries)
 }

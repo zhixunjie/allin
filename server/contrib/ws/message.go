@@ -11,36 +11,35 @@ import (
 type MsgType string
 
 const (
-	TypeConnected      MsgType = "connected"
-	TypePlayerJoined   MsgType = "player_joined"
-	TypePlayerLeft     MsgType = "player_left"
-	TypeGameStarted    MsgType = "game_started"
-	TypeHoleCards      MsgType = "hole_cards"
-	TypeCardsDealt     MsgType = "cards_dealt"
-	TypeStreetStarted  MsgType = "street_started"
-	TypeActionRequired MsgType = "action_required"
-	TypeActionTaken    MsgType = "action_taken"
-	TypeActionTimeout  MsgType = "action_timeout"
-	TypeShowdown       MsgType = "showdown"
-	TypeHandResult     MsgType = "hand_result"
-	TypeChatMessage    MsgType = "chat_message"
-	TypeError          MsgType = "error"
-	TypeSitOut         MsgType = "sit_out_status"
-	TypeReadyStatus    MsgType = "ready_status"
+	TypeConnected      MsgType = "connected"       // 连接成功，附带玩家 ID 和当前游戏快照
+	TypePlayerJoined   MsgType = "player_joined"   // 玩家加入或重连
+	TypePlayerLeft     MsgType = "player_left"     // 玩家离桌
+	TypeGameStarted    MsgType = "game_started"    // 新一手牌开始，含庄家/盲注信息
+	TypeHoleCards      MsgType = "hole_cards"      // 仅发给当事玩家的底牌
+	TypeCardsDealt     MsgType = "cards_dealt"     // 通知所有人哪些座位已发牌（背面）
+	TypeStreetStarted  MsgType = "street_started"  // 进入新街道（Flop/Turn/River），附带公共牌
+	TypeActionRequired MsgType = "action_required" // 轮到指定玩家行动，附带倒计时和可用操作参数
+	TypeActionTaken    MsgType = "action_taken"    // 玩家已行动，广播行动结果和筹码变化
+	TypeActionTimeout  MsgType = "action_timeout"  // 玩家超时，服务端自动 fold 或 check
+	TypeShowdown       MsgType = "showdown"        // 摊牌，公开所有未弃牌玩家的手牌
+	TypeHandResult     MsgType = "hand_result"     // 本手结算，包含赢家和筹码分配
+	TypeChatMessage    MsgType = "chat_message"    // 聊天消息（双向）
+	TypeError          MsgType = "error"           // 服务端业务错误（含 code / message / ref_seq）
+	TypeSitOut         MsgType = "sit_out_status"  // 玩家离座/归座状态变更
+	TypeReadyStatus    MsgType = "ready_status"    // 结算间隙已准备人数广播
 )
-
 
 // CmdType 是客户端 → 服务端的命令类型。
 type CmdType string
 
 const (
-	CmdJoinRoom    CmdType = "join_room"
-	CmdAction      CmdType = "action"
-	CmdChat        CmdType = "chat"
-	CmdSitOut      CmdType = "sit_out"
-	CmdLeaveTable  CmdType = "leave_table"
-	CmdDisconnect  CmdType = "disconnect"
-	CmdReady       CmdType = "ready"
+	CmdJoinRoom   CmdType = "join_room"   // 加入房间（携带买入额）
+	CmdAction     CmdType = "action"      // 玩家行动（fold/check/call/bet/raise/all_in）
+	CmdChat       CmdType = "chat"        // 发送聊天消息
+	CmdSitOut     CmdType = "sit_out"     // 离座/归座切换
+	CmdLeaveTable CmdType = "leave_table" // 主动离桌（仅限手牌间隙）
+	CmdDisconnect CmdType = "disconnect"  // 客户端主动断开（优雅离线）
+	CmdReady      CmdType = "ready"       // 结算画面点击"准备下一局"
 )
 
 // Envelope 是所有 WebSocket 消息的通用包装。

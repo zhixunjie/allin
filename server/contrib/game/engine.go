@@ -8,6 +8,7 @@ import (
 	"time"
 
 	bizdao "github.com/allin/server/base/biz/dao"
+	bizmodel "github.com/allin/server/base/biz/model"
 	"github.com/allin/server/contrib/room"
 	"github.com/allin/server/contrib/ws"
 )
@@ -23,20 +24,20 @@ const (
 // 所有对 GameState 的修改都严格发生在单一的 Run() goroutine 中，
 // 无需任何锁即可保证并发安全。
 type Engine struct {
-	hub         *ws.Hub             // 该房间的 WebSocket 消息总线
-	room        *room.Room          // 房间元数据与配置
-	gs          *GameState          // 游戏状态（街道、座位、下注等）
-	deck        []Card              // 当前手牌使用的洗牌牌组（每手重置）
-	quit        chan struct{}        // 关闭此 channel 通知 Run() 退出
-	chatLimiter map[string]time.Time // 各玩家最近一次聊天时间，用于频率限制
-	registry    *Registry           // 全局引擎注册表，为 nil 时不注册
-	onEmpty     func()              // 所有人类玩家离开后触发的回调（用于回收房间）
-	emptyTimer  *time.Timer         // 宽限期计时器，到期后执行 onEmpty
-	botsSeated       bool                // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
-	handActions      []actionLogEntry    // 当前手牌的行动序列，手牌结束后写入历史表
-	botReplaceTimer  *time.Timer         // bot 破产后等待补充的计时器
-	botReplaceC      <-chan time.Time     // botReplaceTimer 对应的 channel，nil 时不触发
-	readyPlayers     map[string]bool     // 在结算画面点击"开始下一局"的玩家集合
+	hub             *ws.Hub              // 该房间的 WebSocket 消息总线
+	room            *room.Room           // 房间元数据与配置
+	gs              *GameState           // 游戏状态（街道、座位、下注等）
+	deck            []Card               // 当前手牌使用的洗牌牌组（每手重置）
+	quit            chan struct{}        // 关闭此 channel 通知 Run() 退出
+	chatLimiter     map[string]time.Time // 各玩家最近一次聊天时间，用于频率限制
+	registry        *Registry            // 全局引擎注册表，为 nil 时不注册
+	onEmpty         func()               // 所有人类玩家离开后触发的回调（用于回收房间）
+	emptyTimer      *time.Timer          // 宽限期计时器，到期后执行 onEmpty
+	botsSeated      bool                 // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
+	handActions     []actionLogEntry     // 当前手牌的行动序列，手牌结束后写入历史表
+	botReplaceTimer *time.Timer          // bot 破产后等待补充的计时器
+	botReplaceC     <-chan time.Time     // botReplaceTimer 对应的 channel，nil 时不触发
+	readyPlayers    map[string]bool      // 在结算画面点击"开始下一局"的玩家集合
 }
 
 // actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
@@ -133,19 +134,19 @@ func (e *Engine) handleMessage(
 	stopTimer func(),
 ) {
 	switch msg.Env.Type {
-	case ws.CmdJoinRoom:
+	case ws.CmdJoinRoom: // 玩家加入或重连：分配座位、扣除买入、广播状态
 		e.handleJoinRoom(msg, resetTimer)
-	case ws.CmdAction:
+	case ws.CmdAction: // 玩家行动（fold/check/call/bet/raise/all_in）：校验合法性、推进状态机
 		e.handleAction(msg, resetTimer, stopTimer)
-	case ws.CmdChat:
+	case ws.CmdChat: // 聊天消息：限速后广播给房间内所有人
 		e.handleChat(msg)
-	case ws.CmdSitOut:
+	case ws.CmdSitOut: // 离座/归座切换：更新 SitOut 标志，影响下一手参与资格
 		e.handleSitOut(msg, resetTimer, stopTimer)
-	case ws.CmdLeaveTable:
+	case ws.CmdLeaveTable: // 主动离桌：仅限手牌间隙，归还筹码并移除座位
 		e.handleLeaveTable(msg)
-	case ws.CmdDisconnect:
+	case ws.CmdDisconnect: // 客户端优雅断开：手牌中保留座位并标记 Disconnected，间隙则直接离桌
 		e.handleDisconnect(msg, resetTimer, stopTimer)
-	case ws.CmdReady:
+	case ws.CmdReady: // 结算画面点击"准备"：全员准备后提前 500ms 开始下一手
 		e.handleReady(msg, resetTimer)
 	}
 }
@@ -369,11 +370,11 @@ func (e *Engine) handleAction(
 	})
 
 	e.hub.Broadcast(ws.MustEvent(ws.TypeActionTaken, ws.ActionTakenPayload{
-		PlayerID:  msg.SenderID,
-		Action:    cmd.Action,
-		Amount:    displayAmount,
-		Stack:     p.Stack,
-		TotalPot:  e.gs.TotalPot(),
+		PlayerID: msg.SenderID,
+		Action:   cmd.Action,
+		Amount:   displayAmount,
+		Stack:    p.Stack,
+		TotalPot: e.gs.TotalPot(),
 	}))
 
 	stopTimer()
@@ -788,14 +789,14 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 	deadline := time.Now().Add(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 
 	e.hub.Broadcast(ws.MustEvent(ws.TypeActionRequired, ws.ActionRequiredPayload{
-		PlayerID:    p.UserID,
-		SeatIndex:   p.SeatIndex,
-		DeadlineTs:  deadline.UnixMilli(),
-		CurrentBet:  e.gs.CurrentBet,
-		CallAmount:  max64(0, e.gs.CurrentBet-p.Bet),
-		MinRaise:    e.gs.CurrentBet + e.gs.MinRaise,
-		Stack:       p.Stack,
-		Pot:         e.gs.TotalPot(),
+		PlayerID:   p.UserID,
+		SeatIndex:  p.SeatIndex,
+		DeadlineTs: deadline.UnixMilli(),
+		CurrentBet: e.gs.CurrentBet,
+		CallAmount: max64(0, e.gs.CurrentBet-p.Bet),
+		MinRaise:   e.gs.CurrentBet + e.gs.MinRaise,
+		Stack:      p.Stack,
+		Pot:        e.gs.TotalPot(),
 	}))
 
 	if p.IsBot {
@@ -818,10 +819,10 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 
 	// 展示所有未弃牌的手牌。
 	type reveal struct {
-		PlayerID    string `json:"player_id"`
-		SeatIndex   int    `json:"seat_index"`
-		Hole        []string `json:"hole"`
-		HandName    string `json:"hand_name"`
+		PlayerID  string   `json:"player_id"`
+		SeatIndex int      `json:"seat_index"`
+		Hole      []string `json:"hole"`
+		HandName  string   `json:"hand_name"`
 	}
 	handNames := map[string]string{} // playerID → handName
 	var reveals []reveal
@@ -1176,7 +1177,7 @@ func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
 	handNum := e.gs.HandNum
 
 	go func() {
-		err := bizdao.HandHistoryDao.Save(bizdao.HandHistoryRecord{
+		err := bizdao.HandHistoryDao.Save(bizmodel.HandHistoryRecord{
 			RoomID:      roomID,
 			HandNum:     handNum,
 			PlayersJSON: playersJSON,

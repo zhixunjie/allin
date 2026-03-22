@@ -151,24 +151,6 @@
   background: rgba(212, 175, 55, 0.1);
 }
 
-.addChipsBtn {
-  margin-left: 8px;
-  background: rgba(212, 175, 55, 0.12);
-  color: #d4af37;
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  cursor: pointer;
-  font-size: 0.85rem;
-  padding: 4px 12px;
-  border-radius: 8px;
-  transition: all 0.3s;
-  font-family: 'Manrope', sans-serif;
-}
-
-.addChipsBtn:hover {
-  background: rgba(212, 175, 55, 0.22);
-  border-color: rgba(212, 175, 55, 0.55);
-}
-
 /* ---- 等待消息 ---- */
 .waiting {
   position: absolute;
