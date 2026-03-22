@@ -14,7 +14,6 @@ import type {
   PlayerJoinedPayload,
   PlayerLeftPayload,
   SitOutPayload,
-  StackUpdatedPayload,
 } from '../store/game'
 import { useChatStore } from '../store/chat'
 import { authAPI } from '../api/http'

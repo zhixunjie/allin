@@ -1,17 +1,20 @@
 package dao
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/allin/server/base/biz/model"
 )
 
 type userDao struct{}
 
-// Create inserts a new user row and sets u.ID from the auto-increment value.
+// Create 插入新用户行，并将自增 ID 写回 u.ID。
 func (d *userDao) Create(u *model.User) error {
 	result, err := DBM.Exec(
-		`INSERT INTO users (username, password_hash, display_name, chip_balance, created_at)
+		`INSERT INTO `+model.TableNameUser+` (username, password_hash, display_name, chip_balance, created_at)
 		 VALUES (?, ?, ?, ?, ?)`,
 		u.Username, u.PasswordHash, u.DisplayName, u.ChipBalance, u.CreatedAt,
 	)
@@ -21,19 +24,23 @@ func (d *userDao) Create(u *model.User) error {
 		}
 		return fmt.Errorf("userDao.Create: %w", err)
 	}
-	u.ID, _ = result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("userDao.Create: last insert id: %w", err)
+	}
+	u.ID = id
 	return nil
 }
 
-// GetByUsername returns the user with the given username.
+// GetByUsername 返回指定用户名的用户，不存在时返回 ErrUserNotFound。
 func (d *userDao) GetByUsername(username string) (*model.User, error) {
 	u := &model.User{}
 	err := DBM.Get(u,
 		`SELECT id, username, password_hash, display_name, chip_balance, created_at
-		 FROM users WHERE username = ?`, username,
+		 FROM `+model.TableNameUser+` WHERE username = ?`, username,
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, model.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("userDao.GetByUsername: %w", err)
@@ -41,15 +48,15 @@ func (d *userDao) GetByUsername(username string) (*model.User, error) {
 	return u, nil
 }
 
-// GetByID returns the user with the given ID.
+// GetByID 返回指定 ID 的用户，不存在时返回 ErrUserNotFound。
 func (d *userDao) GetByID(id int64) (*model.User, error) {
 	u := &model.User{}
 	err := DBM.Get(u,
 		`SELECT id, username, password_hash, display_name, chip_balance, created_at
-		 FROM users WHERE id = ?`, id,
+		 FROM `+model.TableNameUser+` WHERE id = ?`, id,
 	)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, model.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("userDao.GetByID: %w", err)
@@ -57,7 +64,7 @@ func (d *userDao) GetByID(id int64) (*model.User, error) {
 	return u, nil
 }
 
-// AdjustChips atomically adds delta to chip_balance and writes a ledger entry.
+// AdjustChips 原子地将 delta 加到 chip_balance，同时写入账本记录。
 func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) error {
 	tx, err := DBM.Begin()
 	if err != nil {
@@ -66,12 +73,12 @@ func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) e
 	defer tx.Rollback() //nolint:errcheck
 
 	if _, err := tx.Exec(
-		`UPDATE users SET chip_balance = chip_balance + ? WHERE id = ?`, delta, userID,
+		`UPDATE `+model.TableNameUser+` SET chip_balance = chip_balance + ? WHERE id = ?`, delta, userID,
 	); err != nil {
 		return fmt.Errorf("userDao.AdjustChips: update: %w", err)
 	}
 	if _, err := tx.Exec(
-		`INSERT INTO chip_ledger (user_id, delta, reason, ref_id, created_at)
+		`INSERT INTO `+model.TableNameChipLedger+` (user_id, delta, reason, ref_id, created_at)
 		 VALUES (?, ?, ?, ?, NOW())`, userID, delta, reason, refID,
 	); err != nil {
 		return fmt.Errorf("userDao.AdjustChips: ledger: %w", err)
@@ -84,14 +91,5 @@ func isDuplicateEntry(err error) bool {
 		return false
 	}
 	s := err.Error()
-	return containsStr(s, "Error 1062") || containsStr(s, "Duplicate entry")
-}
-
-func containsStr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, "Error 1062") || strings.Contains(s, "Duplicate entry")
 }

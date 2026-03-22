@@ -18,13 +18,13 @@ import (
 
 // handleJoinRoom 处理玩家加入房间请求。
 // 若玩家已在座位（断线重连）则直接恢复状态；否则走完整买入入座流程。
-func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Duration)) {
+func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(time.Duration)) {
 	// 断线重连：若玩家仍在座位（Disconnected=true），直接恢复。
 	if existing := e.gs.FindPlayer(msg.SenderID); existing != nil {
 		if existing.Disconnected {
 			existing.Disconnected = false
 			e.sendSnapshot(msg.SenderID)
-			e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+			e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerJoined, protocol.PlayerJoinedPayload{
 				PlayerID:    existing.UserID,
 				DisplayName: existing.DisplayName,
 				SeatIndex:   existing.SeatIndex,
@@ -47,7 +47,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	}
 
 	// 解析带入金额（0 表示默认使用 MaxBuyIn）。
-	var cmd ws.JoinRoomCmd
+	var cmd protocol.JoinRoomCmd
 	_ = json.Unmarshal(msg.Env.Payload, &cmd)
 	buyIn := cmd.BuyIn
 	if buyIn == 0 {
@@ -90,7 +90,7 @@ func (e *Engine) handleJoinRoom(msg ws.InboundMessage, resetTimer func(time.Dura
 	}
 	e.gs.SeatPlayer(p)
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerJoined, protocol.PlayerJoinedPayload{
 		PlayerID:    p.UserID,
 		DisplayName: p.DisplayName,
 		SeatIndex:   p.SeatIndex,
@@ -130,7 +130,7 @@ func (e *Engine) seatBots() {
 		if !e.gs.SeatPlayer(p) {
 			break // 没有更多座位
 		}
-		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerJoined, ws.PlayerJoinedPayload{
+		e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerJoined, protocol.PlayerJoinedPayload{
 			PlayerID:    p.UserID,
 			DisplayName: p.DisplayName,
 			SeatIndex:   p.SeatIndex,
@@ -145,7 +145,7 @@ func (e *Engine) seatBots() {
 // handleDisconnect 处理玩家 WebSocket 断开事件。
 // Idle 状态下立即离座并返还筹码；手牌进行中则保留座位标记断线，
 // 仅在轮到该玩家行动时立即自动弃牌，其余情况等超时逻辑处理，保留重连机会。
-func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+func (e *Engine) handleDisconnect(msg protocol.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
 	// Bot ID 从没有真实的 WS 连接；忽略虚假的断开连接消息。
 	if botpkg.IsBotID(msg.SenderID) {
 		return
@@ -158,7 +158,7 @@ func (e *Engine) handleDisconnect(msg ws.InboundMessage, resetTimer func(time.Du
 
 	if e.gs.Street == state.StreetIdle {
 		// 手牌间隙断线：立即离座并返还筹码。
-		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  p.UserID,
 			SeatIndex: p.SeatIndex,
 		}))
@@ -200,8 +200,8 @@ func (e *Engine) cashOut(userID string, stack int64) {
 
 // handleSitOut 处理玩家离座/归座请求。
 // 离座时若正轮到该玩家行动，自动弃牌；归座时若满足开局条件，启动倒计时。
-func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
-	var cmd ws.SitOutCmd
+func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+	var cmd protocol.SitOutCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		return
 	}
@@ -211,7 +211,7 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 	}
 	p.SitOut = cmd.SitOut
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeSitOut, ws.SitOutPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeSitOut, protocol.SitOutPayload{
 		PlayerID:  p.UserID,
 		SeatIndex: p.SeatIndex,
 		SitOut:    p.SitOut,
@@ -234,7 +234,7 @@ func (e *Engine) handleSitOut(msg ws.InboundMessage, resetTimer func(time.Durati
 
 // handleLeaveTable 处理玩家主动离桌请求。
 // 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
-func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
+func (e *Engine) handleLeaveTable(msg protocol.InboundMessage) {
 	if e.gs.Street != state.StreetIdle {
 		e.sendError(msg.SenderID, ws.ErrHandInProgress, msg.Env.Seq)
 		return
@@ -248,7 +248,7 @@ func (e *Engine) handleLeaveTable(msg ws.InboundMessage) {
 	e.gs.UnseatPlayer(msg.SenderID)
 	e.cashOut(msg.SenderID, stack)
 	e.room.Touch()
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 		PlayerID:  msg.SenderID,
 		SeatIndex: seatIdx,
 	}))
@@ -287,7 +287,7 @@ func (e *Engine) cleanupDisconnected() {
 		stack := p.Stack
 		e.gs.UnseatPlayer(uid)
 		e.cashOut(uid, stack)
-		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  uid,
 			SeatIndex: seatIdx,
 		}))
@@ -311,7 +311,7 @@ func (e *Engine) kickBrokePlayers() {
 		}
 		e.gs.UnseatPlayer(uid)
 		slog.Info("game: player broke, unseated", "room", e.room.Code, "player", uid)
-		e.rc.Broadcast(ws.MustNewEnvelope(ws.TypePlayerLeft, ws.PlayerLeftPayload{
+		e.rc.Broadcast(protocol.MustEvent(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  uid,
 			SeatIndex: seatIdx,
 		}))

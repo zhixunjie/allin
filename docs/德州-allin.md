@@ -23,6 +23,10 @@
   - 前期先做 PC Web，后面在扩展到 移动端H5 / Android / IOS
   - 组局形式：熟人组局
   
+- 项目说明：[PROJECT.md](PROJECT.md)
+  
+- 开发进度：[PROGRESS.md](PROGRESS.md)
+  
 - 视觉设计风格：[DESIGN.md](DESIGN.md) https://stitch.withgoogle.com/projects/4278287175556993233?pli=1
   
   ~~~

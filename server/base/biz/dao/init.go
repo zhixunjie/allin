@@ -10,16 +10,16 @@ import (
 	"github.com/spf13/viper"
 )
 
-// DBM is the global MySQL connection (master).
+// DBM 是全局 MySQL 主库连接，由 Init() 初始化后供各 dao 使用。
 var DBM *sqlx.DB
 
 var (
-	UserDao        = &userDao{}
-	RoomDao        = &roomDao{}
-	HandHistoryDao = &handHistoryDao{}
+	UserDao        = &userDao{}        // 用户表 DAO
+	RoomDao        = &roomDao{}        // 房间历史 DAO
+	HandHistoryDao = &handHistoryDao{} // 手牌历史 DAO
 )
 
-// Init connects to MySQL using config from Viper.
+// Init 使用 Viper 配置连接 MySQL。
 // 表结构由 docs/sql/allin.sql 维护，启动前手动执行一次即可。
 func Init() {
 	dsn := viper.GetString("mysql.dsn")

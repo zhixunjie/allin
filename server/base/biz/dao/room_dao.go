@@ -2,28 +2,36 @@ package dao
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
+
+	"github.com/allin/server/base/biz/model"
 )
 
 type roomDao struct{}
 
-// Persist writes a new room to room_history and returns the auto-increment ID.
+// Persist 将新房间写入 room_history 表，返回自增 ID。
 func (d *roomDao) Persist(code string, hostUserID int64, cfgJSON []byte, createdAt time.Time) (int64, error) {
 	result, err := DBM.Exec(
-		`INSERT INTO room_history (room_code, host_user_id, config_json, started_at)
+		`INSERT INTO `+model.TableNameRoomHistory+` (room_code, host_user_id, config_json, started_at)
 		 VALUES (?, ?, ?, ?)`,
 		code, hostUserID, cfgJSON, createdAt,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("roomDao.Persist: %w", err)
 	}
-	id, _ := result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("roomDao.Persist: last insert id: %w", err)
+	}
 	return id, nil
 }
 
-// MarkEnded sets ended_at for the given room code.
+// MarkEnded 将指定房间码的 ended_at 设为当前时间。
 func (d *roomDao) MarkEnded(code string) {
-	DBM.Exec( //nolint:errcheck
-		`UPDATE room_history SET ended_at = NOW() WHERE room_code = ? AND ended_at IS NULL`, code,
-	)
+	if _, err := DBM.Exec(
+		`UPDATE `+model.TableNameRoomHistory+` SET ended_at = NOW() WHERE room_code = ? AND ended_at IS NULL`, code,
+	); err != nil {
+		slog.Error("roomDao.MarkEnded: failed", "code", code, "err", err)
+	}
 }

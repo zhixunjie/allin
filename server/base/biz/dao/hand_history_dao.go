@@ -11,7 +11,7 @@ type handHistoryDao struct{}
 // Save 插入一条手牌历史记录。
 func (d *handHistoryDao) Save(r model.HandHistoryRecord) error {
 	_, err := DBM.Exec(
-		`INSERT INTO hand_history (room_id, hand_num, players_json, actions_json, result_json, played_at)
+		`INSERT INTO `+model.TableNameHandHistory+` (room_id, hand_num, players_json, actions_json, result_json, played_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
 		r.RoomID, r.HandNum, r.PlayersJSON, r.ActionsJSON, r.ResultJSON, r.PlayedAt,
 	)
@@ -26,8 +26,8 @@ func (d *handHistoryDao) GetByRoomCode(code string, limit int) ([]model.HandHist
 	var rows []model.HandHistoryEntry
 	err := DBM.Select(&rows,
 		`SELECT hh.hand_num, hh.result_json, hh.actions_json, hh.played_at
-		 FROM hand_history hh
-		 JOIN room_history rh ON hh.room_id = rh.id
+		 FROM `+model.TableNameHandHistory+` hh
+		 JOIN `+model.TableNameRoomHistory+` rh ON hh.room_id = rh.id
 		 WHERE rh.room_code = ?
 		 ORDER BY hh.hand_num DESC
 		 LIMIT ?`,

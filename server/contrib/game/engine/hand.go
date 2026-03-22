@@ -43,7 +43,7 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	}
 
 	e.gs.ApplyAction(p.UserID, action, 0)
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeActionTimeout, ws.ActionTimeoutPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionTimeout, protocol.ActionTimeoutPayload{
 		PlayerID: p.UserID,
 		Action:   string(action),
 		Stack:    p.Stack,
@@ -63,11 +63,11 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 // handleAction 处理玩家行动（fold/check/call/bet/raise/all_in）。
 // 先校验合法性，通过后应用行动、记录日志、广播结果，再推进牌局。
 func (e *Engine) handleAction(
-	msg ws.InboundMessage,
+	msg protocol.InboundMessage,
 	resetTimer func(time.Duration),
 	stopTimer func(),
 ) {
-	var cmd ws.ActionCmd
+	var cmd protocol.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		e.sendError(msg.SenderID, ws.ErrBadPayload, msg.Env.Seq)
 		return
@@ -93,7 +93,7 @@ func (e *Engine) handleAction(
 		Street:   e.gs.Street.String(),
 	})
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeActionTaken, ws.ActionTakenPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionTaken, protocol.ActionTakenPayload{
 		PlayerID: msg.SenderID,
 		Action:   cmd.Action,
 		Amount:   displayAmount,
@@ -108,20 +108,20 @@ func (e *Engine) handleAction(
 // ---- 聊天 ----
 
 // handleChat 处理聊天消息，并执行频率限制（每人每秒最多 1 条）。
-func (e *Engine) handleChat(msg ws.InboundMessage) {
+func (e *Engine) handleChat(msg protocol.InboundMessage) {
 	if last, ok := e.chatLimiter[msg.SenderID]; ok && time.Since(last) < chatRateLimit {
 		return
 	}
 	e.chatLimiter[msg.SenderID] = time.Now()
 
-	var cmd ws.ChatCmd
+	var cmd protocol.ChatCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		return
 	}
 	if len(cmd.Text) == 0 || len(cmd.Text) > 200 {
 		return
 	}
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeChatMessage, ws.ChatPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeChatMessage, protocol.ChatPayload{
 		SenderID:    msg.SenderID,
 		DisplayName: msg.DisplayName,
 		Text:        cmd.Text,
@@ -174,7 +174,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.deck = state.NewShuffledDeck()
 	e.dealHoleCards()
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeGameStarted, ws.GameStartedPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeGameStarted, protocol.GameStartedPayload{
 		HandNum:    e.gs.HandNum,
 		DealerSeat: e.gs.DealerSeat,
 		SBSeat:     e.gs.SBSeat,
@@ -187,7 +187,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		if p == nil || p.SitOut {
 			continue
 		}
-		e.rc.SendTo(p.UserID, ws.MustNewEnvelope(ws.TypeHoleCards, ws.HoleCardsPayload{
+		e.rc.SendTo(p.UserID, protocol.MustEvent(protocol.TypeHoleCards, protocol.HoleCardsPayload{
 			PlayerID: p.UserID,
 			Hole:     []string{p.Hole[0].String(), p.Hole[1].String()},
 		}))
@@ -199,7 +199,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 			dealtSeats = append(dealtSeats, p.SeatIndex)
 		}
 	}
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeCardsDealt, ws.CardsDealtPayload{Seats: dealtSeats}))
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeCardsDealt, protocol.CardsDealtPayload{Seats: dealtSeats}))
 
 	var firstActor int
 	if len(eligible) == 2 {
@@ -299,7 +299,7 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 		return
 	}
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeStreetStarted, ws.StreetStartedPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeStreetStarted, protocol.StreetStartedPayload{
 		Street:    e.gs.Street.String(),
 		Community: state.CardsToStrings(e.gs.Community),
 		Pot:       e.gs.TotalPot(),
@@ -325,7 +325,7 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 	}
 	deadline := time.Now().Add(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeActionRequired, ws.ActionRequiredPayload{
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionRequired, protocol.ActionRequiredPayload{
 		PlayerID:   p.UserID,
 		SeatIndex:  p.SeatIndex,
 		DeadlineTs: deadline.UnixMilli(),
@@ -375,7 +375,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	}
 
 	rawReveals, _ := json.Marshal(reveals)
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeShowdown, json.RawMessage(rawReveals)))
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeShowdown, json.RawMessage(rawReveals)))
 
 	pots := state.BuildPots(e.gs.Seats)
 	type winEntry struct {
@@ -477,7 +477,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		AllPlayers       []playerDetail `json:"all_players"`
 		NextHandDelaySec int            `json:"next_hand_delay_sec"`
 	}{winners, resultSeats, bestHand, allPlayers, int(handStartDelay.Seconds())})
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeHandResult, json.RawMessage(rawResult)))
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
@@ -545,7 +545,7 @@ func (e *Engine) awardUncontested(winner *state.Player, resetTimer func(time.Dur
 		AllPlayers:       uPlayers,
 		NextHandDelaySec: int(handStartDelay.Seconds()),
 	})
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeHandResult, json.RawMessage(rawResult)))
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)
 
@@ -588,7 +588,7 @@ func (e *Engine) scheduleNextHand(resetTimer func(time.Duration)) {
 }
 
 // handleReady 处理玩家发送的 ready 命令（在结算画面点击"开始下一局"）。
-func (e *Engine) handleReady(msg ws.InboundMessage, resetTimer func(time.Duration)) {
+func (e *Engine) handleReady(msg protocol.InboundMessage, resetTimer func(time.Duration)) {
 	if e.gs.Street != state.StreetIdle {
 		return
 	}
@@ -611,7 +611,7 @@ func (e *Engine) broadcastReadyStatus() {
 			readyCount++
 		}
 	}
-	e.rc.Broadcast(ws.MustNewEnvelope(ws.TypeReadyStatus, struct {
+	e.rc.Broadcast(protocol.MustEvent(protocol.TypeReadyStatus, struct {
 		ReadyCount int `json:"ready_count"`
 		TotalCount int `json:"total_count"`
 	}{readyCount, len(eligible)}))

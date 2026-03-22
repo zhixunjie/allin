@@ -42,13 +42,13 @@ func (b *Bot) ScheduleAction(gs *state.GameStateMachine, p *state.Player) {
 		time.Sleep(delay)
 
 		action, amount := personality.decide(sit)
-		payload, _ := json.Marshal(ws.ActionCmd{Action: string(action), Amount: amount})
+		payload, _ := json.Marshal(protocol.ActionCmd{Action: string(action), Amount: amount})
 
 		select {
-		case b.rc.Inbound <- ws.InboundMessage{
+		case b.rc.Inbound <- protocol.InboundMessage{
 			SenderID: botID,
-			Env: ws.CmdEnvelope{
-				Type:    ws.CmdAction,
+			Env: protocol.CmdEnvelope{
+				Type:    protocol.CmdAction,
 				Payload: payload,
 			},
 		}:

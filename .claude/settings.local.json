@@ -34,7 +34,8 @@
       "Bash(grep -r \"BTN\\\\|SB\\\\|BB\\\\|UTG\\\\|positionLabel\\\\|position_label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx --include=*.js --include=*.jsx)",
       "Bash(grep -r \"badge\\\\|Badge\\\\|seat.*label\" /Users/dev/Desktop/Project/Go/allin/ui-web/src --include=*.ts --include=*.tsx)",
       "Bash(wc -l /Users/dev/Desktop/Project/Go/allin/server/contrib/game/*.go)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(grep:*)"
     ]
   }
 }

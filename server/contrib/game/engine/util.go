@@ -75,7 +75,7 @@ func (e *Engine) nextEligibleSeatAfter(from int, eligible []*state.Player) int {
 // sendSnapshot 向指定玩家发送 connected 事件，包含当前完整游戏快照和账户余额。
 func (e *Engine) sendSnapshot(userID string) {
 	snap := e.gs.Snapshot(userID)
-	payload := ws.ConnectedPayload{
+	payload := protocol.ConnectedPayload{
 		PlayerID:     userID,
 		DisplayName:  e.rc.DisplayName(userID),
 		RoomCode:     e.room.Code,
@@ -86,7 +86,7 @@ func (e *Engine) sendSnapshot(userID string) {
 			payload.ChipBalance = u.ChipBalance
 		}
 	}
-	e.rc.SendTo(userID, ws.MustNewEnvelope(ws.TypeConnected, payload))
+	e.rc.SendTo(userID, protocol.MustEvent(protocol.TypeConnected, payload))
 }
 
 // sendError 向指定玩家发送错误事件。
@@ -96,7 +96,7 @@ func (e *Engine) sendError(userID string, code ws.ErrCode, refSeq int64, msgOver
 	if len(msgOverride) > 0 && msgOverride[0] != "" {
 		msg = msgOverride[0]
 	}
-	e.rc.SendTo(userID, ws.MustNewEnvelope(ws.TypeError, ws.ErrorPayload{
+	e.rc.SendTo(userID, protocol.MustEvent(protocol.TypeError, ws.ErrorPayload{
 		Code: code, Message: msg, RefSeq: refSeq,
 	}))
 }
