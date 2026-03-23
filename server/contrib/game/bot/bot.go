@@ -32,14 +32,14 @@ func (b *Bot) ScheduleAction(gs *state.GameStateMachine, p *model.Player) {
 		personality = personalities[model.BotStyleTag]
 	}
 
-	sit := state.NewBotSituation(gs, p)
+	situation := state.NewBotSituation(gs, p)
 
 	go func() {
 		// 模拟思考时间：1–3 秒随机延迟
 		delay := time.Duration(1000+rand.Intn(2000)) * time.Millisecond
 		time.Sleep(delay)
 
-		action, amount := personality.decide(sit)
+		action, amount := personality.decide(situation)
 		payload, _ := json.Marshal(protocol.ActionCmd{Action: string(action), Amount: amount})
 
 		select {
