@@ -22,21 +22,21 @@ const (
 // 所有对 GameStateMachine 的修改都严格发生在单一的 Run() goroutine 中，
 // 无需任何锁即可保证并发安全。
 type Engine struct {
-	rc              *ws.RoomConn               // 该房间的 WebSocket 消息总线
-	room            *room.Room                 // 房间元数据与配置
-	gs              *state.GameStateMachine    // 游戏状态（街道、座位、下注等）
-	deck            []model.Card               // 当前手牌使用的洗牌牌组（每手重置）
-	bot             *bot.Bot                   // AI 行动调度器，持有 RoomConn 引用
-	quit            chan struct{}               // 关闭此 channel 通知 Run() 退出
-	chatLimiter     map[string]time.Time       // 各玩家最近一次聊天时间，用于频率限制
-	registry        *Registry                  // 全局引擎注册表，为 nil 时不注册
-	onEmpty         func()                     // 所有人类玩家离开后触发的回调（用于回收房间）
-	emptyTimer      *time.Timer                // 宽限期计时器，到期后执行 onEmpty
-	botsSeated      bool                       // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
-	handActions     []actionLogEntry           // 当前手牌的行动序列，手牌结束后写入历史表
-	botReplaceTimer *time.Timer                // bot 破产后等待补充的计时器
-	botReplaceC     <-chan time.Time            // botReplaceTimer 对应的 channel，nil 时不触发
-	readyPlayers    map[string]bool            // 在结算画面点击"开始下一局"的玩家集合
+	rc              *ws.RoomConn            // 该房间的 WebSocket 消息总线
+	room            *room.Room              // 房间元数据与配置
+	gs              *state.GameStateMachine // 游戏状态（街道、座位、下注等）
+	deck            []model.Card            // 当前手牌使用的洗牌牌组（每手重置）
+	bot             *bot.Bot                // AI 行动调度器，持有 RoomConn 引用
+	quit            chan struct{}           // 关闭此 channel 通知 Run() 退出
+	chatLimiter     map[string]time.Time    // 各玩家最近一次聊天时间，用于频率限制
+	registry        *Registry               // 全局引擎注册表，为 nil 时不注册
+	onEmpty         func()                  // 所有人类玩家离开后触发的回调（用于回收房间）
+	emptyTimer      *time.Timer             // 宽限期计时器，到期后执行 onEmpty
+	botsSeated      bool                    // 标记 bot 是否已入座（首位人类玩家加入时触发一次）
+	handActions     []actionLogEntry        // 当前手牌的行动序列，手牌结束后写入历史表
+	botReplaceTimer *time.Timer             // bot 破产后等待补充的计时器
+	botReplaceC     <-chan time.Time        // botReplaceTimer 对应的 channel，nil 时不触发
+	readyPlayers    map[string]bool         // 在结算画面点击"开始下一局"的玩家集合
 }
 
 // actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
