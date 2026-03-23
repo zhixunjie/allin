@@ -4,7 +4,6 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/allin/server/contrib/game/bot"
 	"github.com/allin/server/contrib/game/model"
 )
 
