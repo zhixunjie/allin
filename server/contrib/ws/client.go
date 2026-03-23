@@ -21,7 +21,7 @@ const (
 type Client struct {
 	rc          *RoomConn       // 所属房间的消息总线
 	conn        *websocket.Conn // 底层 WebSocket 连接
-	send        chan []byte      // 出站消息队列，由 WritePump 消费
+	send        chan []byte     // 出站消息队列，由 WritePump 消费
 	UserID      string          // 玩家用户 ID
 	DisplayName string          // 玩家显示名称
 }
@@ -77,15 +77,19 @@ func (c *Client) ReadPump() {
 		}
 
 		var env protocol.CmdEnvelope
-		if err := jsonUnmarshal(data, &env); err != nil {
+		if err := json.Unmarshal(data, &env); err != nil {
 			slog.Warn("ws: invalid envelope", "user", c.UserID, "err", err)
 			continue
 		}
 
-		c.rc.Inbound <- protocol.InboundMessage{
+		select {
+		case c.rc.Inbound <- protocol.InboundMessage{
 			SenderID:    c.UserID,
 			DisplayName: c.DisplayName,
 			Env:         env,
+		}:
+		default:
+			slog.Warn("ws: inbound channel full, dropping message", "user", c.UserID, "type", env.Type)
 		}
 	}
 }
@@ -119,9 +123,4 @@ func (c *Client) WritePump() {
 			}
 		}
 	}
-}
-
-// jsonUnmarshal 包装 json.Unmarshal 以提高可读性。
-func jsonUnmarshal(data []byte, v any) error {
-	return json.Unmarshal(data, v)
 }

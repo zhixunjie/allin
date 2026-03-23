@@ -69,12 +69,12 @@ func (e *Engine) handleAction(
 ) {
 	var cmd protocol.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, protocol.ErrBadPayload, msg.Env.Seq)
+		e.sendError(msg.SenderID, protocol.SkErrBadPayload, msg.Env.Seq)
 		return
 	}
 
 	if err := e.gs.ValidateAction(msg.SenderID, cmd.Action, cmd.Amount); err != nil {
-		e.sendError(msg.SenderID, protocol.ErrInvalidAction, msg.Env.Seq, err.Error())
+		e.sendError(msg.SenderID, protocol.SkErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 

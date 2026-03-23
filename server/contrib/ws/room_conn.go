@@ -98,6 +98,7 @@ func (rc *RoomConn) SendTo(userID string, env protocol.Envelope) {
 	}
 	select {
 	case client.send <- data:
+		slog.Info("ws: send success", "data", data)
 	default:
 		slog.Warn("ws: client send buffer full", "user", userID)
 	}

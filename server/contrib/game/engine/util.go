@@ -97,8 +97,8 @@ func (e *Engine) sendSnapshot(userID string) {
 }
 
 // sendError 向指定玩家发送错误事件。
-// msgOverride 可选，不传则使用 WsErrCode 的默认描述。
-func (e *Engine) sendError(userID string, code protocol.ErrCode, refSeq int64, msgOverride ...string) {
+// msgOverride 可选，不传则使用 SkErrCode 的默认描述。
+func (e *Engine) sendError(userID string, code protocol.SkErrCode, refSeq int64, msgOverride ...string) {
 	msg := code.Message()
 	if len(msgOverride) > 0 && msgOverride[0] != "" {
 		msg = msgOverride[0]
