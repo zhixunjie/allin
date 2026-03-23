@@ -41,10 +41,10 @@ type Engine struct {
 
 // actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
 type actionLogEntry struct {
-	PlayerID string `json:"player_id"` // 执行行动的玩家 ID
-	Action   string `json:"action"`    // 行动类型（fold/check/call/bet/raise/all_in）
-	Amount   int64  `json:"amount"`    // 行动金额（check/fold 为 0）
-	Street   string `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
+	PlayerID string       `json:"player_id"` // 执行行动的玩家 ID
+	Action   model.Action `json:"action"`    // 行动类型，见 model.Action 枚举
+	Amount   int64        `json:"amount"`    // 行动金额（check/fold 为 0）
+	Street   string       `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
 }
 
 // NewEngine 为给定的 RoomConn 和房间创建引擎。

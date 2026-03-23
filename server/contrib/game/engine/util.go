@@ -32,8 +32,16 @@ func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
 			})
 		}
 	}
-	playersJSON, _ := json.Marshal(players)
-	actionsJSON, _ := json.Marshal(e.handActions)
+	playersJSON, err := json.Marshal(players)
+	if err != nil {
+		slog.Error("game: failed to marshal players for hand history", "room", e.room.Code, "err", err)
+		return
+	}
+	actionsJSON, err := json.Marshal(e.handActions)
+	if err != nil {
+		slog.Error("game: failed to marshal actions for hand history", "room", e.room.Code, "err", err)
+		return
+	}
 	roomID := e.room.ID
 	handNum := e.gs.HandNum
 

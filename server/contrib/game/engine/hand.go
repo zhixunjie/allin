@@ -46,13 +46,13 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	e.gs.ApplyAction(p.UserID, action, 0)
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionTimeout, protocol.ActionTimeoutPayload{
 		PlayerID: p.UserID,
-		Action:   string(action),
+		Action:   action,
 		Stack:    p.Stack,
 		TotalPot: e.gs.TotalPot(),
 	}))
 	e.handActions = append(e.handActions, actionLogEntry{
 		PlayerID: p.UserID,
-		Action:   string(action),
+		Action:   action,
 		Amount:   0,
 		Street:   e.gs.Street.String(),
 	})
@@ -74,12 +74,12 @@ func (e *Engine) handleAction(
 		return
 	}
 
-	if err := e.gs.ValidateAction(msg.SenderID, model.Action(cmd.Action), cmd.Amount); err != nil {
+	if err := e.gs.ValidateAction(msg.SenderID, cmd.Action, cmd.Amount); err != nil {
 		e.sendError(msg.SenderID, ws.ErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 
-	e.gs.ApplyAction(msg.SenderID, model.Action(cmd.Action), cmd.Amount)
+	e.gs.ApplyAction(msg.SenderID, cmd.Action, cmd.Amount)
 
 	p := e.gs.FindPlayer(msg.SenderID)
 	var displayAmount int64
@@ -375,7 +375,11 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		}
 	}
 
-	rawReveals, _ := json.Marshal(reveals)
+	rawReveals, err := json.Marshal(reveals)
+	if err != nil {
+		slog.Error("game: failed to marshal showdown reveals", "room", e.room.Code, "err", err)
+		return
+	}
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeShowdown, json.RawMessage(rawReveals)))
 
 	pots := state.BuildPots(e.gs.Seats)
@@ -471,13 +475,17 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		})
 	}
 
-	rawResult, _ := json.Marshal(struct {
+	rawResult, err := json.Marshal(struct {
 		Winners          []winEntry     `json:"winners"`
 		Seats            []resultSeat   `json:"seats"`
 		BestHand         []string       `json:"best_hand,omitempty"`
 		AllPlayers       []playerDetail `json:"all_players"`
 		NextHandDelaySec int            `json:"next_hand_delay_sec"`
 	}{winners, resultSeats, bestHand, allPlayers, int(handStartDelay.Seconds())})
+	if err != nil {
+		slog.Error("game: failed to marshal hand result", "room", e.room.Code, "err", err)
+		return
+	}
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
@@ -537,7 +545,7 @@ func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Dur
 			IsWinner:    p.UserID == winner.UserID,
 		})
 	}
-	rawResult, _ := json.Marshal(struct {
+	rawResult, err := json.Marshal(struct {
 		Winners          []uWinner `json:"winners"`
 		AllPlayers       []uPlayer `json:"all_players"`
 		NextHandDelaySec int       `json:"next_hand_delay_sec"`
@@ -546,6 +554,10 @@ func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Dur
 		AllPlayers:       uPlayers,
 		NextHandDelaySec: int(handStartDelay.Seconds()),
 	})
+	if err != nil {
+		slog.Error("game: failed to marshal uncontested result", "room", e.room.Code, "err", err)
+		return
+	}
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)

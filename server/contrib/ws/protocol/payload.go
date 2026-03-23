@@ -3,11 +3,13 @@ package protocol
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/allin/server/contrib/game/model"
 )
 
 // Envelope 是所有服务端 → 客户端消息的通用包装。
 type Envelope struct {
-	Type    MsgType         `json:"type"`    // 事件类型，见 MsgType 枚举
+	Type    MsgType         `json:"type"`    // 事件类型
 	Seq     int64           `json:"seq"`     // 服务端递增序列号，客户端可用于检测消息丢失
 	Ts      int64           `json:"ts"`      // 服务端发送时间戳（Unix 毫秒）
 	Payload json.RawMessage `json:"payload"` // 具体事件载荷，按 Type 解析为对应 Payload 结构体
@@ -112,19 +114,19 @@ type ActionRequiredPayload struct {
 
 // ActionTakenPayload 在玩家行动后广播。
 type ActionTakenPayload struct {
-	PlayerID string `json:"player_id"` // 执行行动的玩家 ID
-	Action   string `json:"action"`    // 行动类型：fold/check/call/bet/raise/all_in
-	Amount   int64  `json:"amount"`    // 行动金额（check/fold 为 0）
-	Stack    int64  `json:"stack"`     // 行动后玩家剩余筹码
-	TotalPot int64  `json:"total_pot"` // 行动后底池总额
+	PlayerID string       `json:"player_id"` // 执行行动的玩家 ID
+	Action   model.Action `json:"action"`    // 行动类型
+	Amount   int64        `json:"amount"`    // 行动金额（check/fold 为 0）
+	Stack    int64        `json:"stack"`     // 行动后玩家剩余筹码
+	TotalPot int64        `json:"total_pot"` // 行动后底池总额
 }
 
 // ActionTimeoutPayload 在玩家计时器耗尽时广播。
 type ActionTimeoutPayload struct {
-	PlayerID string `json:"player_id"` // 超时玩家的 ID
-	Action   string `json:"action"`    // 自动执行的行动："fold" 或 "check"
-	Stack    int64  `json:"stack"`     // 超时处理后玩家剩余筹码
-	TotalPot int64  `json:"total_pot"` // 处理后底池总额
+	PlayerID string       `json:"player_id"` // 超时玩家的 ID
+	Action   model.Action `json:"action"`    // 自动执行的行动
+	Stack    int64        `json:"stack"`     // 超时处理后玩家剩余筹码
+	TotalPot int64        `json:"total_pot"` // 处理后底池总额
 }
 
 // PlayerJoinedPayload 在玩家加入或重连时广播。

@@ -1,6 +1,10 @@
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/allin/server/contrib/game/model"
+)
 
 // InboundMessage 将客户端命令与发送者元数据包装在一起，投递到 RoomConn.Inbound channel。
 type InboundMessage struct {
@@ -41,8 +45,8 @@ type JoinRoomCmd struct {
 
 // ActionCmd 是 CmdAction 的载荷。
 type ActionCmd struct {
-	Action string `json:"action"` // 行动类型：fold/check/call/bet/raise/all_in
-	Amount int64  `json:"amount"` // 行动金额（bet/raise 时有效，其余为 0）
+	Action model.Action `json:"action"` // 行动类型，见 model.Action 枚举
+	Amount int64        `json:"amount"` // 行动金额（bet/raise 时有效，其余为 0）
 }
 
 // ChatCmd 是 CmdChat 的载荷。

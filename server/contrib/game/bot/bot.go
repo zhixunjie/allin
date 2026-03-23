@@ -2,6 +2,7 @@ package bot
 
 import (
 	"encoding/json"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -40,7 +41,11 @@ func (b *Bot) ScheduleAction(gs *state.GameStateMachine, p *model.Player) {
 		time.Sleep(delay)
 
 		action, amount := personality.decide(situation)
-		payload, _ := json.Marshal(protocol.ActionCmd{Action: string(action), Amount: amount})
+		payload, err := json.Marshal(protocol.ActionCmd{Action: action, Amount: amount})
+		if err != nil {
+			slog.Error("bot: failed to marshal action", "bot", botID, "err", err)
+			return
+		}
 
 		select {
 		case b.rc.Inbound <- protocol.InboundMessage{

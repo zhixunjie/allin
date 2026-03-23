@@ -48,7 +48,9 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(tim
 
 	// 解析带入金额（0 表示默认使用 MaxBuyIn）。
 	var cmd protocol.JoinRoomCmd
-	_ = json.Unmarshal(msg.Env.Payload, &cmd)
+	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
+		slog.Warn("game: failed to parse join_room payload, using defaults", "user", msg.SenderID, "err", err)
+	}
 	buyIn := cmd.BuyIn
 	if buyIn == 0 {
 		buyIn = e.room.Config.MaxBuyIn
