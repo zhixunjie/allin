@@ -3,7 +3,7 @@ package protocol
 import (
 	"encoding/json"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 // InboundMessage 将客户端命令与发送者元数据包装在一起，投递到 RoomConn.Inbound channel。

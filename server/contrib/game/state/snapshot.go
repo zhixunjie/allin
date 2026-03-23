@@ -1,8 +1,8 @@
 package state
 
 import (
-	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/room"
+	"github.com/allin/server/gmodel"
 )
 
 // GameSnapshot 是发送给客户端的完整状态，在重连或首次入座时下发。

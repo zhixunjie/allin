@@ -3,7 +3,7 @@ package state
 import (
 	"fmt"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 // ValidateAction 检查给定的行动对该玩家是否合法。

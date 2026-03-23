@@ -4,7 +4,7 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 // RoomConfig 是房主创建房间时设定的配置。

@@ -3,7 +3,7 @@ package state
 import (
 	"sort"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 // Pot 表示主池或边池。

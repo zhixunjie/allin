@@ -3,8 +3,8 @@ package bot
 import (
 	"math/rand"
 
-	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
+	"github.com/allin/server/gmodel"
 )
 
 // personalities 四种风格的参数：

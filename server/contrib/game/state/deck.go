@@ -3,7 +3,7 @@ package state
 import (
 	"math/rand/v2"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 var ranks = []byte{'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/allin/server/contrib/game/bot"
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/room"
 	"github.com/allin/server/contrib/ws"

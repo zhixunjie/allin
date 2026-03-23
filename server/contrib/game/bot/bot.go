@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"

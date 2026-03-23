@@ -6,9 +6,9 @@ import (
 	"time"
 
 	botpkg "github.com/allin/server/contrib/game/bot"
-	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/ws/protocol"
+	"github.com/allin/server/gmodel"
 )
 
 // ---- 超时 ----

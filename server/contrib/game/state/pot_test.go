@@ -3,7 +3,7 @@ package state
 import (
 	"testing"
 
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 func mkPlayer(id string, totalBet int64, folded bool) *model.Player {

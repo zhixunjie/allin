@@ -1,6 +1,6 @@
 package state
 
-import "github.com/allin/server/contrib/game/model"
+import "github.com/allin/server/gmodel"
 
 // BotSituation 描述 bot 做决策时的完整局面快照。
 // 在触发 bot 行动前从 GameStateMachine 中提取，传入 Personality.decide。

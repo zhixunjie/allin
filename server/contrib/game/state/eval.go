@@ -5,7 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/allin/server/contrib/eval"
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 )
 
 // CardsToStrings 将 Card 切片转换为字符串切片，空切片返回 []string{} 而非 nil。

@@ -8,7 +8,7 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	bizmodel "github.com/allin/server/base/biz/model"
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/ws/protocol"
 )
 

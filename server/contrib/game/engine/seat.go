@@ -9,7 +9,7 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	botpkg "github.com/allin/server/contrib/game/bot"
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/ws/protocol"
 )
 
@@ -17,7 +17,7 @@ import (
 
 // handleJoinRoom 处理玩家加入房间请求。
 // 若玩家已在座位（断线重连）则直接恢复状态；否则走完整买入入座流程。
-func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(time.Duration)) {
+func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	// 断线重连：若玩家仍在座位（Disconnected=true），直接恢复。
 	if existing := e.gs.FindPlayer(msg.SenderID); existing != nil {
 		if existing.Disconnected {
@@ -110,7 +110,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage, resetTimer func(tim
 
 	// 如果有 ≥2 个合格玩家且没有正在进行的手牌，则自动开始。
 	if e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
-		resetTimer(handStartDelay)
+		e.resetTimer(handStartDelay)
 	}
 }
 
@@ -146,7 +146,7 @@ func (e *Engine) seatBots() {
 // handleDisconnect 处理玩家 WebSocket 断开事件。
 // Idle 状态下立即离座并返还筹码；手牌进行中则保留座位标记断线，
 // 仅在轮到该玩家行动时立即自动弃牌，其余情况等超时逻辑处理，保留重连机会。
-func (e *Engine) handleDisconnect(msg protocol.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+func (e *Engine) handleDisconnect(msg protocol.InboundMessage) {
 	// Bot ID 从没有真实的 WS 连接；忽略虚假的断开连接消息。
 	if botpkg.IsBotID(msg.SenderID) {
 		return
@@ -177,8 +177,8 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage, resetTimer func(t
 	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
 		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
-		stopTimer()
-		e.advanceOrEnd(resetTimer, stopTimer)
+		e.stopTimer()
+		e.advanceOrEnd()
 	}
 }
 
@@ -201,7 +201,7 @@ func (e *Engine) cashOut(userID string, stack int64) {
 
 // handleSitOut 处理玩家离座/归座请求。
 // 离座时若正轮到该玩家行动，自动弃牌；归座时若满足开局条件，启动倒计时。
-func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.Duration), stopTimer func()) {
+func (e *Engine) handleSitOut(msg protocol.InboundMessage) {
 	var cmd protocol.SitOutCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		return
@@ -221,13 +221,13 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.
 	// 离座：若在活跃手牌中且轮到该玩家，自动弃牌。
 	if cmd.SitOut && e.gs.Street != model.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
 		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
-		stopTimer()
-		e.advanceOrEnd(resetTimer, stopTimer)
+		e.stopTimer()
+		e.advanceOrEnd()
 		return
 	}
 	// 归座：若处于空闲且满足开局条件，启动计时器。
 	if !cmd.SitOut && e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
-		resetTimer(handStartDelay)
+		e.resetTimer(handStartDelay)
 	}
 }
 

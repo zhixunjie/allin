@@ -1,7 +1,7 @@
 package state
 
 import (
-	"github.com/allin/server/contrib/game/model"
+	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/room"
 )
 
