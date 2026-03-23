@@ -17,17 +17,17 @@ import (
 //  1. Idle 状态：手牌间隔计时结束，若仍满足条件则开始新手牌。
 //  2. ActionSeat == -1：全员全押，无人可行动，自动推进到下一街道。
 //  3. 正常行动超时：对当前行动玩家执行自动弃牌（有下注则 fold，否则 check）。
-func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
+func (e *Engine) handleTimeout() {
 	if e.gs.Street == model.StreetIdle {
 		if len(e.gs.EligibleToStart()) >= 2 {
-			e.startHand(resetTimer)
+			e.startHand()
 		}
 		return
 	}
 
 	// 全员全押自动推进：ActionSeat==-1 表示本街无人可行动，继续发牌。
 	if e.gs.ActionSeat == -1 {
-		e.nextStreet(resetTimer)
+		e.nextStreet()
 		return
 	}
 
@@ -55,18 +55,14 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 		Amount:   0,
 		Street:   e.gs.Street.String(),
 	})
-	e.advanceOrEnd(resetTimer, func() {})
+	e.advanceOrEnd()
 }
 
 // ---- 行动 ----
 
 // handleAction 处理玩家行动（fold/check/call/bet/raise/all_in）。
 // 先校验合法性，通过后应用行动、记录日志、广播结果，再推进牌局。
-func (e *Engine) handleAction(
-	msg protocol.InboundMessage,
-	resetTimer func(time.Duration),
-	stopTimer func(),
-) {
+func (e *Engine) handleAction(msg protocol.InboundMessage) {
 	var cmd protocol.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
 		e.sendError(msg.SenderID, protocol.SkErrBadPayload, msg.Env.Seq)
@@ -101,8 +97,8 @@ func (e *Engine) handleAction(
 		TotalPot: e.gs.TotalPot(),
 	}))
 
-	stopTimer()
-	e.advanceOrEnd(resetTimer, stopTimer)
+	e.stopTimer()
+	e.advanceOrEnd()
 }
 
 // ---- 聊天 ----
@@ -133,7 +129,7 @@ func (e *Engine) handleChat(msg protocol.InboundMessage) {
 
 // startHand 开始新一手牌：递增手牌编号、移动庄家按钮、分配盲注、洗牌发牌，
 // 并广播 game_started / hole_cards / cards_dealt 事件，最后提示第一个行动玩家。
-func (e *Engine) startHand(resetTimer func(time.Duration)) {
+func (e *Engine) startHand() {
 	e.handActions = e.handActions[:0]
 	e.readyPlayers = nil
 	e.gs.HandNum++
@@ -209,7 +205,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	}
 	e.gs.ActionSeat = firstActor
 
-	e.broadcastActionRequired(resetTimer)
+	e.broadcastActionRequired()
 }
 
 // postBlind 强制玩家下盲注：若筹码不足则全押，更新 Bet / TotalBet / Stack。
@@ -251,30 +247,30 @@ func (e *Engine) dealCommunity(n int) {
 }
 
 // advanceOrEnd 在玩家行动或超时弃牌后决定下一步。
-func (e *Engine) advanceOrEnd(resetTimer func(time.Duration), stopTimer func()) {
+func (e *Engine) advanceOrEnd() {
 	active := e.gs.ActivePlayers()
 
 	if len(active) == 1 {
-		e.awardUncontested(active[0], resetTimer)
+		e.awardUncontested(active[0])
 		return
 	}
 
 	if e.gs.BettingRoundOver() {
-		e.nextStreet(resetTimer)
+		e.nextStreet()
 		return
 	}
 
 	next := e.gs.NextActableSeat(e.gs.ActionSeat)
 	if next == -1 {
-		e.nextStreet(resetTimer)
+		e.nextStreet()
 		return
 	}
 	e.gs.ActionSeat = next
-	e.broadcastActionRequired(resetTimer)
+	e.broadcastActionRequired()
 }
 
 // nextStreet 将游戏推进到下一个下注街道。
-func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
+func (e *Engine) nextStreet() {
 	for _, p := range e.gs.Seats {
 		if p != nil {
 			p.Bet = 0
@@ -295,7 +291,7 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 		e.gs.Street = model.StreetRiver
 		e.dealCommunity(1)
 	case model.StreetRiver:
-		e.runShowdown(resetTimer)
+		e.runShowdown()
 		return
 	}
 
@@ -307,18 +303,18 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 
 	if len(e.gs.CanAct()) == 0 {
 		e.gs.ActionSeat = -1
-		resetTimer(2 * time.Second)
+		e.resetTimer(2 * time.Second)
 		return
 	}
 
 	eligible := e.gs.ActivePlayers()
 	e.gs.ActionSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
-	e.broadcastActionRequired(resetTimer)
+	e.broadcastActionRequired()
 }
 
 // broadcastActionRequired 广播 action_required 事件，并启动行动计时器。
 // 若当前玩家是 bot，同步调度 AI 决策。
-func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
+func (e *Engine) broadcastActionRequired() {
 	p := e.gs.Seats[e.gs.ActionSeat]
 	if p == nil {
 		return
@@ -340,13 +336,13 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 		e.bot.ScheduleAction(e.gs, p)
 	}
 
-	resetTimer(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
+	e.resetTimer(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 }
 
 // ---- 摊牌 ----
 
 // runShowdown 执行摊牌流程：展示手牌、分配底池、广播结果、写入历史、启动下一手。
-func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
+func (e *Engine) runShowdown() {
 	e.gs.Street = model.StreetShowdown
 	e.gs.ActionSeat = -1
 
@@ -495,11 +491,11 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 
 	e.gs.Street = model.StreetIdle
 	e.gs.ActionSeat = -1
-	e.scheduleNextHand(resetTimer)
+	e.scheduleNextHand()
 }
 
 // awardUncontested 将底池颁发给最后一个活跃玩家（其他人都弃牌了）。
-func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Duration)) {
+func (e *Engine) awardUncontested(winner *model.Player) {
 	maxOther := int64(0)
 	for _, p := range e.gs.Seats {
 		if p != nil && p.UserID != winner.UserID && p.TotalBet > maxOther {
@@ -567,21 +563,21 @@ func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Dur
 
 	e.gs.Street = model.StreetIdle
 	e.gs.ActionSeat = -1
-	e.scheduleNextHand(resetTimer)
+	e.scheduleNextHand()
 }
 
 // checkHandOver 检查断线弃牌后手牌是否结束。
-func (e *Engine) checkHandOver(resetTimer func(time.Duration), stopTimer func()) {
+func (e *Engine) checkHandOver() {
 	active := e.gs.ActivePlayers()
 	if len(active) == 1 {
-		e.awardUncontested(active[0], resetTimer)
+		e.awardUncontested(active[0])
 	}
 }
 
 // ---- 准备系统 ----
 
 // scheduleNextHand 在手牌结算后安排下一手的开始。
-func (e *Engine) scheduleNextHand(resetTimer func(time.Duration)) {
+func (e *Engine) scheduleNextHand() {
 	if len(e.gs.EligibleToStart()) < 2 {
 		return
 	}
@@ -593,14 +589,14 @@ func (e *Engine) scheduleNextHand(resetTimer func(time.Duration)) {
 	}
 	e.broadcastReadyStatus()
 	if e.allEligibleReady() {
-		resetTimer(500 * time.Millisecond)
+		e.resetTimer(500 * time.Millisecond)
 	} else {
-		resetTimer(handStartDelay)
+		e.resetTimer(handStartDelay)
 	}
 }
 
 // handleReady 处理玩家发送的 ready 命令（在结算画面点击"开始下一局"）。
-func (e *Engine) handleReady(msg protocol.InboundMessage, resetTimer func(time.Duration)) {
+func (e *Engine) handleReady(msg protocol.InboundMessage) {
 	if e.gs.Street != model.StreetIdle {
 		return
 	}
@@ -610,7 +606,7 @@ func (e *Engine) handleReady(msg protocol.InboundMessage, resetTimer func(time.D
 	e.readyPlayers[msg.SenderID] = true
 	e.broadcastReadyStatus()
 	if e.allEligibleReady() {
-		resetTimer(500 * time.Millisecond)
+		e.resetTimer(500 * time.Millisecond)
 	}
 }
 
