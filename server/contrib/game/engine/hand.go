@@ -38,9 +38,9 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 		return
 	}
 
-	action := state.ActionFold
+	action := model.ActionFold
 	if p.Bet >= e.gs.CurrentBet {
-		action = state.ActionCheck
+		action = model.ActionCheck
 	}
 
 	e.gs.ApplyAction(p.UserID, action, 0)
@@ -74,12 +74,12 @@ func (e *Engine) handleAction(
 		return
 	}
 
-	if err := e.gs.ValidateAction(msg.SenderID, state.Action(cmd.Action), cmd.Amount); err != nil {
+	if err := e.gs.ValidateAction(msg.SenderID, model.Action(cmd.Action), cmd.Amount); err != nil {
 		e.sendError(msg.SenderID, ws.ErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 
-	e.gs.ApplyAction(msg.SenderID, state.Action(cmd.Action), cmd.Amount)
+	e.gs.ApplyAction(msg.SenderID, model.Action(cmd.Action), cmd.Amount)
 
 	p := e.gs.FindPlayer(msg.SenderID)
 	var displayAmount int64

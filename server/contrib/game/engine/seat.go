@@ -10,7 +10,6 @@ import (
 	bizdao "github.com/allin/server/base/biz/dao"
 	botpkg "github.com/allin/server/contrib/game/bot"
 	"github.com/allin/server/contrib/game/model"
-	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
 )
@@ -176,7 +175,7 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage, resetTimer func(t
 	// 等轮到他时由超时逻辑处理，给断线重连留出时间。
 	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
-		e.gs.ApplyAction(p.UserID, state.ActionFold, 0)
+		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
 		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
 	}
@@ -220,7 +219,7 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage, resetTimer func(time.
 
 	// 离座：若在活跃手牌中且轮到该玩家，自动弃牌。
 	if cmd.SitOut && e.gs.Street != model.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
-		e.gs.ApplyAction(p.UserID, state.ActionFold, 0)
+		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
 		stopTimer()
 		e.advanceOrEnd(resetTimer, stopTimer)
 		return

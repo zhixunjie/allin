@@ -5,7 +5,7 @@ import "github.com/allin/server/contrib/game/model"
 // BotSituation 描述 bot 做决策时的完整局面快照。
 // 在触发 bot 行动前从 GameStateMachine 中提取，传入 Personality.decide。
 type BotSituation struct {
-	Street     model.Street // 当前街道（PreFlop/Flop/Turn/River）
+	Street     model.Street  // 当前街道（PreFlop/Flop/Turn/River）
 	Hole       [2]model.Card // bot 的两张底牌
 	Community  []model.Card  // 当前公共牌（0–5 张）
 	CurrentBet int64         // 本轮最大下注额（需跟注到此金额）

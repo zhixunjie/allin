@@ -30,7 +30,7 @@ type Personality struct {
 }
 
 // decide 根据风格人设和当前局面返回行动及金额。
-func (p *Personality) decide(sit state.BotSituation) (state.Action, int64) {
+func (p *Personality) decide(sit state.BotSituation) (model.Action, int64) {
 	strength := handStrength(sit.Street, sit.Hole, sit.Community)
 	toCall := sit.CurrentBet - sit.PlayerBet
 	r := rand.Float64()
@@ -40,18 +40,18 @@ func (p *Personality) decide(sit state.BotSituation) (state.Action, int64) {
 			if strength >= p.PreflopRaiseThreshold {
 				return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.BigBlind*3, sit.BigBlind)
 			}
-			return state.ActionCheck, 0
+			return model.ActionCheck, 0
 		}
 		if strength < p.PreflopEnterThreshold && r > p.BluffRate {
-			return state.ActionFold, 0
+			return model.ActionFold, 0
 		}
 		if strength >= p.PreflopRaiseThreshold {
 			return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.BigBlind*3, sit.BigBlind)
 		}
 		if toCall >= sit.Stack {
-			return state.ActionAllIn, 0
+			return model.ActionAllIn, 0
 		}
-		return state.ActionCall, 0
+		return model.ActionCall, 0
 	}
 
 	// Postflop：无人下注，先手
@@ -62,16 +62,16 @@ func (p *Personality) decide(sit state.BotSituation) (state.Action, int64) {
 				betAmt = sit.BigBlind
 			}
 			if betAmt >= sit.Stack {
-				return state.ActionAllIn, 0
+				return model.ActionAllIn, 0
 			}
-			return state.ActionBet, betAmt
+			return model.ActionBet, betAmt
 		}
-		return state.ActionCheck, 0
+		return model.ActionCheck, 0
 	}
 
 	// Postflop：面对下注
 	if strength < p.PostflopFoldThreshold && r > p.BluffRate {
-		return state.ActionFold, 0
+		return model.ActionFold, 0
 	}
 	raiseThresh := p.PostflopBetThreshold * 1.3
 	if raiseThresh > 1.0 {
@@ -81,9 +81,9 @@ func (p *Personality) decide(sit state.BotSituation) (state.Action, int64) {
 		return safeRaise(sit.CurrentBet, sit.PlayerBet, sit.Stack, sit.CurrentBet*5/2, sit.BigBlind)
 	}
 	if toCall >= sit.Stack {
-		return state.ActionAllIn, 0
+		return model.ActionAllIn, 0
 	}
-	return state.ActionCall, 0
+	return model.ActionCall, 0
 }
 
 // rankVal 将牌面字节转换为整数（2→2 … A→14）。
@@ -173,14 +173,14 @@ func handStrength(street model.Street, hole [2]model.Card, community []model.Car
 }
 
 // safeRaise 计算合法的 raise 总额：不低于 minRaise 增量，超过 stack 则 all-in。
-func safeRaise(currentBet, playerBet, stack, target, minRaise int64) (state.Action, int64) {
+func safeRaise(currentBet, playerBet, stack, target, minRaise int64) (model.Action, int64) {
 	minTotal := currentBet + minRaise
 	if target < minTotal {
 		target = minTotal
 	}
 	needed := target - playerBet
 	if needed >= stack {
-		return state.ActionAllIn, 0
+		return model.ActionAllIn, 0
 	}
-	return state.ActionRaise, target
+	return model.ActionRaise, target
 }
