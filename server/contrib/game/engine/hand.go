@@ -8,7 +8,6 @@ import (
 	botpkg "github.com/allin/server/contrib/game/bot"
 	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
-	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
 )
 
@@ -70,12 +69,12 @@ func (e *Engine) handleAction(
 ) {
 	var cmd protocol.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, ws.ErrBadPayload, msg.Env.Seq)
+		e.sendError(msg.SenderID, protocol.ErrBadPayload, msg.Env.Seq)
 		return
 	}
 
 	if err := e.gs.ValidateAction(msg.SenderID, cmd.Action, cmd.Amount); err != nil {
-		e.sendError(msg.SenderID, ws.ErrInvalidAction, msg.Env.Seq, err.Error())
+		e.sendError(msg.SenderID, protocol.ErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 

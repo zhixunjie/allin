@@ -9,7 +9,6 @@ import (
 	bizdao "github.com/allin/server/base/biz/dao"
 	bizmodel "github.com/allin/server/base/biz/model"
 	"github.com/allin/server/contrib/game/model"
-	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
 )
 
@@ -99,12 +98,12 @@ func (e *Engine) sendSnapshot(userID string) {
 
 // sendError 向指定玩家发送错误事件。
 // msgOverride 可选，不传则使用 WsErrCode 的默认描述。
-func (e *Engine) sendError(userID string, code ws.WsErrCode, refSeq int64, msgOverride ...string) {
+func (e *Engine) sendError(userID string, code protocol.ErrCode, refSeq int64, msgOverride ...string) {
 	msg := code.Message()
 	if len(msgOverride) > 0 && msgOverride[0] != "" {
 		msg = msgOverride[0]
 	}
-	e.rc.SendTo(userID, protocol.MustNewEnvelope(protocol.TypeError, ws.ErrorPayload{
+	e.rc.SendTo(userID, protocol.MustNewEnvelope(protocol.TypeError, protocol.ErrorPayload{
 		Code: code, Message: msg, RefSeq: refSeq,
 	}))
 }
