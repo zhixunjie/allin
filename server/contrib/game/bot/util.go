@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+
+	"github.com/allin/server/contrib/game/model"
 )
 
 const UserIdPrefix = "bot_"
@@ -33,13 +35,13 @@ func IsBotID(userID string) bool {
 //	aggressive:    TAG→LAG 交替
 //	passive:       Rock→Station 交替
 //	random:        每个 bot 独立随机
-func AssignStyle(roomStyle SetBotType, index int) BotStyle {
+func AssignStyle(roomStyle model.SetBotType, index int) BotStyle {
 	switch roomStyle {
-	case SetBotTypeAggressive:
+	case model.RoomBotTypeAggressive:
 		return []BotStyle{BotStyleTag, BotStyleLag}[index%2]
-	case SetBotTypePassive:
+	case model.RoomBotTypePassive:
 		return []BotStyle{BotStyleRock, BotStyleStation}[index%2]
-	case SetBotTypeRandom:
+	case model.RoomBotTypeRandom:
 		return styleOrder[rand.Intn(len(styleOrder))]
 	default: // mixed 或空字符串
 		return styleOrder[index%len(styleOrder)]
