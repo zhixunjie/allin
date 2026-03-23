@@ -1,5 +1,8 @@
 package model
 
+// NoSeat 表示"无座位"哨兵值，用于 ActionSeat / DealerSeat 等字段的初始或空状态。
+const NoSeat = -1
+
 // Player 表示已入座的玩家。
 type Player struct {
 	UserID      string   // 玩家唯一 ID（bot 以 "bot_" 开头）

@@ -26,7 +26,7 @@ func (e *Engine) handleTimeout() {
 	}
 
 	// 全员全押自动推进：ActionSeat==-1 表示本街无人可行动，继续发牌。
-	if e.gs.ActionSeat == -1 {
+	if e.gs.ActionSeat == model.NoSeat {
 		e.nextStreet()
 		return
 	}
@@ -261,7 +261,7 @@ func (e *Engine) advanceOrEnd() {
 	}
 
 	next := e.gs.NextActableSeat(e.gs.ActionSeat)
-	if next == -1 {
+	if next == model.NoSeat {
 		e.nextStreet()
 		return
 	}
@@ -302,7 +302,7 @@ func (e *Engine) nextStreet() {
 	}))
 
 	if len(e.gs.CanAct()) == 0 {
-		e.gs.ActionSeat = -1
+		e.gs.ActionSeat = model.NoSeat
 		e.resetTimer(2 * time.Second)
 		return
 	}
@@ -344,7 +344,7 @@ func (e *Engine) broadcastActionRequired() {
 // runShowdown 执行摊牌流程：展示手牌、分配底池、广播结果、写入历史、启动下一手。
 func (e *Engine) runShowdown() {
 	e.gs.Street = model.StreetShowdown
-	e.gs.ActionSeat = -1
+	e.gs.ActionSeat = model.NoSeat
 
 	type reveal struct {
 		PlayerID  string   `json:"player_id"`
@@ -490,7 +490,7 @@ func (e *Engine) runShowdown() {
 	e.cleanupDisconnected()
 
 	e.gs.Street = model.StreetIdle
-	e.gs.ActionSeat = -1
+	e.gs.ActionSeat = model.NoSeat
 	e.scheduleNextHand()
 }
 
@@ -562,7 +562,7 @@ func (e *Engine) awardUncontested(winner *model.Player) {
 	e.cleanupDisconnected()
 
 	e.gs.Street = model.StreetIdle
-	e.gs.ActionSeat = -1
+	e.gs.ActionSeat = model.NoSeat
 	e.scheduleNextHand()
 }
 

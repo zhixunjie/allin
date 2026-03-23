@@ -62,8 +62,8 @@ func NewEngine(rc *ws.RoomConn, rm *room.Room, registry *Registry) *Engine {
 		chatLimiter: make(map[string]time.Time),
 		gs: &state.GameStateMachine{
 			Street:     model.StreetIdle,
-			ActionSeat: -1,
-			DealerSeat: -1,
+			ActionSeat: model.NoSeat,
+			DealerSeat: model.NoSeat,
 			Config:     cfg,
 		},
 		quit:     make(chan struct{}),

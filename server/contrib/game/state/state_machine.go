@@ -1,8 +1,8 @@
 package state
 
 import (
-	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/room"
+	"github.com/allin/server/gmodel"
 )
 
 // GameStateMachine 是一个房间的完整内存游戏状态。
@@ -98,7 +98,7 @@ func (gs *GameStateMachine) NextActiveSeat(from int) int {
 			return idx
 		}
 	}
-	return -1
+	return model.NoSeat
 }
 
 // NextActableSeat 返回下一个仍可下注/加注/跟注的座位（非全押/弃牌/离座）。
@@ -110,7 +110,7 @@ func (gs *GameStateMachine) NextActableSeat(from int) int {
 			return idx
 		}
 	}
-	return -1
+	return model.NoSeat
 }
 
 // BettingRoundOver 当没有活跃玩家需要继续行动时返回 true。
