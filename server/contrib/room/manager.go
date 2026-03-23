@@ -40,7 +40,10 @@ func (m *Manager) Create(hostUserID int64, cfg RoomConfig) (*Room, error) {
 		CreatedAt:  time.Now(),
 	}
 
-	cfgJSON, _ := json.Marshal(r.Config)
+	cfgJSON, err := json.Marshal(r.Config)
+	if err != nil {
+		return nil, fmt.Errorf("room config marshalling error: %s", err)
+	}
 	r.ID, err = dao.RoomDao.Persist(r.Code, r.HostUserID, cfgJSON, r.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("room.Create: %w", err)

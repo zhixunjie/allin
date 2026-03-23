@@ -2,20 +2,6 @@ package protocol
 
 import "encoding/json"
 
-// CmdType 是客户端 → 服务端的命令类型。
-type CmdType string
-
-const (
-	CmdJoinRoom   CmdType = "join_room"   // JoinRoomCmd 加入房间（携带买入额）；
-	CmdAction     CmdType = "action"      // ActionCmd 玩家行动（fold/check/call/bet/raise/all_in）；
-	CmdChat       CmdType = "chat"        // ChatCmd 发送聊天消息；
-	CmdSitOut     CmdType = "sit_out"     // SitOutCmd 离座/归座切换；
-	CmdLeaveTable CmdType = "leave_table" // 无载荷 主动离桌（仅限手牌间隙）；
-	CmdDisconnect CmdType = "disconnect"  // 无载荷 客户端主动断开（优雅离线）；
-	CmdReady      CmdType = "ready"       // 无载荷 结算画面点击"准备下一局"；
-	CmdAddChips   CmdType = "add_chips"   // AddChipsCmd 补充桌面筹码；
-)
-
 // InboundMessage 将客户端命令与发送者元数据包装在一起，投递到 RoomConn.Inbound channel。
 type InboundMessage struct {
 	SenderID    string      // 发送者的用户 ID（字符串形式）
@@ -30,6 +16,19 @@ type CmdEnvelope struct {
 	Ts      int64           `json:"ts"`      // 客户端发送时间戳（Unix 毫秒）
 	Payload json.RawMessage `json:"payload"` // 具体命令载荷，按 Type 解析为对应 Cmd 结构体
 }
+
+// CmdType 是客户端 → 服务端的命令类型。
+type CmdType string
+
+const (
+	CmdJoinRoom   CmdType = "join_room"   // JoinRoomCmd 加入房间（携带买入额）；
+	CmdAction     CmdType = "action"      // ActionCmd 玩家行动（fold/check/call/bet/raise/all_in）；
+	CmdChat       CmdType = "chat"        // ChatCmd 发送聊天消息；
+	CmdSitOut     CmdType = "sit_out"     // SitOutCmd 离座/归座切换；
+	CmdLeaveTable CmdType = "leave_table" // 无载荷 主动离桌（仅限手牌间隙）；
+	CmdDisconnect CmdType = "disconnect"  // 无载荷 客户端主动断开（优雅离线）；
+	CmdReady      CmdType = "ready"       // 无载荷 结算画面点击"准备下一局"；
+)
 
 // 定义所有客户端 → 服务端的命令载荷结构体。
 
@@ -54,9 +53,4 @@ type ChatCmd struct {
 // SitOutCmd 是 CmdSitOut 的载荷。
 type SitOutCmd struct {
 	SitOut bool `json:"sit_out"` // true = 请求离座，false = 请求归座
-}
-
-// AddChipsCmd 是 CmdAddChips 的载荷。
-type AddChipsCmd struct {
-	Amount int64 `json:"amount"` // 补充金额，需大于 0 且不超过账户余额
 }

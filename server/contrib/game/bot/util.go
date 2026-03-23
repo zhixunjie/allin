@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-
-	"github.com/allin/server/contrib/room"
 )
 
 const UserIdPrefix = "bot_"
@@ -29,19 +27,19 @@ func IsBotID(userID string) bool {
 	return strings.HasPrefix(userID, UserIdPrefix)
 }
 
-// AssignStyle 根据房间风格主题（room.SetBotType）和 bot 序号，返回单个 bot 的具体风格。
+// AssignStyle 根据房间风格主题（SetBotType）和 bot 序号，返回单个 bot 的具体风格。
 //
 //	mixed（默认）: TAG→LAG→Station→Rock 循环
 //	aggressive:    TAG→LAG 交替
 //	passive:       Rock→Station 交替
 //	random:        每个 bot 独立随机
-func AssignStyle(roomStyle room.SetBotType, index int) BotStyle {
+func AssignStyle(roomStyle SetBotType, index int) BotStyle {
 	switch roomStyle {
-	case room.SetBotTypeAggressive:
+	case SetBotTypeAggressive:
 		return []BotStyle{BotStyleTag, BotStyleLag}[index%2]
-	case room.SetBotTypePassive:
+	case SetBotTypePassive:
 		return []BotStyle{BotStyleRock, BotStyleStation}[index%2]
-	case room.SetBotTypeRandom:
+	case SetBotTypeRandom:
 		return styleOrder[rand.Intn(len(styleOrder))]
 	default: // mixed 或空字符串
 		return styleOrder[index%len(styleOrder)]

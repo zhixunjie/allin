@@ -44,7 +44,7 @@ func (e *Engine) handleTimeout(resetTimer func(time.Duration)) {
 	}
 
 	e.gs.ApplyAction(p.UserID, action, 0)
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionTimeout, protocol.ActionTimeoutPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionTimeout, protocol.ActionTimeoutPayload{
 		PlayerID: p.UserID,
 		Action:   string(action),
 		Stack:    p.Stack,
@@ -94,7 +94,7 @@ func (e *Engine) handleAction(
 		Street:   e.gs.Street.String(),
 	})
 
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionTaken, protocol.ActionTakenPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionTaken, protocol.ActionTakenPayload{
 		PlayerID: msg.SenderID,
 		Action:   cmd.Action,
 		Amount:   displayAmount,
@@ -122,7 +122,7 @@ func (e *Engine) handleChat(msg protocol.InboundMessage) {
 	if len(cmd.Text) == 0 || len(cmd.Text) > 200 {
 		return
 	}
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeChatMessage, protocol.ChatPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeChatMessage, protocol.ChatPayload{
 		SenderID:    msg.SenderID,
 		DisplayName: msg.DisplayName,
 		Text:        cmd.Text,
@@ -175,7 +175,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 	e.deck = state.NewShuffledDeck()
 	e.dealHoleCards()
 
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeGameStarted, protocol.GameStartedPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeGameStarted, protocol.GameStartedPayload{
 		HandNum:    e.gs.HandNum,
 		DealerSeat: e.gs.DealerSeat,
 		SBSeat:     e.gs.SBSeat,
@@ -188,7 +188,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 		if p == nil || p.SitOut {
 			continue
 		}
-		e.rc.SendTo(p.UserID, protocol.MustEvent(protocol.TypeHoleCards, protocol.HoleCardsPayload{
+		e.rc.SendTo(p.UserID, protocol.MustNewEnvelope(protocol.TypeHoleCards, protocol.HoleCardsPayload{
 			PlayerID: p.UserID,
 			Hole:     []string{p.Hole[0].String(), p.Hole[1].String()},
 		}))
@@ -200,7 +200,7 @@ func (e *Engine) startHand(resetTimer func(time.Duration)) {
 			dealtSeats = append(dealtSeats, p.SeatIndex)
 		}
 	}
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeCardsDealt, protocol.CardsDealtPayload{Seats: dealtSeats}))
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeCardsDealt, protocol.CardsDealtPayload{Seats: dealtSeats}))
 
 	var firstActor int
 	if len(eligible) == 2 {
@@ -300,7 +300,7 @@ func (e *Engine) nextStreet(resetTimer func(time.Duration)) {
 		return
 	}
 
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeStreetStarted, protocol.StreetStartedPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeStreetStarted, protocol.StreetStartedPayload{
 		Street:    e.gs.Street.String(),
 		Community: state.CardsToStrings(e.gs.Community),
 		Pot:       e.gs.TotalPot(),
@@ -326,7 +326,7 @@ func (e *Engine) broadcastActionRequired(resetTimer func(time.Duration)) {
 	}
 	deadline := time.Now().Add(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
 
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeActionRequired, protocol.ActionRequiredPayload{
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionRequired, protocol.ActionRequiredPayload{
 		PlayerID:   p.UserID,
 		SeatIndex:  p.SeatIndex,
 		DeadlineTs: deadline.UnixMilli(),
@@ -376,7 +376,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 	}
 
 	rawReveals, _ := json.Marshal(reveals)
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeShowdown, json.RawMessage(rawReveals)))
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeShowdown, json.RawMessage(rawReveals)))
 
 	pots := state.BuildPots(e.gs.Seats)
 	type winEntry struct {
@@ -478,7 +478,7 @@ func (e *Engine) runShowdown(resetTimer func(time.Duration)) {
 		AllPlayers       []playerDetail `json:"all_players"`
 		NextHandDelaySec int            `json:"next_hand_delay_sec"`
 	}{winners, resultSeats, bestHand, allPlayers, int(handStartDelay.Seconds())})
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeHandResult, json.RawMessage(rawResult)))
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
@@ -546,7 +546,7 @@ func (e *Engine) awardUncontested(winner *model.Player, resetTimer func(time.Dur
 		AllPlayers:       uPlayers,
 		NextHandDelaySec: int(handStartDelay.Seconds()),
 	})
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeHandResult, json.RawMessage(rawResult)))
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeHandResult, json.RawMessage(rawResult)))
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)
 
@@ -612,7 +612,7 @@ func (e *Engine) broadcastReadyStatus() {
 			readyCount++
 		}
 	}
-	e.rc.Broadcast(protocol.MustEvent(protocol.TypeReadyStatus, struct {
+	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeReadyStatus, struct {
 		ReadyCount int `json:"ready_count"`
 		TotalCount int `json:"total_count"`
 	}{readyCount, len(eligible)}))
