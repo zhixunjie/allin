@@ -26,13 +26,10 @@ func New(rc *ws.RoomConn) *Bot {
 func (b *Bot) ScheduleAction(gs *state.GameStateMachine, p *model.Player) {
 	botID := p.UserID
 
-	style := BotStyle(p.BotStyle)
-	if style == "" {
-		style = BotStyleTag
-	}
-	personality, ok := personalities[style]
+	// 确定 bot 性格
+	personality, ok := personalities[p.BotStyle]
 	if !ok {
-		personality = personalities[BotStyleTag]
+		personality = personalities[model.BotStyleTag]
 	}
 
 	sit := state.NewBotSituation(gs, p)

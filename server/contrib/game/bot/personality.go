@@ -1,41 +1,23 @@
 package bot
 
 import (
-	"math/rand/v2"
+	"math/rand"
 
 	"github.com/allin/server/contrib/game/model"
 	"github.com/allin/server/contrib/game/state"
 )
 
-// BotStyle 表示单个 bot 的风格流派（用于决策阈值映射）。
-type BotStyle string
-
-const (
-	BotStyleTag     BotStyle = "tag"     // 紧凶（TAG）：选牌严格，有牌强打
-	BotStyleLag     BotStyle = "lag"     // 松凶（LAG）：宽泛入局，频繁加注
-	BotStyleStation BotStyle = "station" // 松被动（Calling Station）：喜欢跟注，很少主动
-	BotStyleRock    BotStyle = "rock"    // 紧被动（Rock）：极度保守，只玩超强牌
-)
-
-// personalities 存储四种风格的参数：
+// personalities 四种风格的参数：
 //
 //	TAG（紧凶）：高选择性入局，入局即施压
 //	LAG（松凶）：宽松入局，频繁加注/虚张声势
 //	Station（松被动）：几乎不弃牌，喜欢跟注，很少主动下注
 //	Rock（紧被动）：极度保守，只玩超强牌，见注则缩
-var personalities = map[BotStyle]Personality{
-	BotStyleTag:     {0.65, 0.80, 0.55, 0.30, 0.08},
-	BotStyleLag:     {0.35, 0.50, 0.35, 0.15, 0.22},
-	BotStyleStation: {0.30, 0.85, 0.70, 0.05, 0.02},
-	BotStyleRock:    {0.78, 0.92, 0.72, 0.48, 0.02},
-}
-
-// styleOrder 用于按序号循环分配风格（混合主题）。
-var styleOrder = []BotStyle{
-	BotStyleTag,
-	BotStyleLag,
-	BotStyleStation,
-	BotStyleRock,
+var personalities = map[model.BotStyle]Personality{
+	model.BotStyleTag:     {0.65, 0.80, 0.55, 0.30, 0.08},
+	model.BotStyleLag:     {0.35, 0.50, 0.35, 0.15, 0.22},
+	model.BotStyleStation: {0.30, 0.85, 0.70, 0.05, 0.02},
+	model.BotStyleRock:    {0.78, 0.92, 0.72, 0.48, 0.02},
 }
 
 // Personality 定义某种风格 bot 的决策阈值。

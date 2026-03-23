@@ -126,7 +126,7 @@ func (e *Engine) seatBots() {
 			DisplayName: botpkg.GenUserName(i),
 			Stack:       e.room.Config.MaxBuyIn,
 			IsBot:       true,
-			BotStyle:    string(botpkg.AssignStyle(e.room.Config.BotStyle, i)),
+			BotStyle:    model.AssignStyle(e.room.Config.BotType, i),
 		}
 		if !e.gs.SeatPlayer(p) {
 			break // 没有更多座位
