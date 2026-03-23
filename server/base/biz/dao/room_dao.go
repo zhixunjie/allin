@@ -26,10 +26,8 @@ func (d *roomDao) Persist(code string, hostUserID int64, cfgJSON []byte, created
 
 // MarkEnded 将指定房间码的 ended_at 设为当前时间。
 func (d *roomDao) MarkEnded(code string) {
-	if _, err := DBM.Exec(
-		fmt.Sprintf(`UPDATE %s SET ended_at = NOW() WHERE room_code = ? AND ended_at IS NULL`, model.TableNameRoomHistory),
-		code,
-	); err != nil {
+	query := fmt.Sprintf(`UPDATE %s SET ended_at = NOW() WHERE room_code = ? AND ended_at IS NULL`, model.TableNameRoomHistory)
+	if _, err := DBM.Exec(query, code); err != nil {
 		slog.Error("roomDao.MarkEnded: failed", "code", code, "err", err)
 	}
 }
