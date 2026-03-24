@@ -234,25 +234,33 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage) {
 // ---- 主动离桌 ----
 
 // handleLeaveTable 处理玩家主动离桌请求。
-// 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
+// 只允许在 Idle（手牌间隙）状态执行；手牌进行中拒绝并返回错误。
+// 流程：校验状态 → 起身 → 返还筹码 → 广播离开事件 → 检查空桌定时器。
 func (e *Engine) handleLeaveTable(msg protocol.InboundMessage) {
+	// 手牌进行中不允许离桌，告知客户端稍后再试
 	if e.gs.Street != gmodel.StreetIdle {
 		e.sendError(msg.SenderID, gmodel.SkErrHandInProgress, msg.Env.Seq)
 		return
 	}
 	p := e.gs.FindPlayer(msg.SenderID)
 	if p == nil {
+		// 玩家已不在座位（重复请求或竞态），忽略
 		return
 	}
+	// 提前保存 stack 和 seatIdx，UnseatPlayer 执行后指针不再有效
 	stack := p.Stack
 	seatIdx := p.SeatIndex
 	e.gs.UnseatPlayer(msg.SenderID)
+	// 将桌面筹码归还到玩家账户
 	e.cashOut(msg.SenderID, stack)
+	// 更新房间最后活跃时间，防止 GC 误回收
 	e.room.Touch()
+	// 通知所有客户端该座位已清空
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 		PlayerID:  msg.SenderID,
 		SeatIndex: seatIdx,
 	}))
+	// 若人类玩家已全部离开，触发 bot 清场与空桌宽限期
 	e.maybeStartEmptyTimer()
 }
 
