@@ -322,7 +322,7 @@ func (e *Engine) nextStreet() {
 		return
 	}
 
-	eligible := e.gs.ActivePlayers()
+	eligible := e.gs.CanAct()
 	e.gs.ActionSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
 	e.broadcastActionRequired()
 }

@@ -1,53 +1,45 @@
 /**
- * SoundManager — 基于 Web Audio API 的程序化音效系统。
+ * SoundManager — 基于 Web Audio API 的程序化音效 + 背景音乐系统。
  * 全部声音通过合成生成，无需外部音频文件。
  *
- * 使用方式：
- *   soundManager.play('deal')
- *   soundManager.setMuted(true)
+ * 技术：FM 合成（金属质感筹码）、卷积混响（空间感）、和弦琶音循环 BGM。
  */
 
 export type SoundName =
-    | 'deal'      // 发牌（洗牌噪声爆发）
-    | 'check'     // 过牌（轻拍）
-    | 'call'      // 跟注（筹码叮当）
-    | 'bet'       // 下注（筹码推出声）
-    | 'raise'     // 加注（多颗筹码叮当）
-    | 'fold'      // 弃牌（牌张滑落）
-    | 'allin'     // 全押（戏剧性重击 + 筹码瀑布）
-    | 'myTurn'    // 轮到本人行动（双音铃声提示）
-    | 'win'       // 赢得手牌（上行琶音）
-    | 'showdown'  // 摊牌（短促紧张击鼓声）
+    | 'deal'      // 发牌
+    | 'check'     // 过牌
+    | 'call'      // 跟注
+    | 'bet'       // 下注
+    | 'raise'     // 加注
+    | 'fold'      // 弃牌
+    | 'allin'     // 全押
+    | 'myTurn'    // 轮到本人
+    | 'win'       // 赢得手牌
+    | 'showdown'  // 摊牌
+
 
 class SoundManager {
     private ctx: AudioContext | null = null
     private masterGain: GainNode | null = null
+    private reverbNode: ConvolverNode | null = null
     private _muted = false
 
-    /** 懒初始化 AudioContext（必须在用户手势后调用） */
     private getCtx(): AudioContext {
         if (!this.ctx) {
             this.ctx = new AudioContext()
             this.masterGain = this.ctx.createGain()
-            this.masterGain.gain.value = this._muted ? 0 : 0.55
+            this.masterGain.gain.value = this._muted ? 0 : 0.6
             this.masterGain.connect(this.ctx.destination)
+            this.reverbNode = this.buildReverb(1.4, 3.2)
+            this.reverbNode.connect(this.masterGain)
         }
-        // 浏览器策略限制：首次交互前 context 可能处于 suspended 状态
-        if (this.ctx.state === 'suspended') {
-            void this.ctx.resume()
-        }
+        if (this.ctx.state === 'suspended') void this.ctx.resume()
         return this.ctx
-    }
-
-    get muted(): boolean {
-        return this._muted
     }
 
     setMuted(v: boolean): void {
         this._muted = v
-        if (this.masterGain) {
-            this.masterGain.gain.value = v ? 0 : 0.55
-        }
+        if (this.masterGain) this.masterGain.gain.value = v ? 0 : 0.6
     }
 
     play(name: SoundName): void {
@@ -64,56 +56,85 @@ class SoundManager {
                 case 'win':      this.playWin();      break
                 case 'showdown': this.playShowdown(); break
             }
-        } catch {
-            // AudioContext 不可用时静默失败
-        }
+        } catch { /* AudioContext 不可用时静默失败 */ }
     }
 
     // ── 合成工具 ──────────────────────────────────────────────────
 
-    /** 生成白噪声 AudioBufferSourceNode */
+    private buildReverb(durationSec: number, decayFactor: number): ConvolverNode {
+        const ctx = this.getCtx()
+        const len = Math.floor(ctx.sampleRate * durationSec)
+        const buf = ctx.createBuffer(2, len, ctx.sampleRate)
+        for (let ch = 0; ch < 2; ch++) {
+            const d = buf.getChannelData(ch)
+            for (let i = 0; i < len; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decayFactor)
+            }
+        }
+        const node = ctx.createConvolver()
+        node.buffer = buf
+        return node
+    }
+
     private noise(durationSec: number): AudioBufferSourceNode {
         const ctx = this.getCtx()
         const len = Math.ceil(ctx.sampleRate * durationSec)
         const buf = ctx.createBuffer(1, len, ctx.sampleRate)
-        const data = buf.getChannelData(0)
-        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+        const d = buf.getChannelData(0)
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
         const src = ctx.createBufferSource()
         src.buffer = buf
         return src
     }
 
-    /** 创建带 attack/decay 包络的 GainNode */
-    private envelope(attackSec: number, decaySec: number, peak = 1.0): GainNode {
-        const ctx = this.getCtx()
-        const g = ctx.createGain()
-        const t = ctx.currentTime
-        g.gain.setValueAtTime(0, t)
-        g.gain.linearRampToValueAtTime(peak, t + attackSec)
-        g.gain.linearRampToValueAtTime(0, t + attackSec + decaySec)
-        return g
-    }
-
-    /** 播放单个振荡器音符（自动连接到 masterGain） */
-    private tone(
-        freq: number,
-        type: OscillatorType,
-        attackSec: number,
+    private fmChip(
+        carrier: number,
+        modRatio: number,
+        modDepth: number,
         decaySec: number,
-        peak = 0.6,
+        peak: number,
         delayMs = 0,
+        toReverb = false,
     ): void {
         const play = () => {
             const ctx = this.getCtx()
+            const now = ctx.currentTime
+            const modOsc = ctx.createOscillator()
+            modOsc.type = 'sine'
+            modOsc.frequency.value = carrier * modRatio
+            const modGain = ctx.createGain()
+            modGain.gain.value = carrier * modDepth
+            const carOsc = ctx.createOscillator()
+            carOsc.type = 'sine'
+            carOsc.frequency.value = carrier
+            const env = ctx.createGain()
+            env.gain.setValueAtTime(peak, now + 0.001)
+            env.gain.exponentialRampToValueAtTime(0.001, now + 0.001 + decaySec)
+            modOsc.connect(modGain)
+            modGain.connect(carOsc.frequency)
+            carOsc.connect(env)
+            env.connect(toReverb ? this.reverbNode! : this.masterGain!)
+            modOsc.start(now); modOsc.stop(now + decaySec + 0.02)
+            carOsc.start(now); carOsc.stop(now + decaySec + 0.02)
+        }
+        if (delayMs > 0) setTimeout(play, delayMs)
+        else play()
+    }
+
+    private thump(freq: number, decaySec: number, peak: number, delayMs = 0): void {
+        const play = () => {
+            const ctx = this.getCtx()
+            const now = ctx.currentTime
             const osc = ctx.createOscillator()
-            osc.type = type
-            osc.frequency.value = freq
-            const env = this.envelope(attackSec, decaySec, peak)
+            osc.type = 'sine'
+            osc.frequency.setValueAtTime(freq * 2.2, now)
+            osc.frequency.exponentialRampToValueAtTime(freq, now + 0.015)
+            const env = ctx.createGain()
+            env.gain.setValueAtTime(peak, now + 0.001)
+            env.gain.exponentialRampToValueAtTime(0.001, now + decaySec)
             osc.connect(env)
             env.connect(this.masterGain!)
-            const t = ctx.currentTime
-            osc.start(t)
-            osc.stop(t + attackSec + decaySec + 0.01)
+            osc.start(now); osc.stop(now + decaySec + 0.02)
         }
         if (delayMs > 0) setTimeout(play, delayMs)
         else play()
@@ -121,119 +142,211 @@ class SoundManager {
 
     // ── 具体音效 ─────────────────────────────────────────────────
 
-    /** 发牌：白噪声经带通滤波器，模拟纸牌滑过桌面的沙沙声 */
     private playDeal(): void {
         const ctx = this.getCtx()
-        const src = this.noise(0.12)
-        const filter = ctx.createBiquadFilter()
-        filter.type = 'bandpass'
-        filter.frequency.value = 2200
-        filter.Q.value = 0.6
-        const env = this.envelope(0.005, 0.09, 0.5)
-        src.connect(filter)
-        filter.connect(env)
-        env.connect(this.masterGain!)
-        src.start()
-        src.stop(ctx.currentTime + 0.12)
+        const now = ctx.currentTime
+        const src = this.noise(0.09)
+        const bp = ctx.createBiquadFilter()
+        bp.type = 'bandpass'; bp.frequency.value = 3500; bp.Q.value = 1.2
+        const env1 = ctx.createGain()
+        env1.gain.setValueAtTime(0.6, now)
+        env1.gain.exponentialRampToValueAtTime(0.001, now + 0.07)
+        src.connect(bp); bp.connect(env1); env1.connect(this.masterGain!)
+        src.start(); src.stop(now + 0.1)
+        this.thump(110, 0.07, 0.25, 50)
     }
 
-    /** 过牌：低频短促正弦轻拍 */
     private playCheck(): void {
-        this.tone(300, 'sine', 0.005, 0.12, 0.45)
+        const ctx = this.getCtx()
+        const now = ctx.currentTime
+        this.thump(90, 0.11, 0.55)
+        this.thump(180, 0.07, 0.28)
+        const src = this.noise(0.04)
+        const hp = ctx.createBiquadFilter()
+        hp.type = 'highpass'; hp.frequency.value = 1500
+        const g = ctx.createGain()
+        g.gain.setValueAtTime(0.18, now)
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.04)
+        src.connect(hp); hp.connect(g); g.connect(this.masterGain!)
+        src.start(); src.stop(now + 0.05)
     }
 
-    /** 跟注：中频三角波筹码叮当，带小延迟余韵 */
     private playCall(): void {
-        this.tone(720, 'triangle', 0.003, 0.18, 0.55)
-        this.tone(640, 'triangle', 0.003, 0.13, 0.28, 65)
+        this.fmChip(820, 3.1, 2.8, 0.38, 0.62)
+        this.fmChip(740, 2.9, 2.5, 0.30, 0.42, 70)
     }
 
-    /** 下注：低频重音 + 筹码叮当组合 */
     private playBet(): void {
-        this.tone(180, 'sine', 0.006, 0.22, 0.65)
-        this.tone(620, 'triangle', 0.003, 0.12, 0.38)
+        this.thump(75, 0.18, 0.6)
+        this.fmChip(880, 3.3, 3.0, 0.32, 0.55, 60)
+        this.fmChip(810, 3.0, 2.7, 0.28, 0.45, 120)
+        this.fmChip(750, 2.8, 2.4, 0.25, 0.35, 180)
     }
 
-    /** 加注：三颗筹码快速连叮，频率略有差异 */
     private playRaise(): void {
-        const freqs = [760, 690, 830]
-        freqs.forEach((f, i) => this.tone(f, 'triangle', 0.003, 0.16, 0.48, i * 65))
+        this.thump(65, 0.22, 0.7)
+        const chips = [
+            { freq: 920, delay: 40 },
+            { freq: 860, delay: 100 },
+            { freq: 800, delay: 160 },
+            { freq: 740, delay: 220 },
+            { freq: 680, delay: 280 },
+        ]
+        chips.forEach(({ freq, delay }) =>
+            this.fmChip(freq, 3.2, 2.9, 0.35, 0.48, delay)
+        )
     }
 
-    /** 弃牌：锯齿波频率下扫，模拟牌张扔出的滑落感 */
     private playFold(): void {
         const ctx = this.getCtx()
-        const osc = ctx.createOscillator()
-        osc.type = 'sawtooth'
-        const t = ctx.currentTime
-        osc.frequency.setValueAtTime(380, t)
-        osc.frequency.exponentialRampToValueAtTime(70, t + 0.22)
-        const env = ctx.createGain()
-        env.gain.setValueAtTime(0.32, t)
-        env.gain.linearRampToValueAtTime(0, t + 0.22)
-        osc.connect(env)
-        env.connect(this.masterGain!)
-        osc.start(t)
-        osc.stop(t + 0.25)
+        const now = ctx.currentTime
+        const src1 = this.noise(0.03)
+        const hp = ctx.createBiquadFilter()
+        hp.type = 'highpass'; hp.frequency.value = 4000
+        const g1 = ctx.createGain()
+        g1.gain.setValueAtTime(0.55, now)
+        g1.gain.exponentialRampToValueAtTime(0.001, now + 0.025)
+        src1.connect(hp); hp.connect(g1); g1.connect(this.masterGain!)
+        src1.start(); src1.stop(now + 0.03)
+        setTimeout(() => {
+            const ctx2 = this.getCtx()
+            const t = ctx2.currentTime
+            const src2 = this.noise(0.18)
+            const bp = ctx2.createBiquadFilter()
+            bp.type = 'bandpass'; bp.Q.value = 0.8
+            bp.frequency.setValueAtTime(2800, t)
+            bp.frequency.exponentialRampToValueAtTime(300, t + 0.18)
+            const g2 = ctx2.createGain()
+            g2.gain.setValueAtTime(0.42, t)
+            g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+            src2.connect(bp); bp.connect(g2); g2.connect(this.masterGain!)
+            src2.start(); src2.stop(t + 0.2)
+        }, 25)
     }
 
-    /** 全押：低沉重击 + 五颗筹码瀑布式叮当 */
     private playAllIn(): void {
-        this.tone(140, 'sine', 0.008, 0.45, 0.75)
-        for (let i = 0; i < 5; i++) {
-            this.tone(580 + i * 90, 'triangle', 0.003, 0.16, 0.38, i * 55)
-        }
+        const ctx = this.getCtx()
+        const now = ctx.currentTime
+        const bass = ctx.createOscillator()
+        bass.type = 'sine'
+        bass.frequency.setValueAtTime(55, now)
+        bass.frequency.exponentialRampToValueAtTime(28, now + 0.5)
+        const bassEnv = ctx.createGain()
+        bassEnv.gain.setValueAtTime(0.9, now + 0.001)
+        bassEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
+        bass.connect(bassEnv)
+        bassEnv.connect(this.masterGain!)
+        bassEnv.connect(this.reverbNode!)
+        bass.start(now); bass.stop(now + 0.55)
+        const src = this.noise(0.06)
+        const lp = ctx.createBiquadFilter()
+        lp.type = 'lowpass'; lp.frequency.value = 600
+        const ng = ctx.createGain()
+        ng.gain.setValueAtTime(0.7, now)
+        ng.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
+        src.connect(lp); lp.connect(ng); ng.connect(this.masterGain!)
+        src.start(); src.stop(now + 0.07)
+        const cascade = [
+            { freq: 980, delay: 55,  decay: 0.38 },
+            { freq: 910, delay: 105, decay: 0.34 },
+            { freq: 850, delay: 150, decay: 0.30 },
+            { freq: 790, delay: 190, decay: 0.27 },
+            { freq: 730, delay: 225, decay: 0.24 },
+            { freq: 670, delay: 255, decay: 0.21 },
+            { freq: 620, delay: 280, decay: 0.18 },
+        ]
+        cascade.forEach(({ freq, delay, decay }) =>
+            this.fmChip(freq, 3.2, 3.0, decay, 0.5, delay, true)
+        )
     }
 
-    /** 轮到本人行动：双音阶悦耳铃声，第二音稍高并延迟 */
     private playMyTurn(): void {
         const ctx = this.getCtx()
-        const pairs: Array<[number, number]> = [[900, 0], [1120, 110]]
-        pairs.forEach(([freq, delayMs]) => {
-            const play = () => {
+        const chord = [1047, 1319, 1568]  // C6-E6-G6
+        chord.forEach((freq, i) => {
+            setTimeout(() => {
+                const t = ctx.currentTime
                 const osc = ctx.createOscillator()
                 osc.type = 'sine'
                 osc.frequency.value = freq
                 const env = ctx.createGain()
-                const t = ctx.currentTime
                 env.gain.setValueAtTime(0, t)
-                env.gain.linearRampToValueAtTime(0.52, t + 0.01)
-                env.gain.exponentialRampToValueAtTime(0.001, t + 0.65)
+                env.gain.linearRampToValueAtTime(0.38, t + 0.015)
+                env.gain.exponentialRampToValueAtTime(0.001, t + 0.9)
                 osc.connect(env)
                 env.connect(this.masterGain!)
-                osc.start(t)
-                osc.stop(t + 0.68)
-            }
-            if (delayMs > 0) setTimeout(play, delayMs)
-            else play()
+                env.connect(this.reverbNode!)
+                osc.start(t); osc.stop(t + 0.92)
+            }, i * 45)
         })
     }
 
-    /** 赢得手牌：C5→E5→G5→C6 上行琶音 */
     private playWin(): void {
-        const notes = [523, 659, 784, 1047]
-        notes.forEach((freq, i) => this.tone(freq, 'sine', 0.01, 0.32, 0.48, i * 105))
+        const ctx = this.getCtx()
+        const scale = [392, 494, 587, 740]
+        scale.forEach((freq, i) => {
+            setTimeout(() => {
+                const t = ctx.currentTime
+                const osc = ctx.createOscillator()
+                osc.type = 'sawtooth'
+                osc.frequency.value = freq
+                const lp = ctx.createBiquadFilter()
+                lp.type = 'lowpass'; lp.frequency.value = 2200
+                const env = ctx.createGain()
+                env.gain.setValueAtTime(0, t)
+                env.gain.linearRampToValueAtTime(0.32, t + 0.02)
+                env.gain.exponentialRampToValueAtTime(0.001, t + 0.28)
+                osc.connect(lp); lp.connect(env); env.connect(this.masterGain!)
+                osc.start(t); osc.stop(t + 0.32)
+            }, i * 95)
+        })
+        const finalChord = [784, 988, 1175]
+        finalChord.forEach((freq) => {
+            setTimeout(() => {
+                const t = ctx.currentTime
+                const osc = ctx.createOscillator()
+                osc.type = 'sine'
+                osc.frequency.value = freq
+                const env = ctx.createGain()
+                env.gain.setValueAtTime(0, t)
+                env.gain.linearRampToValueAtTime(0.42, t + 0.01)
+                env.gain.exponentialRampToValueAtTime(0.001, t + 1.1)
+                osc.connect(env)
+                env.connect(this.masterGain!)
+                env.connect(this.reverbNode!)
+                osc.start(t); osc.stop(t + 1.15)
+            }, 420)
+        })
     }
 
-    /** 摊牌：白噪声鼓声渐强 + 收尾低沉一击 */
     private playShowdown(): void {
         const ctx = this.getCtx()
-        const src = this.noise(0.32)
-        const filter = ctx.createBiquadFilter()
-        filter.type = 'lowpass'
-        filter.frequency.value = 900
-        const env = ctx.createGain()
-        const t = ctx.currentTime
-        env.gain.setValueAtTime(0.08, t)
-        env.gain.linearRampToValueAtTime(0.45, t + 0.22)
-        env.gain.linearRampToValueAtTime(0, t + 0.32)
-        src.connect(filter)
-        filter.connect(env)
-        env.connect(this.masterGain!)
-        src.start()
-        src.stop(t + 0.35)
-        // 收尾一击
-        this.tone(190, 'sine', 0.005, 0.28, 0.62, 310)
+        const now = ctx.currentTime
+        const src = this.noise(0.55)
+        const bp = ctx.createBiquadFilter()
+        bp.type = 'bandpass'; bp.Q.value = 1.5
+        bp.frequency.setValueAtTime(300, now)
+        bp.frequency.exponentialRampToValueAtTime(2200, now + 0.5)
+        const roll = ctx.createGain()
+        roll.gain.setValueAtTime(0.05, now)
+        roll.gain.linearRampToValueAtTime(0.55, now + 0.48)
+        roll.gain.linearRampToValueAtTime(0, now + 0.55)
+        src.connect(bp); bp.connect(roll); roll.connect(this.masterGain!)
+        src.start(); src.stop(now + 0.58)
+        setTimeout(() => {
+            const t = ctx.currentTime
+            this.thump(70, 0.4, 0.8)
+            const src2 = this.noise(0.08)
+            const hp = ctx.createBiquadFilter()
+            hp.type = 'highpass'; hp.frequency.value = 8000
+            const g = ctx.createGain()
+            g.gain.setValueAtTime(0.45, t)
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.06)
+            src2.connect(hp); hp.connect(g)
+            g.connect(this.masterGain!)
+            g.connect(this.reverbNode!)
+            src2.start(); src2.stop(t + 0.09)
+        }, 530)
     }
 }
 
