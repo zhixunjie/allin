@@ -84,7 +84,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 		return
 	}
 
-	p := &model.Player{
+	p := &gmodel.Player{
 		UserID:      msg.SenderID,
 		DisplayName: msg.DisplayName,
 		Stack:       buyIn,
@@ -109,7 +109,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	e.sendSnapshot(msg.SenderID)
 
 	// 如果有 ≥2 个合格玩家且没有正在进行的手牌，则自动开始。
-	if e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+	if e.gs.Street == gmodel.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 		e.resetTimer(handStartDelay)
 	}
 }
@@ -121,12 +121,12 @@ func (e *Engine) seatBots() {
 		if e.gs.FindPlayer(uid) != nil {
 			continue // 已入座
 		}
-		p := &model.Player{
+		p := &gmodel.Player{
 			UserID:      uid,
 			DisplayName: botpkg.GenUserName(i),
 			Stack:       e.room.Config.MaxBuyIn,
 			IsBot:       true,
-			BotStyle:    model.AssignStyle(e.room.Config.BotType, i),
+			BotStyle:    gmodel.AssignStyle(e.room.Config.BotType, i),
 		}
 		if !e.gs.SeatPlayer(p) {
 			break // 没有更多座位
@@ -157,7 +157,7 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage) {
 		return
 	}
 
-	if e.gs.Street == model.StreetIdle {
+	if e.gs.Street == gmodel.StreetIdle {
 		// 手牌间隙断线：立即离座并返还筹码。
 		e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  p.UserID,
@@ -176,7 +176,7 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage) {
 	// 等轮到他时由超时逻辑处理，给断线重连留出时间。
 	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
-		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
+		e.gs.ApplyAction(p.UserID, gmodel.ActionFold, 0)
 		e.stopTimer()
 		e.advanceOrEnd()
 	}
@@ -219,14 +219,14 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage) {
 	}))
 
 	// 离座：若在活跃手牌中且轮到该玩家，自动弃牌。
-	if cmd.SitOut && e.gs.Street != model.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
-		e.gs.ApplyAction(p.UserID, model.ActionFold, 0)
+	if cmd.SitOut && e.gs.Street != gmodel.StreetIdle && e.gs.ActionSeat == p.SeatIndex {
+		e.gs.ApplyAction(p.UserID, gmodel.ActionFold, 0)
 		e.stopTimer()
 		e.advanceOrEnd()
 		return
 	}
 	// 归座：若处于空闲且满足开局条件，启动计时器。
-	if !cmd.SitOut && e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+	if !cmd.SitOut && e.gs.Street == gmodel.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 		e.resetTimer(handStartDelay)
 	}
 }
@@ -236,7 +236,7 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage) {
 // handleLeaveTable 处理玩家主动离桌请求。
 // 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
 func (e *Engine) handleLeaveTable(msg protocol.InboundMessage) {
-	if e.gs.Street != model.StreetIdle {
+	if e.gs.Street != gmodel.StreetIdle {
 		e.sendError(msg.SenderID, protocol.SkErrHandInProgress, msg.Env.Seq)
 		return
 	}

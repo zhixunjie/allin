@@ -7,10 +7,10 @@ import (
 
 // GameStateMachine 是一个房间的完整内存游戏状态。
 type GameStateMachine struct {
-	Street    model.Street     // 当前游戏阶段
+	Street    gmodel.Street     // 当前游戏阶段
 	HandNum   int              // 本局手牌编号（从 1 开始递增）
-	Community []model.Card     // 公共牌（0–5 张）
-	Seats     [9]*model.Player // 座位数组，nil 表示空座
+	Community []gmodel.Card     // 公共牌（0–5 张）
+	Seats     [9]*gmodel.Player // 座位数组，nil 表示空座
 
 	DealerSeat int // 庄家按钮所在座位号
 	SBSeat     int // 小盲所在座位号
@@ -24,7 +24,7 @@ type GameStateMachine struct {
 }
 
 // SeatPlayer 将玩家安排到第一个空座位，成功返回 true，无座位返回 false。
-func (gs *GameStateMachine) SeatPlayer(p *model.Player) bool {
+func (gs *GameStateMachine) SeatPlayer(p *gmodel.Player) bool {
 	for i := range gs.Seats {
 		if gs.Seats[i] == nil {
 			p.SeatIndex = i
@@ -46,7 +46,7 @@ func (gs *GameStateMachine) UnseatPlayer(userID string) {
 }
 
 // FindPlayer 返回指定 userID 的玩家，不存在则返回 nil。
-func (gs *GameStateMachine) FindPlayer(userID string) *model.Player {
+func (gs *GameStateMachine) FindPlayer(userID string) *gmodel.Player {
 	for _, p := range gs.Seats {
 		if p != nil && p.UserID == userID {
 			return p
@@ -56,8 +56,8 @@ func (gs *GameStateMachine) FindPlayer(userID string) *model.Player {
 }
 
 // ActivePlayers 返回未弃牌、未离座的玩家。
-func (gs *GameStateMachine) ActivePlayers() []*model.Player {
-	var out []*model.Player
+func (gs *GameStateMachine) ActivePlayers() []*gmodel.Player {
+	var out []*gmodel.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut {
 			out = append(out, p)
@@ -78,8 +78,8 @@ func (gs *GameStateMachine) SeatedCount() int {
 }
 
 // EligibleToStart 返回可以参与新一手牌的玩家：未离座、未断线、有筹码。
-func (gs *GameStateMachine) EligibleToStart() []*model.Player {
-	var out []*model.Player
+func (gs *GameStateMachine) EligibleToStart() []*gmodel.Player {
+	var out []*gmodel.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.SitOut && !p.Disconnected && p.Stack > 0 {
 			out = append(out, p)
@@ -98,7 +98,7 @@ func (gs *GameStateMachine) NextActiveSeat(from int) int {
 			return idx
 		}
 	}
-	return model.NoSeat
+	return gmodel.NoSeat
 }
 
 // NextActableSeat 返回下一个仍可下注/加注/跟注的座位（非全押/弃牌/离座）。
@@ -110,7 +110,7 @@ func (gs *GameStateMachine) NextActableSeat(from int) int {
 			return idx
 		}
 	}
-	return model.NoSeat
+	return gmodel.NoSeat
 }
 
 // BettingRoundOver 当没有活跃玩家需要继续行动时返回 true。
@@ -130,8 +130,8 @@ func (gs *GameStateMachine) BettingRoundOver() bool {
 }
 
 // CanAct 返回所有仍可参与下注决策的玩家：未弃牌、未离座、未全押。
-func (gs *GameStateMachine) CanAct() []*model.Player {
-	var out []*model.Player
+func (gs *GameStateMachine) CanAct() []*gmodel.Player {
+	var out []*gmodel.Player
 	for _, p := range gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut && !p.AllIn {
 			out = append(out, p)

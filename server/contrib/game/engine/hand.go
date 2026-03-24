@@ -18,7 +18,7 @@ import (
 //  2. ActionSeat == -1：全员全押，无人可行动，自动推进到下一街道。
 //  3. 正常行动超时：对当前行动玩家执行自动弃牌（有下注则 fold，否则 check）。
 func (e *Engine) handleTimeout() {
-	if e.gs.Street == model.StreetIdle {
+	if e.gs.Street == gmodel.StreetIdle {
 		if len(e.gs.EligibleToStart()) >= 2 {
 			e.startHand()
 		}
@@ -26,7 +26,7 @@ func (e *Engine) handleTimeout() {
 	}
 
 	// 全员全押自动推进：ActionSeat==-1 表示本街无人可行动，继续发牌。
-	if e.gs.ActionSeat == model.NoSeat {
+	if e.gs.ActionSeat == gmodel.NoSeat {
 		e.nextStreet()
 		return
 	}
@@ -37,9 +37,9 @@ func (e *Engine) handleTimeout() {
 		return
 	}
 
-	action := model.ActionFold
+	action := gmodel.ActionFold
 	if p.Bet >= e.gs.CurrentBet {
-		action = model.ActionCheck
+		action = gmodel.ActionCheck
 	}
 
 	e.gs.ApplyAction(p.UserID, action, 0)
@@ -133,7 +133,7 @@ func (e *Engine) startHand() {
 	e.handActions = e.handActions[:0]
 	e.readyPlayers = nil
 	e.gs.HandNum++
-	e.gs.Street = model.StreetPreFlop
+	e.gs.Street = gmodel.StreetPreFlop
 	e.gs.Community = nil
 
 	eligible := e.gs.EligibleToStart()
@@ -155,7 +155,7 @@ func (e *Engine) startHand() {
 			p.Folded = false
 			p.AllIn = false
 			p.ActedThisStreet = false
-			p.Hole = [2]model.Card{}
+			p.Hole = [2]gmodel.Card{}
 		}
 	}
 
@@ -209,7 +209,7 @@ func (e *Engine) startHand() {
 }
 
 // postBlind 强制玩家下盲注：若筹码不足则全押，更新 Bet / TotalBet / Stack。
-func postBlind(p *model.Player, amount int64) {
+func postBlind(p *gmodel.Player, amount int64) {
 	if p == nil {
 		return
 	}
@@ -261,7 +261,7 @@ func (e *Engine) advanceOrEnd() {
 	}
 
 	next := e.gs.NextActableSeat(e.gs.ActionSeat)
-	if next == model.NoSeat {
+	if next == gmodel.NoSeat {
 		e.nextStreet()
 		return
 	}
@@ -281,16 +281,16 @@ func (e *Engine) nextStreet() {
 	e.gs.MinRaise = e.gs.Config.BigBlind
 
 	switch e.gs.Street {
-	case model.StreetPreFlop:
-		e.gs.Street = model.StreetFlop
+	case gmodel.StreetPreFlop:
+		e.gs.Street = gmodel.StreetFlop
 		e.dealCommunity(3)
-	case model.StreetFlop:
-		e.gs.Street = model.StreetTurn
+	case gmodel.StreetFlop:
+		e.gs.Street = gmodel.StreetTurn
 		e.dealCommunity(1)
-	case model.StreetTurn:
-		e.gs.Street = model.StreetRiver
+	case gmodel.StreetTurn:
+		e.gs.Street = gmodel.StreetRiver
 		e.dealCommunity(1)
-	case model.StreetRiver:
+	case gmodel.StreetRiver:
 		e.runShowdown()
 		return
 	}
@@ -302,7 +302,7 @@ func (e *Engine) nextStreet() {
 	}))
 
 	if len(e.gs.CanAct()) == 0 {
-		e.gs.ActionSeat = model.NoSeat
+		e.gs.ActionSeat = gmodel.NoSeat
 		e.resetTimer(2 * time.Second)
 		return
 	}
@@ -343,8 +343,8 @@ func (e *Engine) broadcastActionRequired() {
 
 // runShowdown 执行摊牌流程：展示手牌、分配底池、广播结果、写入历史、启动下一手。
 func (e *Engine) runShowdown() {
-	e.gs.Street = model.StreetShowdown
-	e.gs.ActionSeat = model.NoSeat
+	e.gs.Street = gmodel.StreetShowdown
+	e.gs.ActionSeat = gmodel.NoSeat
 
 	type reveal struct {
 		PlayerID  string   `json:"player_id"`
@@ -489,13 +489,13 @@ func (e *Engine) runShowdown() {
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
-	e.gs.Street = model.StreetIdle
-	e.gs.ActionSeat = model.NoSeat
+	e.gs.Street = gmodel.StreetIdle
+	e.gs.ActionSeat = gmodel.NoSeat
 	e.scheduleNextHand()
 }
 
 // awardUncontested 将底池颁发给最后一个活跃玩家（其他人都弃牌了）。
-func (e *Engine) awardUncontested(winner *model.Player) {
+func (e *Engine) awardUncontested(winner *gmodel.Player) {
 	maxOther := int64(0)
 	for _, p := range e.gs.Seats {
 		if p != nil && p.UserID != winner.UserID && p.TotalBet > maxOther {
@@ -561,8 +561,8 @@ func (e *Engine) awardUncontested(winner *model.Player) {
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
-	e.gs.Street = model.StreetIdle
-	e.gs.ActionSeat = model.NoSeat
+	e.gs.Street = gmodel.StreetIdle
+	e.gs.ActionSeat = gmodel.NoSeat
 	e.scheduleNextHand()
 }
 
@@ -597,7 +597,7 @@ func (e *Engine) scheduleNextHand() {
 
 // handleReady 处理玩家发送的 ready 命令（在结算画面点击"开始下一局"）。
 func (e *Engine) handleReady(msg protocol.InboundMessage) {
-	if e.gs.Street != model.StreetIdle {
+	if e.gs.Street != gmodel.StreetIdle {
 		return
 	}
 	if e.readyPlayers == nil {

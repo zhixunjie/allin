@@ -14,7 +14,7 @@ type Pot struct {
 
 // BuildPots 根据所有玩家的 TotalBet 金额计算主池和边池。
 // 应在所有下注完成后调用（未被跟注的下注已退回筹码）。
-func BuildPots(seats [9]*model.Player) []Pot {
+func BuildPots(seats [9]*gmodel.Player) []Pot {
 	type contrib struct {
 		userID   string
 		totalBet int64

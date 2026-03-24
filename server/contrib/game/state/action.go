@@ -7,77 +7,77 @@ import (
 )
 
 // ValidateAction 检查给定的行动对该玩家是否合法。
-func (gs *GameStateMachine) ValidateAction(userID string, action model.Action, amount int64) error {
-	if gs.Street == model.StreetIdle || gs.Street == model.StreetShowdown {
-		return model.ErrGameNotActive
+func (gs *GameStateMachine) ValidateAction(userID string, action gmodel.Action, amount int64) error {
+	if gs.Street == gmodel.StreetIdle || gs.Street == gmodel.StreetShowdown {
+		return gmodel.ErrGameNotActive
 	}
 	p := gs.FindPlayer(userID)
 	if p == nil {
-		return model.ErrPlayerNotSeated
+		return gmodel.ErrPlayerNotSeated
 	}
 	if gs.ActionSeat != p.SeatIndex {
-		return model.ErrNotYourTurn
+		return gmodel.ErrNotYourTurn
 	}
 	if p.Folded || p.AllIn {
-		return model.ErrInvalidAction
+		return gmodel.ErrInvalidAction
 	}
 
 	switch action {
-	case model.ActionFold:
+	case gmodel.ActionFold:
 		return nil
 
-	case model.ActionCheck:
+	case gmodel.ActionCheck:
 		if p.Bet < gs.CurrentBet {
-			return fmt.Errorf("%w: must call %d or raise", model.ErrInvalidAction, gs.CurrentBet-p.Bet)
+			return fmt.Errorf("%w: must call %d or raise", gmodel.ErrInvalidAction, gs.CurrentBet-p.Bet)
 		}
 		return nil
 
-	case model.ActionCall:
+	case gmodel.ActionCall:
 		if p.Bet >= gs.CurrentBet {
-			return fmt.Errorf("%w: no bet to call, use check", model.ErrInvalidAction)
+			return fmt.Errorf("%w: no bet to call, use check", gmodel.ErrInvalidAction)
 		}
 		return nil
 
-	case model.ActionBet:
+	case gmodel.ActionBet:
 		if gs.CurrentBet > 0 {
-			return fmt.Errorf("%w: there is already a bet, use raise", model.ErrInvalidAction)
+			return fmt.Errorf("%w: there is already a bet, use raise", gmodel.ErrInvalidAction)
 		}
 		if amount < gs.Config.BigBlind {
-			return fmt.Errorf("%w: bet must be at least %d (one big blind)", model.ErrInvalidAmount, gs.Config.BigBlind)
+			return fmt.Errorf("%w: bet must be at least %d (one big blind)", gmodel.ErrInvalidAmount, gs.Config.BigBlind)
 		}
 		if amount > p.Stack {
-			return fmt.Errorf("%w: not enough chips", model.ErrInvalidAmount)
+			return fmt.Errorf("%w: not enough chips", gmodel.ErrInvalidAmount)
 		}
 		return nil
 
-	case model.ActionRaise:
+	case gmodel.ActionRaise:
 		if gs.CurrentBet == 0 {
-			return fmt.Errorf("%w: no bet to raise, use bet", model.ErrInvalidAction)
+			return fmt.Errorf("%w: no bet to raise, use bet", gmodel.ErrInvalidAction)
 		}
 		toCall := gs.CurrentBet - p.Bet
 		minRaiseTotal := gs.CurrentBet + gs.MinRaise
 		if amount < minRaiseTotal && amount != p.Stack+p.Bet {
-			return fmt.Errorf("%w: raise must be to at least %d", model.ErrInvalidAmount, minRaiseTotal)
+			return fmt.Errorf("%w: raise must be to at least %d", gmodel.ErrInvalidAmount, minRaiseTotal)
 		}
 		if toCall >= p.Stack {
-			return fmt.Errorf("%w: not enough chips to raise, use all_in", model.ErrInvalidAmount)
+			return fmt.Errorf("%w: not enough chips to raise, use all_in", gmodel.ErrInvalidAmount)
 		}
 		return nil
 
-	case model.ActionAllIn:
+	case gmodel.ActionAllIn:
 		if p.Stack == 0 {
-			return fmt.Errorf("%w: no chips to go all-in", model.ErrInvalidAmount)
+			return fmt.Errorf("%w: no chips to go all-in", gmodel.ErrInvalidAmount)
 		}
 		return nil
 
 	default:
-		return fmt.Errorf("%w: unknown action %q", model.ErrInvalidAction, action)
+		return fmt.Errorf("%w: unknown action %q", gmodel.ErrInvalidAction, action)
 	}
 }
 
 // ApplyAction 修改 gs 以应用已验证的行动。
 // 如果行动是激进行为（下注/加注）需要其他人重新行动，则返回 true。
-func (gs *GameStateMachine) ApplyAction(userID string, action model.Action, amount int64) bool {
+func (gs *GameStateMachine) ApplyAction(userID string, action gmodel.Action, amount int64) bool {
 	p := gs.FindPlayer(userID)
 	if p == nil {
 		return false
@@ -85,14 +85,14 @@ func (gs *GameStateMachine) ApplyAction(userID string, action model.Action, amou
 	aggression := false
 
 	switch action {
-	case model.ActionFold:
+	case gmodel.ActionFold:
 		p.Folded = true
 		p.ActedThisStreet = true
 
-	case model.ActionCheck:
+	case gmodel.ActionCheck:
 		p.ActedThisStreet = true
 
-	case model.ActionCall:
+	case gmodel.ActionCall:
 		toCall := gs.CurrentBet - p.Bet
 		if toCall > p.Stack {
 			toCall = p.Stack
@@ -103,7 +103,7 @@ func (gs *GameStateMachine) ApplyAction(userID string, action model.Action, amou
 		p.Stack -= toCall
 		p.ActedThisStreet = true
 
-	case model.ActionBet:
+	case gmodel.ActionBet:
 		if amount > p.Stack {
 			amount = p.Stack
 			p.AllIn = true
@@ -116,7 +116,7 @@ func (gs *GameStateMachine) ApplyAction(userID string, action model.Action, amou
 		p.ActedThisStreet = true
 		aggression = true
 
-	case model.ActionRaise:
+	case gmodel.ActionRaise:
 		newTotal := amount
 		if newTotal > p.Bet+p.Stack {
 			newTotal = p.Bet + p.Stack
@@ -132,7 +132,7 @@ func (gs *GameStateMachine) ApplyAction(userID string, action model.Action, amou
 		p.ActedThisStreet = true
 		aggression = true
 
-	case model.ActionAllIn:
+	case gmodel.ActionAllIn:
 		added := p.Stack
 		p.Bet += added
 		p.TotalBet += added

@@ -24,13 +24,13 @@ func New(rc *ws.RoomConn) *Bot {
 
 // ScheduleAction 启动 goroutine，在随机延迟后向引擎注入 bot 行动。
 // 只读取快照变量，写入经 buffered channel，线程安全。
-func (b *Bot) ScheduleAction(gs *state.GameStateMachine, player *model.Player) {
+func (b *Bot) ScheduleAction(gs *state.GameStateMachine, player *gmodel.Player) {
 	botID := player.UserID
 
 	// 确定 bot 性格
 	personality, ok := personalities[player.BotStyle]
 	if !ok {
-		personality = personalities[model.BotStyleTag]
+		personality = personalities[gmodel.BotStyleTag]
 	}
 
 	situation := state.NewBotSituation(gs, player)

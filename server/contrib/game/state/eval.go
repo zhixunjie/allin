@@ -9,7 +9,7 @@ import (
 )
 
 // CardsToStrings 将 Card 切片转换为字符串切片，空切片返回 []string{} 而非 nil。
-func CardsToStrings(cards []model.Card) []string {
+func CardsToStrings(cards []gmodel.Card) []string {
 	if len(cards) == 0 {
 		return []string{}
 	}
@@ -21,17 +21,17 @@ func CardsToStrings(cards []model.Card) []string {
 }
 
 // EvaluateHand 返回玩家最佳 7 张牌组合的评估等级（数值越小越好）和手牌名称。
-// community 不足 3 张或底牌未发时返回最差等级 model.InvalidHandRank。
-func EvaluateHand(hole [2]model.Card, community []model.Card) (uint32, string) {
+// community 不足 3 张或底牌未发时返回最差等级 gmodel.InvalidHandRank。
+func EvaluateHand(hole [2]gmodel.Card, community []gmodel.Card) (uint32, string) {
 	if len(community) < 3 {
 		slog.Error("game: EvaluateHand called with insufficient community cards", "community_len", len(community))
-		return model.InvalidHandRank, ""
+		return gmodel.InvalidHandRank, ""
 	}
 	if hole[0].Rank == 0 || hole[1].Rank == 0 {
 		slog.Error("game: EvaluateHand called with undealt hole cards", "hole0", hole[0], "hole1", hole[1])
-		return model.InvalidHandRank, ""
+		return gmodel.InvalidHandRank, ""
 	}
-	cards := [7]model.Card{hole[0], hole[1]}
+	cards := [7]gmodel.Card{hole[0], hole[1]}
 	for i, c := range community {
 		if i >= 5 {
 			break
@@ -44,11 +44,11 @@ func EvaluateHand(hole [2]model.Card, community []model.Card) (uint32, string) {
 
 // BestFiveStrings 返回玩家手牌+公共牌中最佳五张的字符串切片。
 // community 不足 3 张时返回 nil（翻牌前不评估）。
-func BestFiveStrings(hole [2]model.Card, community []model.Card) []string {
+func BestFiveStrings(hole [2]gmodel.Card, community []gmodel.Card) []string {
 	if len(community) < 3 {
 		return nil
 	}
-	cards := [7]model.Card{hole[0], hole[1]}
+	cards := [7]gmodel.Card{hole[0], hole[1]}
 	for i, c := range community {
 		if i >= 5 {
 			break

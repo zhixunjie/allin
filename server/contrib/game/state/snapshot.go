@@ -63,7 +63,7 @@ func (gs *GameStateMachine) Snapshot(viewerID string) GameSnapshot {
 			Disconnected: p.Disconnected,
 			IsBot:        p.IsBot,
 		}
-		if p.UserID == viewerID && gs.Street != model.StreetIdle {
+		if p.UserID == viewerID && gs.Street != gmodel.StreetIdle {
 			ss.Hole = []string{p.Hole[0].String(), p.Hole[1].String()}
 		}
 		snap.Seats = append(snap.Seats, ss)

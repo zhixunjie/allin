@@ -25,7 +25,7 @@ type Engine struct {
 	rc              *ws.RoomConn            // 该房间的 WebSocket 消息总线
 	room            *room.Room              // 房间元数据与配置
 	gs              *state.GameStateMachine // 游戏状态（街道、座位、下注等）
-	deck            []model.Card            // 当前手牌使用的洗牌牌组（每手重置）
+	deck            []gmodel.Card            // 当前手牌使用的洗牌牌组（每手重置）
 	bot             *bot.Bot                // AI 行动调度器，持有 RoomConn 引用
 	quit            chan struct{}           // 关闭此 channel 通知 Run() 退出
 	chatLimiter     map[string]time.Time    // 各玩家最近一次聊天时间，用于频率限制
@@ -44,7 +44,7 @@ type Engine struct {
 // actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
 type actionLogEntry struct {
 	PlayerID string       `json:"player_id"` // 执行行动的玩家 ID
-	Action   model.Action `json:"action"`    // 行动类型，见 model.Action 枚举
+	Action   gmodel.Action `json:"action"`    // 行动类型，见 gmodel.Action 枚举
 	Amount   int64        `json:"amount"`    // 行动金额（check/fold 为 0）
 	Street   string       `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
 }
@@ -61,9 +61,9 @@ func NewEngine(rc *ws.RoomConn, rm *room.Room, registry *Registry) *Engine {
 		bot:         bot.New(rc),
 		chatLimiter: make(map[string]time.Time),
 		gs: &state.GameStateMachine{
-			Street:     model.StreetIdle,
-			ActionSeat: model.NoSeat,
-			DealerSeat: model.NoSeat,
+			Street:     gmodel.StreetIdle,
+			ActionSeat: gmodel.NoSeat,
+			DealerSeat: gmodel.NoSeat,
 			Config:     cfg,
 		},
 		quit:     make(chan struct{}),
@@ -121,7 +121,7 @@ func (e *Engine) Run() {
 			e.botReplaceC = nil
 			if e.hasHumanPlayers() {
 				e.seatBots()
-				if e.gs.Street == model.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
+				if e.gs.Street == gmodel.StreetIdle && len(e.gs.EligibleToStart()) >= 2 {
 					e.resetTimer(handStartDelay)
 				}
 			}
