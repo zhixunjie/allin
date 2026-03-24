@@ -346,14 +346,8 @@ func (e *Engine) runShowdown() {
 	e.gs.Street = gmodel.StreetShowdown
 	e.gs.ActionSeat = gmodel.NoSeat
 
-	type reveal struct {
-		PlayerID  string   `json:"player_id"`
-		SeatIndex int      `json:"seat_index"`
-		Hole      []string `json:"hole"`
-		HandName  string   `json:"hand_name"`
-	}
 	handNames := map[string]string{}
-	var reveals []reveal
+	var reveals []revealEntry
 	for _, p := range e.gs.Seats {
 		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank == 0 {
 			slog.Error("game: showdown player has no hole cards", "player", p.UserID, "seat", p.SeatIndex)
@@ -361,7 +355,7 @@ func (e *Engine) runShowdown() {
 		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank != 0 {
 			_, handName := state.EvaluateHand(p.Hole, e.gs.Community)
 			handNames[p.UserID] = handName
-			reveals = append(reveals, reveal{
+			reveals = append(reveals, revealEntry{
 				PlayerID:  p.UserID,
 				SeatIndex: p.SeatIndex,
 				Hole:      []string{p.Hole[0].String(), p.Hole[1].String()},
@@ -378,12 +372,7 @@ func (e *Engine) runShowdown() {
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeShowdown, json.RawMessage(rawReveals)))
 
 	pots := state.BuildPots(e.gs.Seats)
-	type winEntry struct {
-		PlayerID string `json:"player_id"`
-		Amount   int64  `json:"amount"`
-		HandName string `json:"hand_name,omitempty"`
-	}
-	var winners []winEntry
+	var winners []handResultWinner
 
 	for _, pot := range pots {
 		bestRank := uint32(0xFFFFFFFF)
@@ -412,7 +401,7 @@ func (e *Engine) runShowdown() {
 			if p != nil {
 				p.Stack += award
 			}
-			winners = append(winners, winEntry{
+			winners = append(winners, handResultWinner{
 				PlayerID: uid,
 				Amount:   award,
 				HandName: handNames[uid],
@@ -420,14 +409,10 @@ func (e *Engine) runShowdown() {
 		}
 	}
 
-	type resultSeat struct {
-		PlayerID string `json:"player_id"`
-		Stack    int64  `json:"stack"`
-	}
-	var resultSeats []resultSeat
+	var resultSeats []handResultSeat
 	for _, p := range e.gs.Seats {
 		if p != nil {
-			resultSeats = append(resultSeats, resultSeat{p.UserID, p.Stack})
+			resultSeats = append(resultSeats, handResultSeat{p.UserID, p.Stack})
 		}
 	}
 
@@ -439,19 +424,11 @@ func (e *Engine) runShowdown() {
 		}
 	}
 
-	type playerDetail struct {
-		PlayerID    string   `json:"player_id"`
-		DisplayName string   `json:"display_name"`
-		Hole        []string `json:"hole"`
-		HandName    string   `json:"hand_name,omitempty"`
-		Folded      bool     `json:"folded"`
-		IsWinner    bool     `json:"is_winner"`
-	}
 	winnerSet := map[string]bool{}
 	for _, w := range winners {
 		winnerSet[w.PlayerID] = true
 	}
-	var allPlayers []playerDetail
+	var allPlayers []handResultPlayer
 	for _, p := range e.gs.Seats {
 		if p == nil {
 			continue
@@ -460,7 +437,7 @@ func (e *Engine) runShowdown() {
 		if !p.Folded {
 			hole = []string{p.Hole[0].String(), p.Hole[1].String()}
 		}
-		allPlayers = append(allPlayers, playerDetail{
+		allPlayers = append(allPlayers, handResultPlayer{
 			PlayerID:    p.UserID,
 			DisplayName: p.DisplayName,
 			Hole:        hole,
@@ -470,13 +447,13 @@ func (e *Engine) runShowdown() {
 		})
 	}
 
-	rawResult, err := json.Marshal(struct {
-		Winners          []winEntry     `json:"winners"`
-		Seats            []resultSeat   `json:"seats"`
-		BestHand         []string       `json:"best_hand,omitempty"`
-		AllPlayers       []playerDetail `json:"all_players"`
-		NextHandDelaySec int            `json:"next_hand_delay_sec"`
-	}{winners, resultSeats, bestHand, allPlayers, int(handStartDelay.Seconds())})
+	rawResult, err := json.Marshal(handResultPayload{
+		Winners:          winners,
+		Seats:            resultSeats,
+		BestHand:         bestHand,
+		AllPlayers:       allPlayers,
+		NextHandDelaySec: int(handStartDelay.Seconds()),
+	})
 	if err != nil {
 		slog.Error("game: failed to marshal hand result", "room", e.room.Code, "err", err)
 		return
@@ -516,23 +493,12 @@ func (e *Engine) awardUncontested(winner *gmodel.Player) {
 	}
 	winner.Stack += total
 
-	type uWinner struct {
-		PlayerID string `json:"player_id"`
-		Amount   int64  `json:"amount"`
-	}
-	type uPlayer struct {
-		PlayerID    string   `json:"player_id"`
-		DisplayName string   `json:"display_name"`
-		Hole        []string `json:"hole"`
-		Folded      bool     `json:"folded"`
-		IsWinner    bool     `json:"is_winner"`
-	}
-	var uPlayers []uPlayer
+	var uPlayers []handResultPlayer
 	for _, p := range e.gs.Seats {
 		if p == nil {
 			continue
 		}
-		uPlayers = append(uPlayers, uPlayer{
+		uPlayers = append(uPlayers, handResultPlayer{
 			PlayerID:    p.UserID,
 			DisplayName: p.DisplayName,
 			Hole:        []string{},
@@ -540,12 +506,8 @@ func (e *Engine) awardUncontested(winner *gmodel.Player) {
 			IsWinner:    p.UserID == winner.UserID,
 		})
 	}
-	rawResult, err := json.Marshal(struct {
-		Winners          []uWinner `json:"winners"`
-		AllPlayers       []uPlayer `json:"all_players"`
-		NextHandDelaySec int       `json:"next_hand_delay_sec"`
-	}{
-		Winners:          []uWinner{{winner.UserID, total}},
+	rawResult, err := json.Marshal(handResultPayload{
+		Winners:          []handResultWinner{{PlayerID: winner.UserID, Amount: total}},
 		AllPlayers:       uPlayers,
 		NextHandDelaySec: int(handStartDelay.Seconds()),
 	})

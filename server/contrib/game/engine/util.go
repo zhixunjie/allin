@@ -14,12 +14,6 @@ import (
 
 // saveHandHistory 异步将手牌结果写入 DB，不阻塞引擎 goroutine。
 func (e *Engine) saveHandHistory(resultJSON json.RawMessage) {
-	type playerSnap struct {
-		PlayerID    string `json:"player_id"`
-		DisplayName string `json:"display_name"`
-		SeatIndex   int    `json:"seat_index"`
-		Stack       int64  `json:"stack"`
-	}
 	var players []playerSnap
 	for _, p := range e.gs.Seats {
 		if p != nil {

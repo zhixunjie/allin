@@ -4,11 +4,11 @@ import (
 	"time"
 
 	"github.com/allin/server/contrib/game/bot"
-	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/game/state"
 	"github.com/allin/server/contrib/room"
 	"github.com/allin/server/contrib/ws"
 	"github.com/allin/server/contrib/ws/protocol"
+	"github.com/allin/server/gmodel"
 )
 
 const (
@@ -25,7 +25,7 @@ type Engine struct {
 	rc              *ws.RoomConn            // 该房间的 WebSocket 消息总线
 	room            *room.Room              // 房间元数据与配置
 	gs              *state.GameStateMachine // 游戏状态（街道、座位、下注等）
-	deck            []gmodel.Card            // 当前手牌使用的洗牌牌组（每手重置）
+	deck            []gmodel.Card           // 当前手牌使用的洗牌牌组（每手重置）
 	bot             *bot.Bot                // AI 行动调度器，持有 RoomConn 引用
 	quit            chan struct{}           // 关闭此 channel 通知 Run() 退出
 	chatLimiter     map[string]time.Time    // 各玩家最近一次聊天时间，用于频率限制
@@ -39,14 +39,6 @@ type Engine struct {
 	readyPlayers    map[string]bool         // 在结算画面点击"开始下一局"的玩家集合
 	resetTimer      func(time.Duration)     // 重置行动倒计时（停旧 timer，启新 timer）
 	stopTimer       func()                  // 停止行动倒计时（timer.Stop + timerC 置 nil）
-}
-
-// actionLogEntry 记录单次行动，序列化后写入 hand_history.actions_json。
-type actionLogEntry struct {
-	PlayerID string       `json:"player_id"` // 执行行动的玩家 ID
-	Action   gmodel.Action `json:"action"`    // 行动类型，见 gmodel.Action 枚举
-	Amount   int64        `json:"amount"`    // 行动金额（check/fold 为 0）
-	Street   string       `json:"street"`    // 行动所在街道（preflop/flop/turn/river）
 }
 
 // NewEngine 为给定的 RoomConn 和房间创建引擎。
