@@ -315,9 +315,11 @@ export class SeatSprite extends Container {
         // 先立即显示本地生成的默认头像，避免异步加载期间空白
         setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
         if (seat.avatar) {
-            Assets.load(seat.avatar).then(setTex).catch(() => {})
+            Assets.load(seat.avatar).then(setTex).catch(() => {
+            })
         } else {
-            loadDiceBearTexture(seat.user_id).then(setTex).catch(() => {})
+            loadDiceBearTexture(seat.user_id).then(setTex).catch(() => {
+            })
         }
 
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明
@@ -558,14 +560,6 @@ export class SeatSprite extends Container {
      * 行动时替换为金色多层光晕
      */
     private drawRemoteFrame(R: number) {
-        // if (isActive) {
-        //     // 行动中：金色多层大范围光晕
-        //     this.avatarBg.circle(0, 0, R + 32).stroke({color: C.GOLD, width: 1, alpha: 0.04})
-        //     this.avatarBg.circle(0, 0, R + 22).stroke({color: C.GOLD, width: 1.5, alpha: 0.10})
-        //     this.avatarBg.circle(0, 0, R + 13).stroke({color: C.GOLD, width: 2, alpha: 0.22})
-        //     this.avatarBg.circle(0, 0, R + 5).stroke({color: C.GOLD, width: 3, alpha: 0.45})
-        //     this.avatarBg.circle(0, 0, R + 1).stroke({color: C.GOLD, width: 4.5, alpha: 0.90})
-        // } else {
         // 普通状态：多层银白向外大范围扩散光晕
         this.avatarBg.circle(0, 0, R + 32).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.015})
         this.avatarBg.circle(0, 0, R + 22).stroke({color: C.TEXT_PRIMARY, width: 1.5, alpha: 0.05})
@@ -573,7 +567,6 @@ export class SeatSprite extends Container {
         this.avatarBg.circle(0, 0, R + 5).stroke({color: C.TEXT_PRIMARY, width: 3, alpha: 0.24})
         this.avatarBg.circle(0, 0, R + 1).stroke({color: C.TEXT_PRIMARY, width: 4.5, alpha: 0.52})
         this.avatarBg.circle(0, 0, R - 3).stroke({color: C.TEXT_PRIMARY, width: 1, alpha: 0.16})
-        // }
     }
 
 
@@ -602,13 +595,13 @@ export class SeatSprite extends Container {
             this.breathGlow.clear()
             // 外晕（扩散 12~20px）：极低透明度，营造隐约氛围
             this.breathGlow.circle(0, 0, R + 12 + breath * 8)
-            this.breathGlow.fill({ color: 0x4fc3f7, alpha: 0.03 + breath * 0.04 })
+            this.breathGlow.fill({color: 0x4fc3f7, alpha: 0.03 + breath * 0.04})
             // 中晕（固定 R+5）：浅蓝细边，稳定可见
             this.breathGlow.circle(0, 0, R + 5)
-            this.breathGlow.stroke({ color: 0x4fc3f7, width: 1.2, alpha: 0.12 + breath * 0.18 })
+            this.breathGlow.stroke({color: 0x4fc3f7, width: 1.2, alpha: 0.12 + breath * 0.18})
             // 内边（R+1）：贴近圆圈，吸入时最亮
             this.breathGlow.circle(0, 0, R + 1)
-            this.breathGlow.stroke({ color: 0x7ecfff, width: 2, alpha: 0.18 + breath * 0.28 })
+            this.breathGlow.stroke({color: 0x7ecfff, width: 2, alpha: 0.18 + breath * 0.28})
         }
 
         if (!this.isAllIn) return

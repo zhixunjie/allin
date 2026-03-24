@@ -317,15 +317,14 @@ export class TableScene {
 
         for (let displayIdx = 0; displayIdx < 9; displayIdx++) {
             const sprite = this.seatSprites[displayIdx]
+            const serverIdx = this.toServerSeat(displayIdx)
 
-            // 超出房间座位数的槽位隐藏
-            if (displayIdx >= maxPlayers) {
+            // 超出房间座位数的槽位隐藏（按服务端座位号判断，而非 display index）
+            if (serverIdx >= maxPlayers) {
                 sprite.visible = false
                 continue
             }
             sprite.visible = true
-
-            const serverIdx = this.toServerSeat(displayIdx)
             const seatData = state.seats.find((s) => s.seat_index === serverIdx) ?? null
             const isActive = seatData !== null
                 && state.action_seat === serverIdx
