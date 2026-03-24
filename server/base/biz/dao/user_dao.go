@@ -65,11 +65,19 @@ func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) e
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if _, err := tx.Exec(
-		fmt.Sprintf(`UPDATE %s SET chip_balance = chip_balance + ? WHERE id = ?`, model.TableNameUser),
-		delta, userID,
-	); err != nil {
+	// 使用带下界守卫的原子更新，防止并发买入导致余额透支。
+	// delta 为负数时，AND chip_balance + ? >= 0 确保余额不会低于零。
+	result, err := tx.Exec(
+		fmt.Sprintf(`UPDATE %s SET chip_balance = chip_balance + ? WHERE id = ? AND chip_balance + ? >= 0`, model.TableNameUser),
+		delta, userID, delta,
+	)
+	if err != nil {
 		return fmt.Errorf("userDao.AdjustChips: update: %w", err)
+	}
+	if delta < 0 {
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			return fmt.Errorf("userDao.AdjustChips: %w", model.ErrInsufficientChips)
+		}
 	}
 	if _, err := tx.Exec(
 		fmt.Sprintf(`INSERT INTO %s (user_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, ?, NOW())`, model.TableNameChipLedger),

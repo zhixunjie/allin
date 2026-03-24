@@ -11,8 +11,9 @@ const (
 )
 
 var (
-	ErrUserNotFound  = errors.New("user not found")
-	ErrUsernameTaken = errors.New("username already taken")
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUsernameTaken     = errors.New("username already taken")
+	ErrInsufficientChips = errors.New("insufficient chips") // 余额不足，无法完成扣款
 )
 
 // User 表示一个已注册的玩家账户。
