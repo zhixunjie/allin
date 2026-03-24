@@ -1,26 +1,22 @@
 package eval
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/allin/server/gmodel"
+)
 
 // Evaluate7 从 7 张牌中返回最佳 5 张牌的手牌等级（值越小越好）。
 // 如果通过 Load() 加载了 Two Plus Two 查找表则使用快速路径，否则使用纯 Go 实现。
-func Evaluate7(cards [7]Card) uint32 {
+func Evaluate7(cards [7]model.Card) uint32 {
 	if Loaded() {
 		return evaluate7Table(cards)
 	}
 	return evaluate7Pure(cards)
 }
 
-// Card 是评估器使用的扑克牌。
-type Card struct {
-	Rank byte // '2'…'A'
-	Suit byte // 'c','d','h','s'
-}
-
-func (c Card) String() string { return string([]byte{c.Rank, c.Suit}) }
-
-// ToEvalInt 将 Card 转换为 Two Plus Two 索引（1–52）。
-func (c Card) ToEvalInt() int {
+// toEvalInt 将 Card 转换为 Two Plus Two 索引（1–52）。
+func toEvalInt(c model.Card) int {
 	var rank int
 	switch c.Rank {
 	case '2':
@@ -65,14 +61,14 @@ func (c Card) ToEvalInt() int {
 }
 
 // evaluate7Table 使用 Two Plus Two 查找表进行评估。
-func evaluate7Table(cards [7]Card) uint32 {
-	p := int(HR[53+cards[0].ToEvalInt()])
-	p = int(HR[p+cards[1].ToEvalInt()])
-	p = int(HR[p+cards[2].ToEvalInt()])
-	p = int(HR[p+cards[3].ToEvalInt()])
-	p = int(HR[p+cards[4].ToEvalInt()])
-	p = int(HR[p+cards[5].ToEvalInt()])
-	return uint32(HR[p+cards[6].ToEvalInt()])
+func evaluate7Table(cards [7]model.Card) uint32 {
+	p := int(HR[53+toEvalInt(cards[0])])
+	p = int(HR[p+toEvalInt(cards[1])])
+	p = int(HR[p+toEvalInt(cards[2])])
+	p = int(HR[p+toEvalInt(cards[3])])
+	p = int(HR[p+toEvalInt(cards[4])])
+	p = int(HR[p+toEvalInt(cards[5])])
+	return uint32(HR[p+toEvalInt(cards[6])])
 }
 
 // 所有 C(7,5)=21 种索引组合，用于从 7 张牌中选出最佳 5 张。
@@ -86,10 +82,10 @@ var combos21 = [21][5]int{
 	{1, 2, 4, 5, 6}, {1, 3, 4, 5, 6}, {2, 3, 4, 5, 6},
 }
 
-func evaluate7Pure(cards [7]Card) uint32 {
-	best := uint32(0xFFFFFFFF)
+func evaluate7Pure(cards [7]model.Card) uint32 {
+	best := model.InvalidHandRank
 	for _, c := range combos21 {
-		var five [5]Card
+		var five [5]model.Card
 		for i, idx := range c {
 			five[i] = cards[idx]
 		}
@@ -148,7 +144,7 @@ func encodeRank(cat uint8, values ...uint8) uint32 {
 	return uint32(cat)<<20 | t
 }
 
-func evaluateFive(cards [5]Card) uint32 {
+func evaluateFive(cards [5]model.Card) uint32 {
 	var vals [5]uint8
 	var suits [5]byte
 	for i, c := range cards {
@@ -232,11 +228,11 @@ func evaluateFive(cards [5]Card) uint32 {
 
 // BestFive 从 7 张牌中找出构成最佳手牌的 5 张，返回这 5 张牌。
 // 遍历全部 C(7,5)=21 种组合，取等级最低（最好）的一组。
-func BestFive(cards [7]Card) [5]Card {
-	bestRank := uint32(0xFFFFFFFF)
+func BestFive(cards [7]model.Card) [5]model.Card {
+	bestRank := model.InvalidHandRank
 	var bestIdx [5]int
 	for _, combo := range combos21 {
-		var five [5]Card
+		var five [5]model.Card
 		for i, idx := range combo {
 			five[i] = cards[idx]
 		}
@@ -245,7 +241,7 @@ func BestFive(cards [7]Card) [5]Card {
 			bestIdx = combo
 		}
 	}
-	var result [5]Card
+	var result [5]model.Card
 	for i, idx := range bestIdx {
 		result[i] = cards[idx]
 	}

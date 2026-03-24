@@ -31,12 +31,12 @@ func EvaluateHand(hole [2]model.Card, community []model.Card) (uint32, string) {
 		slog.Error("game: EvaluateHand called with undealt hole cards", "hole0", hole[0], "hole1", hole[1])
 		return model.InvalidHandRank, ""
 	}
-	cards := [7]eval.Card{cardToEval(hole[0]), cardToEval(hole[1])}
+	cards := [7]model.Card{hole[0], hole[1]}
 	for i, c := range community {
 		if i >= 5 {
 			break
 		}
-		cards[2+i] = cardToEval(c)
+		cards[2+i] = c
 	}
 	rank := eval.Evaluate7(cards)
 	return rank, fmt.Sprintf("%s", eval.Describe(rank))
@@ -48,12 +48,12 @@ func BestFiveStrings(hole [2]model.Card, community []model.Card) []string {
 	if len(community) < 3 {
 		return nil
 	}
-	cards := [7]eval.Card{cardToEval(hole[0]), cardToEval(hole[1])}
+	cards := [7]model.Card{hole[0], hole[1]}
 	for i, c := range community {
 		if i >= 5 {
 			break
 		}
-		cards[2+i] = cardToEval(c)
+		cards[2+i] = c
 	}
 	best := eval.BestFive(cards)
 	out := make([]string, 5)
@@ -62,6 +62,3 @@ func BestFiveStrings(hole [2]model.Card, community []model.Card) []string {
 	}
 	return out
 }
-
-// cardToEval 将 Card 转换为 eval 包使用的内部类型。
-func cardToEval(c model.Card) eval.Card { return eval.Card{Rank: c.Rank, Suit: c.Suit} }
