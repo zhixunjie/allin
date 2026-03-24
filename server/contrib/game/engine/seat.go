@@ -147,39 +147,41 @@ func (e *Engine) seatBots() {
 // Idle 状态下立即离座并返还筹码；手牌进行中则保留座位标记断线，
 // 仅在轮到该玩家行动时立即自动弃牌，其余情况等超时逻辑处理，保留重连机会。
 func (e *Engine) handleDisconnect(msg protocol.InboundMessage) {
-	// Bot ID 从没有真实的 WS 连接；忽略虚假的断开连接消息。
+	// Bot 没有真实 WS 连接，hub 不会产生 bot 的断线消息；防御性过滤
 	if botpkg.IsBotID(msg.SenderID) {
 		return
 	}
 
 	p := e.gs.FindPlayer(msg.SenderID)
 	if p == nil {
+		// 玩家尚未入座（连接建立后断开但未坐下），无需处理
 		return
 	}
 
 	if e.gs.Street == gmodel.StreetIdle {
-		// 手牌间隙断线：立即离座并返还筹码。
+		// 手牌间隙断线：视同主动离桌，先广播再离座，保证客户端先收到事件
 		e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  p.UserID,
 			SeatIndex: p.SeatIndex,
 		}))
 		stack := p.Stack
 		e.gs.UnseatPlayer(msg.SenderID)
-		e.cashOut(msg.SenderID, stack)
-		e.room.Touch()
-		e.maybeStartEmptyTimer()
+		e.cashOut(msg.SenderID, stack) // 将剩余筹码归还账户
+		e.room.Touch()                 // 刷新活跃时间，防止 GC 误回收
+		e.maybeStartEmptyTimer()       // 若人类玩家已全部离开，启动空桌宽限期
 		return
 	}
 
-	// 活跃手牌中断线：保留座位，标记断线。
-	// 若正轮到该玩家行动则立即自动弃牌；否则仅标记断线，
-	// 等轮到他时由超时逻辑处理，给断线重连留出时间。
+	// 手牌进行中断线：保留座位给重连使用，仅标记断线状态
 	p.Disconnected = true
 	if e.gs.ActionSeat == p.SeatIndex {
+		// 当前正轮到断线玩家行动，立即代为弃牌，避免全桌等待
 		e.gs.ApplyAction(p.UserID, gmodel.ActionFold, 0)
 		e.stopTimer()
 		e.advanceOrEnd()
 	}
+	// 若不是行动位，不做干预：等轮到他时超时逻辑会自动弃牌，
+	// 这段时间内玩家仍可重连并恢复正常参与
 }
 
 // cashOut 将玩家剩余筹码返还到账户余额（bot 跳过）。
@@ -285,17 +287,21 @@ func (e *Engine) maybeStartEmptyTimer() {
 	}
 }
 
-// cleanupDisconnected 在手牌结束后移除所有仍处于断线状态的玩家并返还筹码。
+// cleanupDisconnected 在每手牌结束后统一清理仍处于断线状态的玩家。
+// 断线玩家在手牌进行中保留座位（见 handleDisconnect），手牌结束时才在此统一处理，
+// 避免中途离座影响边底池计算和摊牌逻辑。
 func (e *Engine) cleanupDisconnected() {
 	for _, p := range e.gs.Seats {
 		if p == nil || !p.Disconnected {
 			continue
 		}
+		// 提前保存，UnseatPlayer 执行后指针字段已清空
 		uid := p.UserID
 		seatIdx := p.SeatIndex
 		stack := p.Stack
 		e.gs.UnseatPlayer(uid)
-		e.cashOut(uid, stack)
+		e.cashOut(uid, stack) // 将剩余筹码归还账户
+		// 通知所有客户端该座位已清空，保持前端状态一致
 		e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypePlayerLeft, protocol.PlayerLeftPayload{
 			PlayerID:  uid,
 			SeatIndex: seatIdx,
