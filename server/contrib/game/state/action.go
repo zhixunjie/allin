@@ -151,6 +151,11 @@ func (gs *GameStateMachine) ApplyAction(userID string, action gmodel.Action, amo
 		}
 	}
 
+	// 筹码归零即视为全押（跟注/加注恰好用完筹码的情形）。
+	if p.Stack == 0 && !p.Folded {
+		p.AllIn = true
+	}
+
 	// 激进行为（bet/raise）：抬高了 CurrentBet，其他仍可行动的玩家须重新决策。
 	if aggression {
 		for _, op := range gs.Seats {
