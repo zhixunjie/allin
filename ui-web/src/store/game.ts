@@ -182,7 +182,6 @@ interface GameStoreState extends GameSnapshot {
     readyCount: number           // 结算间隙已准备的玩家数
     readyTotal: number           // 结算间隙合格玩家总数
 
-    setMyUserId: (id: string) => void
     applyConnected: (payload: ConnectedPayload) => void
     applyGameStarted: (payload: GameStartedPayload) => void
     applyHoleCards: (payload: HoleCardsPayload) => void
@@ -223,8 +222,6 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     actionLog: [],
     readyCount: 0,
     readyTotal: 0,
-
-    setMyUserId: (id) => set({myUserId: id}),
 
     // 连接成功：记录本人 ID，若附带快照则直接同步整局状态
     applyConnected: (payload) => {
