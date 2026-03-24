@@ -131,12 +131,13 @@ type ActionTimeoutPayload struct {
 
 // PlayerJoinedPayload 在玩家加入或重连时广播。
 type PlayerJoinedPayload struct {
-	PlayerID    string `json:"player_id"`        // 加入玩家的用户 ID
-	DisplayName string `json:"display_name"`     // 加入玩家的显示名称
-	SeatIndex   int    `json:"seat_index"`       // 分配到的座位号
-	Stack       int64  `json:"stack"`            // 买入带入的桌面筹码
-	IsReconnect bool   `json:"is_reconnect"`     // true 表示重连，false 表示首次入座
-	IsBot       bool   `json:"is_bot,omitempty"` // true 表示该玩家是 AI bot
+	PlayerID        string `json:"player_id"`                   // 加入玩家的用户 ID
+	DisplayName     string `json:"display_name"`                // 加入玩家的显示名称
+	SeatIndex       int    `json:"seat_index"`                  // 分配到的座位号
+	Stack           int64  `json:"stack"`                       // 买入带入的桌面筹码
+	IsReconnect     bool   `json:"is_reconnect"`                // true 表示重连，false 表示首次入座
+	IsBot           bool   `json:"is_bot,omitempty"`            // true 表示该玩家是 AI bot
+	WaitForNextHand bool   `json:"wait_for_next_hand,omitempty"` // true 表示手牌进行中入座，需等待下一手
 }
 
 // PlayerLeftPayload 在玩家离桌时广播。

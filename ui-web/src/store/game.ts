@@ -77,12 +77,13 @@ export interface SitOutPayload {
 }
 
 export interface PlayerJoinedPayload {
-    player_id: string    // 加入的玩家 ID
-    display_name: string // 显示名
-    seat_index: number   // 分配的座位（-1 表示旁观）
-    stack: number        // 携带筹码
-    is_reconnect: boolean // 是否为重连（而非首次加入）
-    is_bot?: boolean     // 是否为 AI 机器人
+    player_id: string             // 加入的玩家 ID
+    display_name: string          // 显示名
+    seat_index: number            // 分配的座位（-1 表示旁观）
+    stack: number                 // 携带筹码
+    is_reconnect: boolean         // 是否为重连（而非首次加入）
+    is_bot?: boolean              // 是否为 AI 机器人
+    wait_for_next_hand?: boolean  // 手牌进行中入座，需等待下一手
 }
 
 export interface PlayerLeftPayload {
@@ -422,6 +423,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
                 all_in: false,
                 sit_out: false,
                 is_bot: payload.is_bot ?? false,
+                wait_for_next_hand: payload.wait_for_next_hand ?? false,
             }
             return {seats: [...state.seats, newSeat]}
         })

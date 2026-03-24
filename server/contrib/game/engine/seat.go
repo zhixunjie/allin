@@ -94,11 +94,12 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	e.gs.SeatPlayer(p)
 
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypePlayerJoined, protocol.PlayerJoinedPayload{
-		PlayerID:    p.UserID,
-		DisplayName: p.DisplayName,
-		SeatIndex:   p.SeatIndex,
-		Stack:       p.Stack,
-		IsReconnect: false,
+		PlayerID:        p.UserID,
+		DisplayName:     p.DisplayName,
+		SeatIndex:       p.SeatIndex,
+		Stack:           p.Stack,
+		IsReconnect:     false,
+		WaitForNextHand: p.WaitForNextHand,
 	}))
 
 	// 首次有人类玩家加入时安排 bot 入座。
