@@ -17,15 +17,15 @@ var categoryNames = [9]string{
 
 // Describe 根据纯 Go 等级值返回手牌类别名称。
 func Describe(rank uint32) string {
-	cat := model.HandCategory(rank >> 20)
-	if cat == model.CatStraightFlush {
+	cat := gmodel.HandCategory(rank >> 20)
+	if cat == gmodel.CatStraightFlush {
 		// 皇家同花顺：A 为最高的同花顺 → encodeRank(0, 14) → 最高半字节 = 15-14=1
 		if (rank>>16)&0xF == 1 {
 			return "Royal Flush"
 		}
 		return "Straight Flush"
 	}
-	if cat < model.CatHighCard+1 {
+	if cat < gmodel.CatHighCard+1 {
 		return categoryNames[cat]
 	}
 	return "Unknown"

@@ -45,7 +45,7 @@ type JoinRoomCmd struct {
 
 // ActionCmd 是 CmdAction 的载荷。
 type ActionCmd struct {
-	Action model.Action `json:"action"` // 行动类型，见 model.Action 枚举
+	Action gmodel.Action `json:"action"` // 行动类型，见 gmodel.Action 枚举
 	Amount int64        `json:"amount"` // 行动金额（bet/raise 时有效，其余为 0）
 }
 

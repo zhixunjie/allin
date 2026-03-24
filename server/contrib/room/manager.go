@@ -63,7 +63,7 @@ func (m *Manager) Get(code string) (*Room, error) {
 	r, ok := m.rooms[code]
 	m.mu.RUnlock()
 	if !ok {
-		return nil, model.ErrRoomNotFound
+		return nil, gmodel.ErrRoomNotFound
 	}
 	return r, nil
 }
@@ -91,7 +91,7 @@ func (m *Manager) generateUniqueCode() (string, error) {
 			return code, nil
 		}
 	}
-	return "", model.ErrRoomCodeConflict
+	return "", gmodel.ErrRoomCodeConflict
 }
 
 // StartGC 启动后台 goroutine，定期清理空闲超过 idleTimeout 的房间。

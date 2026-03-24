@@ -1,4 +1,4 @@
-package model
+package gmodel
 
 // InvalidHandRank 是 EvaluateHand 在无法评估时返回的哨兵值（uint32 最大值）。
 const InvalidHandRank uint32 = 0xFFFFFFFF

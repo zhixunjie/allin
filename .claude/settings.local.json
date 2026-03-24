@@ -37,7 +37,12 @@
       "Bash(go test:*)",
       "Bash(grep:*)",
       "Bash(git -C /Users/dev/Desktop/Project/Go/allin status --short)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i '' 's/\\\\bmodel\\\\./gmodel./g' \"$f\")",
+      "Bash(done)",
+      "Bash(python3:*)"
     ]
   }
 }

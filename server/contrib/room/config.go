@@ -16,7 +16,7 @@ type RoomConfig struct {
 	MaxPlayers    int               `json:"max_players"`     // 最大玩家数（2–9）
 	ActionTimeSec int               `json:"action_time_sec"` // 每人行动时限（秒），默认 30
 	BotCount      int               `json:"bot_count"`       // AI 玩家数量（0 = 无 bot）
-	BotType       model.RoomBotType `json:"bot_style"`       // bot 风格主题，默认 mixed
+	BotType       gmodel.RoomBotType `json:"bot_style"`       // bot 风格主题，默认 mixed
 }
 
 // validate 校验房间配置合法性。ActionTimeSec 为 0 时视为使用默认值 30，跳过范围检查。
@@ -40,7 +40,7 @@ func (cfg RoomConfig) validate() error {
 		return errors.New("bot_count must be >= 0 and < max_players")
 	}
 	// 合法值，含空字符串（使用默认 mixed）
-	if !slices.Contains(model.AllRoomBotType, cfg.BotType) {
+	if !slices.Contains(gmodel.AllRoomBotType, cfg.BotType) {
 		return errors.New("bot_style must be mixed, aggressive, passive, or random")
 	}
 	if t := cfg.ActionTimeSec; t != 0 && (t < 5 || t > 120) {

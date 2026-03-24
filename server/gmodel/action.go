@@ -1,4 +1,4 @@
-package model
+package gmodel
 
 // Action 表示玩家行动类型（值与 ws/protocol 的 JSON 字段匹配）。
 type Action string

@@ -1,4 +1,4 @@
-package model
+package gmodel
 
 // Street 表示当前手牌所处的下注回合阶段。
 // 状态转移由 engine 中的 advanceOrEnd / nextStreet 驱动：

@@ -1,4 +1,4 @@
-package model
+package gmodel
 
 // Player 表示已入座的玩家。
 type Player struct {

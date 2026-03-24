@@ -1,4 +1,4 @@
-package model
+package gmodel
 
 // Card 是一张扑克牌。
 type Card struct {
