@@ -114,19 +114,19 @@ type ActionRequiredPayload struct {
 
 // ActionTakenPayload 在玩家行动后广播。
 type ActionTakenPayload struct {
-	PlayerID string       `json:"player_id"` // 执行行动的玩家 ID
+	PlayerID string        `json:"player_id"` // 执行行动的玩家 ID
 	Action   gmodel.Action `json:"action"`    // 行动类型
-	Amount   int64        `json:"amount"`    // 行动金额（check/fold 为 0）
-	Stack    int64        `json:"stack"`     // 行动后玩家剩余筹码
-	TotalPot int64        `json:"total_pot"` // 行动后底池总额
+	Amount   int64         `json:"amount"`    // 行动金额（check/fold 为 0）
+	Stack    int64         `json:"stack"`     // 行动后玩家剩余筹码
+	TotalPot int64         `json:"total_pot"` // 行动后底池总额
 }
 
 // ActionTimeoutPayload 在玩家计时器耗尽时广播。
 type ActionTimeoutPayload struct {
-	PlayerID string       `json:"player_id"` // 超时玩家的 ID
+	PlayerID string        `json:"player_id"` // 超时玩家的 ID
 	Action   gmodel.Action `json:"action"`    // 自动执行的行动
-	Stack    int64        `json:"stack"`     // 超时处理后玩家剩余筹码
-	TotalPot int64        `json:"total_pot"` // 处理后底池总额
+	Stack    int64         `json:"stack"`     // 超时处理后玩家剩余筹码
+	TotalPot int64         `json:"total_pot"` // 处理后底池总额
 }
 
 // PlayerJoinedPayload 在玩家加入或重连时广播。

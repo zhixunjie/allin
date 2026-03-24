@@ -13,6 +13,7 @@ func (gs *GameStateMachine) Snapshot(viewerID string) GameSnapshot {
 		ActionSeat: gs.ActionSeat,
 		CurrentBet: gs.CurrentBet,
 		MinRaise:   gs.MinRaise,
+		DeadlineTs: gs.ActionDeadlineMs,
 		Config:     gs.Config,
 	}
 	for _, p := range gs.Seats {
@@ -31,8 +32,12 @@ func (gs *GameStateMachine) Snapshot(viewerID string) GameSnapshot {
 			Disconnected: p.Disconnected,
 			IsBot:        p.IsBot,
 		}
-		if p.UserID == viewerID && gs.Street != gmodel.StreetIdle {
-			ss.Hole = []string{p.Hole[0].String(), p.Hole[1].String()}
+		if gs.Street != gmodel.StreetIdle && !p.WaitForNextHand && !p.Folded {
+			if p.UserID == viewerID {
+				ss.Hole = []string{p.Hole[0].String(), p.Hole[1].String()}
+			} else {
+				ss.Hole = []string{"?", "?"}
+			}
 		}
 		snap.Seats = append(snap.Seats, ss)
 	}

@@ -38,10 +38,11 @@ type GameSnapshot struct {
 	Seats      []SeatSnapshot  `json:"seats"`       // 所有已入座玩家的状态列表
 	Pot        int64           `json:"pot"`         // 当前总底池
 	DealerSeat int             `json:"dealer_seat"` // 庄家座位号
-	ActionSeat int             `json:"action_seat"` // 当前待行动座位号；-1 表示无
-	CurrentBet int64           `json:"current_bet"` // 本回合最高下注额
-	MinRaise   int64           `json:"min_raise"`   // 最低加注增量
-	Config     room.RoomConfig `json:"config"`      // 房间配置（盲注/买入等）
+	ActionSeat int             `json:"action_seat"`          // 当前待行动座位号；-1 表示无
+	CurrentBet int64           `json:"current_bet"`          // 本回合最高下注额
+	MinRaise   int64           `json:"min_raise"`            // 最低加注增量
+	DeadlineTs int64           `json:"deadline_ts,omitempty"` // 当前行动截止时间（Unix 毫秒）；0 或省略表示无待行动
+	Config     room.RoomConfig `json:"config"`               // 房间配置（盲注/买入等）
 }
 
 // SeatSnapshot 是 GameSnapshot 中单个座位的实时状态。

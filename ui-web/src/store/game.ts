@@ -129,6 +129,7 @@ export interface GameSnapshot {
   action_seat: number   // 当前行动座位（-1 表示无）
   current_bet: number   // 本轮最大下注额
   min_raise: number     // 最小加注额
+  deadline_ts?: number  // 当前行动截止时间（Unix 毫秒）；0 或 undefined 表示无
   config: GameConfig | null // 房间配置（首次连接后下发）
 }
 
@@ -231,7 +232,11 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     if (payload.game_snapshot) {
       const snap = payload.game_snapshot
       const myHole = snap.seats.find((s) => s.user_id === payload.player_id)?.hole ?? []
-      set({ ...snap, myHole })
+      const mySeat = snap.seats.find((s) => s.user_id === payload.player_id)
+      const callAmount = Math.max(0, snap.current_bet - (mySeat?.bet ?? 0))
+      const minRaiseAmount = snap.current_bet + snap.min_raise
+      const deadlineTs = snap.deadline_ts ?? null
+      set({ ...snap, myHole, callAmount, minRaiseAmount, deadlineTs })
     }
   },
 

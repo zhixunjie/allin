@@ -312,11 +312,12 @@ export class SeatSprite extends Container {
             }
         }
 
-        const fallback = () => setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
+        // 先立即显示本地生成的默认头像，避免异步加载期间空白
+        setTex(makeDefaultAvatarTexture(seat.user_id, seat.display_name))
         if (seat.avatar) {
-            Assets.load(seat.avatar).then(setTex).catch(fallback)
+            Assets.load(seat.avatar).then(setTex).catch(() => {})
         } else {
-            loadDiceBearTexture(seat.user_id).then(setTex).catch(fallback)
+            loadDiceBearTexture(seat.user_id).then(setTex).catch(() => {})
         }
 
         this.avatarImg.alpha = seat.folded ? 0.4 : 1  // 弃牌时半透明

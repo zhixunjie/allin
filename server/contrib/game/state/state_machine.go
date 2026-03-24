@@ -20,6 +20,8 @@ type GameStateMachine struct {
 	CurrentBet int64 // 本回合当前最高下注额
 	MinRaise   int64 // 最低加注增量（上次加注幅度）
 
+	ActionDeadlineMs int64 // 当前行动截止时间（Unix 毫秒）；0 表示无待行动
+
 	Config room.RoomConfig // 房间配置（盲注/买入等）
 }
 

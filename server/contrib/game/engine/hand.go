@@ -77,9 +77,8 @@ func (e *Engine) handleAction(msg protocol.InboundMessage) {
 	e.gs.ApplyAction(msg.SenderID, cmd.Action, cmd.Amount)
 
 	p := e.gs.FindPlayer(msg.SenderID)
-	var displayAmount int64
-	if p != nil {
-		displayAmount = p.Bet
+	if p == nil {
+		return
 	}
 
 	e.handActions = append(e.handActions, actionLogEntry{
@@ -92,7 +91,7 @@ func (e *Engine) handleAction(msg protocol.InboundMessage) {
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionTaken, protocol.ActionTakenPayload{
 		PlayerID: msg.SenderID,
 		Action:   cmd.Action,
-		Amount:   displayAmount,
+		Amount:   p.Bet,
 		Stack:    p.Stack,
 		TotalPot: e.gs.TotalPot(),
 	}))
@@ -336,6 +335,7 @@ func (e *Engine) broadcastActionRequired() {
 		return
 	}
 	deadline := time.Now().Add(time.Duration(e.gs.Config.ActionTimeSec) * time.Second)
+	e.gs.ActionDeadlineMs = deadline.UnixMilli()
 
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeActionRequired, protocol.ActionRequiredPayload{
 		PlayerID:   p.UserID,
@@ -367,6 +367,7 @@ func (e *Engine) runShowdown() {
 	// --- 阶段 1：锁定状态 ---
 	e.gs.Street = gmodel.StreetShowdown
 	e.gs.ActionSeat = gmodel.NoSeat
+	e.gs.ActionDeadlineMs = 0
 
 	// --- 阶段 2：评估手牌 & 广播翻牌 ---
 	handNames := map[string]string{}
@@ -463,7 +464,7 @@ func (e *Engine) runShowdown() {
 		if p == nil {
 			continue
 		}
-		hole := []string{}
+		var hole []string
 		if p.Active() {
 			hole = []string{p.Hole[0].String(), p.Hole[1].String()}
 		}
@@ -493,7 +494,7 @@ func (e *Engine) runShowdown() {
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
 	// --- 阶段 5：收尾 ---
-	e.saveHandHistory(json.RawMessage(rawResult))
+	e.saveHandHistory(rawResult)
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
@@ -557,7 +558,8 @@ func (e *Engine) awardUncontested(winner *gmodel.Player) {
 
 	slog.Info("game: uncontested pot", "room", e.room.Code, "winner", winner.UserID, "amount", total)
 
-	e.saveHandHistory(json.RawMessage(rawResult))
+	e.gs.ActionDeadlineMs = 0
+	e.saveHandHistory(rawResult)
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
