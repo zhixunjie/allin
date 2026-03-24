@@ -211,12 +211,13 @@ export function RoundResultModal({
       <div className="relative w-full max-w-2xl mx-6 rounded-2xl overflow-hidden
                       bg-[#0d1520] border border-white/10
                       shadow-[0_24px_80px_rgba(0,0,0,0.8)]
-                      animate-[fadeSlideUp_0.3s_ease]">
+                      animate-[fadeSlideUp_0.3s_ease]
+                      max-h-[90vh] flex flex-col">
 
         {/* 顶部装饰线：破产时红色，正常时金色 */}
-        <div className={`h-0.5 w-full bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/60' : 'via-amber-400/60'} to-transparent`} />
+        <div className={`h-0.5 w-full flex-shrink-0 bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/60' : 'via-amber-400/60'} to-transparent`} />
 
-        <div className="px-8 pt-6 pb-6 flex flex-col gap-5">
+        <div className="px-8 pt-6 pb-6 flex flex-col gap-5 overflow-y-auto min-h-0">
 
           {/* ── 标题 ── */}
           <div className="text-center">
@@ -372,7 +373,7 @@ export function RoundResultModal({
         </div>
 
         {/* 底部装饰线 */}
-        <div className={`h-0.5 w-full bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/30' : 'via-amber-400/40'} to-transparent`} />
+        <div className={`h-0.5 w-full flex-shrink-0 bg-gradient-to-r from-transparent ${brokeOut ? 'via-red-500/30' : 'via-amber-400/40'} to-transparent`} />
       </div>
 
       <style>{`

@@ -18,8 +18,16 @@ import type {
 import { useChatStore } from '../store/chat'
 import { authAPI } from '../api/http'
 import { useRoomStore } from '../store/room'
-import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
+import { PlayerAction, Street, WSEventType, WSInternalEvent } from '../types/enums'
 import { soundManager } from '../pixi/sound'
+
+/** 判断当前是否所有活跃（未弃牌）玩家都已全押 */
+function checkAllInSituation(): boolean {
+  const s = useGameStore.getState()
+  if (s.street === Street.Idle || s.street === Street.Showdown) return false
+  const active = s.seats.filter((p) => !p.folded && !p.sit_out)
+  return active.length >= 2 && active.every((p) => p.all_in)
+}
 
 function refreshBalance() {
   authAPI.me()
@@ -69,6 +77,7 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
 
     on(WSEventType.GameStarted, (p) => {
       store().applyGameStarted(p as GameStartedPayload)  // 新一手开始：重置座位下注、记录庄/盲位
+      soundManager.stopTenseBgm()
       soundManager.play('deal')
     })
     on(WSEventType.HoleCards, (p) => {
@@ -101,6 +110,8 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
         case PlayerAction.Raise: soundManager.play('raise'); break
         case PlayerAction.AllIn: soundManager.play('allin'); break
       }
+      // 全员 all-in：切换为紧张背景音乐
+      if (checkAllInSituation()) soundManager.startTenseBgm()
     })
     on(WSEventType.ActionTimeout, (p) => {
       store().applyActionTaken(p as ActionTakenPayload)  // 行动超时：服务端自动弃牌，复用 ActionTaken 路径
@@ -113,6 +124,7 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
     on(WSEventType.HandResult, (p) => {
       const payload = p as HandResultPayload
       store().applyHandResult(payload)  // 手牌结算：更新筹码、记录赢家、重置街道为 Idle
+      soundManager.stopTenseBgm()
       const myId = store().myUserId
       const iWon = myId != null && payload.winners.some((w) => w.player_id === myId)
       soundManager.play(iWon ? 'win' : 'fold')

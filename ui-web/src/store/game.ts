@@ -320,6 +320,7 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
             return {
                 pot: payload.total_pot,
                 deadlineTs: null,
+                action_seat: -1,
                 actionLog: [...state.actionLog, entry],
                 seats: state.seats.map((s) => {
                     if (s.user_id !== payload.player_id) return s

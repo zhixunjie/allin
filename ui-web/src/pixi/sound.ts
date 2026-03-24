@@ -16,13 +16,20 @@ export type SoundName =
     | 'myTurn'    // 轮到本人
     | 'win'       // 赢得手牌
     | 'showdown'  // 摊牌
+    | 'tick'      // 倒计时警告（最后 5 秒每秒一次）
 
 
-class SoundManager {
+export class SoundManager {
     private ctx: AudioContext | null = null
     private masterGain: GainNode | null = null
     private reverbNode: ConvolverNode | null = null
     private _muted = false
+
+    // 紧张 BGM 状态
+    private tenseActive = false
+    private tenseOscs: OscillatorNode[] = []
+    private tenseFadeGain: GainNode | null = null
+    private tenseHeartbeat: ReturnType<typeof setInterval> | null = null
 
     private getCtx(): AudioContext {
         if (!this.ctx) {
@@ -55,8 +62,117 @@ class SoundManager {
                 case 'myTurn':   this.playMyTurn();   break
                 case 'win':      this.playWin();      break
                 case 'showdown': this.playShowdown(); break
+                case 'tick':     this.playTick();     break
             }
         } catch { /* AudioContext 不可用时静默失败 */ }
+    }
+
+    // ── 紧张 BGM（全员 all-in 时） ────────────────────────────────
+
+    /**
+     * 启动紧张背景音乐：Am 减和弦 + 颤音（tremolo）+ 低频心跳。
+     *
+     * 声部结构：
+     *   - 颤音弦乐垫：A2-C3-Eb3（减三和弦，制造紧张感），
+     *     每个音符用双声部 ±4cent 失谐叠加 Chorus，
+     *     通过 6.5Hz LFO 调制增益实现颤音效果。
+     *   - 低音脉冲：A1（55Hz），2.2Hz AM 产生缓慢心跳感。
+     *   - 心跳节奏：每 660ms 一次轻柔低频 thump（约 91 BPM）。
+     *   整体淡入 1.2 秒，避免突兀切入。
+     */
+    startTenseBgm(): void {
+        if (this.tenseActive) return
+        this.tenseActive = true
+
+        const ctx = this.getCtx()
+        const now = ctx.currentTime
+
+        // 总淡入增益（所有颤音声部经此节点输出）
+        const fadeGain = ctx.createGain()
+        fadeGain.gain.setValueAtTime(0, now)
+        fadeGain.gain.linearRampToValueAtTime(0.2, now + 1.2)
+        fadeGain.connect(this.masterGain!)
+        this.tenseFadeGain = fadeGain
+
+        // 颤音弦乐垫：Am 减和弦 A2-C3-Eb3
+        const chordFreqs = [110, 130.8, 155.6]
+        chordFreqs.forEach((freq) => {
+            ;[-4, 4].forEach((detune) => {
+                const osc = ctx.createOscillator()
+                osc.type = 'sawtooth'
+                osc.frequency.value = freq
+                osc.detune.value = detune
+
+                const lp = ctx.createBiquadFilter()
+                lp.type = 'lowpass'
+                lp.frequency.value = 1400
+
+                // 颤音：tremoloGain.gain = 0.5 + 0.48*sin(t) → [0.02, 0.98]
+                const tremoloGain = ctx.createGain()
+                tremoloGain.gain.setValueAtTime(0.5, now)
+                const lfo = ctx.createOscillator()
+                lfo.type = 'sine'
+                lfo.frequency.value = 6.5
+                const lfoAmp = ctx.createGain()
+                lfoAmp.gain.value = 0.48
+                lfo.connect(lfoAmp)
+                lfoAmp.connect(tremoloGain.gain)  // 加到基准值 0.5 上
+
+                osc.connect(lp)
+                lp.connect(tremoloGain)
+                tremoloGain.connect(fadeGain)
+
+                osc.start(now); lfo.start(now)
+                this.tenseOscs.push(osc, lfo)
+            })
+        })
+
+        // 低音脉冲：A1 + 2.2Hz AM
+        const bassOsc = ctx.createOscillator()
+        bassOsc.type = 'sine'
+        bassOsc.frequency.value = 55
+        const bassTremolo = ctx.createGain()
+        bassTremolo.gain.setValueAtTime(0.6, now)
+        const bassLFO = ctx.createOscillator()
+        bassLFO.type = 'sine'
+        bassLFO.frequency.value = 2.2
+        const bassLFOAmp = ctx.createGain()
+        bassLFOAmp.gain.value = 0.55
+        bassLFO.connect(bassLFOAmp)
+        bassLFOAmp.connect(bassTremolo.gain)
+        bassOsc.connect(bassTremolo)
+        bassTremolo.connect(fadeGain)
+        bassOsc.start(now); bassLFO.start(now)
+        this.tenseOscs.push(bassOsc, bassLFO)
+
+        // 心跳节奏：每 660ms 一次轻柔 thump
+        this.tenseHeartbeat = setInterval(() => {
+            if (this.tenseActive) this.thump(46, 0.14, 0.16)
+        }, 660)
+    }
+
+    /** 停止紧张 BGM，淡出 0.8 秒。 */
+    stopTenseBgm(): void {
+        if (!this.tenseActive) return
+        this.tenseActive = false
+
+        if (this.tenseHeartbeat) {
+            clearInterval(this.tenseHeartbeat)
+            this.tenseHeartbeat = null
+        }
+
+        if (this.tenseFadeGain && this.ctx) {
+            const t = this.ctx.currentTime
+            this.tenseFadeGain.gain.setValueAtTime(this.tenseFadeGain.gain.value, t)
+            this.tenseFadeGain.gain.linearRampToValueAtTime(0, t + 0.8)
+        }
+
+        // 0.9s 后停掉所有振荡器
+        const oscs = this.tenseOscs.splice(0)
+        setTimeout(() => {
+            oscs.forEach((o) => { try { o.stop() } catch { /* already stopped */ } })
+            this.tenseFadeGain = null
+        }, 950)
     }
 
     // ── 合成工具 ──────────────────────────────────────────────────
@@ -317,6 +433,40 @@ class SoundManager {
                 osc.start(t); osc.stop(t + 1.15)
             }, 420)
         })
+    }
+
+    /**
+     * 倒计时警告：每秒一次短促高频敲击。
+     * 随剩余秒数减小，音调略微升高、音量略微增大，制造紧迫感。
+     * remaining 取值 1-5，对应音调 1100-1500Hz。
+     */
+    playTick(remaining = 3): void {
+        const ctx = this.getCtx()
+        const now = ctx.currentTime
+        const freq = 1100 + (5 - Math.min(remaining, 5)) * 80  // 剩越少越高
+        const peak = 0.28 + (5 - Math.min(remaining, 5)) * 0.04
+
+        // 主音：短促正弦
+        const osc = ctx.createOscillator()
+        osc.type = 'sine'
+        osc.frequency.value = freq
+        const env = ctx.createGain()
+        env.gain.setValueAtTime(peak, now + 0.001)
+        env.gain.exponentialRampToValueAtTime(0.001, now + 0.06)
+        osc.connect(env)
+        env.connect(this.masterGain!)
+        osc.start(now); osc.stop(now + 0.07)
+
+        // 泛音层（freq * 2），更清脆
+        const osc2 = ctx.createOscillator()
+        osc2.type = 'sine'
+        osc2.frequency.value = freq * 2
+        const env2 = ctx.createGain()
+        env2.gain.setValueAtTime(peak * 0.35, now + 0.001)
+        env2.gain.exponentialRampToValueAtTime(0.001, now + 0.04)
+        osc2.connect(env2)
+        env2.connect(this.masterGain!)
+        osc2.start(now); osc2.stop(now + 0.05)
     }
 
     private playShowdown(): void {

@@ -22,7 +22,7 @@ export function HandHistory({ roomCode, onClose }: Props) {
 
   return (
     <div
-      className="fixed top-14 right-4 z-40 w-72 max-h-[70vh] flex flex-col rounded-2xl overflow-hidden
+      className="fixed top-14 right-4 z-40 w-96 max-h-[70vh] flex flex-col rounded-2xl overflow-hidden
                  bg-[#0d1520]/95 backdrop-blur-md border border-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.7)]
                  pointer-events-auto"
     >
@@ -97,7 +97,7 @@ function HandRow({ hand }: { hand: HandEntry }) {
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-bold text-amber-500/50 tracking-widest">第 {hand.hand_num} 手</span>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-white/25">{time}</span>
+            <span className="text-[10px] text-white/50">{time}</span>
             {hasActions && (
               <span className="text-[10px] text-white/25">{expanded ? '▲' : '▼'}</span>
             )}
