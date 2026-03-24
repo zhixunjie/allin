@@ -59,6 +59,9 @@ func (gs *GameStateMachine) ValidateAction(userID string, action gmodel.Action, 
 		if amount < minRaiseTotal && amount != p.Stack+p.Bet {
 			return fmt.Errorf("%w: raise must be to at least %d", gmodel.ErrInvalidAmount, minRaiseTotal)
 		}
+		if amount > p.Stack+p.Bet {
+			return fmt.Errorf("%w: raise amount exceeds stack", gmodel.ErrInvalidAmount)
+		}
 		if toCall >= p.Stack {
 			return fmt.Errorf("%w: not enough chips to raise, use all_in", gmodel.ErrInvalidAmount)
 		}
