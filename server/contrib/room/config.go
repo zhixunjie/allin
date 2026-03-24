@@ -9,13 +9,13 @@ import (
 
 // RoomConfig 是房主创建房间时设定的配置。
 type RoomConfig struct {
-	SmallBlind    int64             `json:"small_blind"`     // 小盲注
-	BigBlind      int64             `json:"big_blind"`       // 大盲注（通常为小盲注的 2 倍）
-	MinBuyIn      int64             `json:"min_buy_in"`      // 最小买入额
-	MaxBuyIn      int64             `json:"max_buy_in"`      // 最大买入额
-	MaxPlayers    int               `json:"max_players"`     // 最大玩家数（2–9）
-	ActionTimeSec int               `json:"action_time_sec"` // 每人行动时限（秒），默认 30
-	BotCount      int               `json:"bot_count"`       // AI 玩家数量（0 = 无 bot）
+	SmallBlind    int64              `json:"small_blind"`     // 小盲注
+	BigBlind      int64              `json:"big_blind"`       // 大盲注（通常为小盲注的 2 倍）
+	MinBuyIn      int64              `json:"min_buy_in"`      // 最小买入额
+	MaxBuyIn      int64              `json:"max_buy_in"`      // 最大买入额
+	MaxPlayers    int                `json:"max_players"`     // 最大玩家数（2–9）
+	ActionTimeSec int                `json:"action_time_sec"` // 每人行动时限（秒），默认 30
+	BotCount      int                `json:"bot_count"`       // AI 玩家数量（0 = 无 bot）
 	BotType       gmodel.RoomBotType `json:"bot_style"`       // bot 风格主题，默认 mixed
 }
 
