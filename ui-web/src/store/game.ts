@@ -393,12 +393,22 @@ export const useGameStore = create<GameStoreState>()((set, get) => ({
     })
   },
 
-  // 玩家加入：追加到座位列表（重连不重复添加）
+  // 玩家加入：追加到座位列表；重连时清除断线标记
   applyPlayerJoined: (payload) => {
     if (payload.seat_index < 0) return
     set((state) => {
       const existing = state.seats.find((s) => s.user_id === payload.player_id)
-      if (existing) return {}
+      if (existing) {
+        // 重连：清除可能因快照遗留的 disconnected 标记
+        if (payload.is_reconnect) {
+          return {
+            seats: state.seats.map((s) =>
+              s.user_id === payload.player_id ? { ...s, disconnected: false } : s
+            ),
+          }
+        }
+        return {}
+      }
       const newSeat: SeatSnapshot = {
         seat_index: payload.seat_index,
         user_id: payload.player_id,

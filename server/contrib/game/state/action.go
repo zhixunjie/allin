@@ -151,10 +151,10 @@ func (gs *GameStateMachine) ApplyAction(userID string, action gmodel.Action, amo
 		}
 	}
 
-	// 激进行为：重置所有其他活跃非全押玩家的 ActedThisStreet。
+	// 激进行为（bet/raise）：抬高了 CurrentBet，其他仍可行动的玩家须重新决策。
 	if aggression {
 		for _, op := range gs.Seats {
-			if op != nil && op.UserID != userID && !op.Folded && !op.SitOut && !op.AllIn {
+			if op != nil && op.UserID != userID && op.CanBet() {
 				op.ActedThisStreet = false
 			}
 		}
