@@ -127,9 +127,15 @@ func (e *Engine) handleChat(msg protocol.InboundMessage) {
 
 // ---- 手牌流程 ----
 
-// startHand 开始新一手牌：递增手牌编号、移动庄家按钮、分配盲注、洗牌发牌，
-// 并广播 game_started / hole_cards / cards_dealt 事件，最后提示第一个行动玩家。
+// startHand 开始新一手牌，按以下步骤执行：
+//  1. 重置手牌日志与准备状态，递增手牌编号，进入 PreFlop 街道。
+//  2. 推进庄家按钮，按规则设置小盲/大盲座位（两人局特殊处理）。
+//  3. 重置所有玩家的局内状态（Bet/Folded/AllIn/Hole 等）。
+//  4. 强制下盲注，设置本轮最高下注额和最低加注增量。
+//  5. 洗牌并发底牌，广播 game_started / hole_cards / cards_dealt 事件。
+//  6. 确定翻牌前第一个行动玩家（两人局为庄家，多人局为大盲左手边），启动行动计时器。
 func (e *Engine) startHand() {
+	// --- 阶段 1：重置手牌元数据 ---
 	e.handActions = e.handActions[:0]
 	e.readyPlayers = nil
 	e.gs.HandNum++
@@ -138,8 +144,10 @@ func (e *Engine) startHand() {
 
 	eligible := e.gs.EligibleToStart()
 
+	// --- 阶段 2：推进庄家按钮 & 确定盲注位 ---
 	e.gs.DealerSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
 
+	// 两人局（Heads-Up）：庄家兼任小盲，大盲为另一位
 	if len(eligible) == 2 {
 		e.gs.SBSeat = e.gs.DealerSeat
 		e.gs.BBSeat = e.nextEligibleSeatAfter(e.gs.DealerSeat, eligible)
@@ -148,6 +156,7 @@ func (e *Engine) startHand() {
 		e.gs.BBSeat = e.nextEligibleSeatAfter(e.gs.SBSeat, eligible)
 	}
 
+	// --- 阶段 3：重置玩家局内状态 ---
 	for _, p := range e.gs.Seats {
 		if p != nil {
 			p.Bet = 0
@@ -159,14 +168,17 @@ func (e *Engine) startHand() {
 		}
 	}
 
+	// --- 阶段 4：强制下盲注 ---
 	sb := e.gs.Seats[e.gs.SBSeat]
 	bb := e.gs.Seats[e.gs.BBSeat]
 	postBlind(sb, e.gs.Config.SmallBlind)
 	postBlind(bb, e.gs.Config.BigBlind)
 
+	// 大盲注是本街起始的最高下注额；最低加注增量初始等于一个大盲
 	e.gs.CurrentBet = e.gs.Config.BigBlind
 	e.gs.MinRaise = e.gs.Config.BigBlind
 
+	// --- 阶段 5：洗牌发牌 & 广播事件 ---
 	e.deck = state.NewShuffledDeck()
 	e.dealHoleCards()
 
@@ -179,6 +191,7 @@ func (e *Engine) startHand() {
 		BigBlind:   e.gs.Config.BigBlind,
 	}))
 
+	// 底牌仅私发给各自玩家，不广播给全房间
 	for _, p := range e.gs.Seats {
 		if p == nil || p.SitOut {
 			continue
@@ -189,6 +202,7 @@ func (e *Engine) startHand() {
 		}))
 	}
 
+	// 广播已发牌座位列表（背面），让所有客户端知道哪些位置持有手牌
 	var dealtSeats []int
 	for _, p := range e.gs.Seats {
 		if p != nil && !p.SitOut {
@@ -197,6 +211,8 @@ func (e *Engine) startHand() {
 	}
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeCardsDealt, protocol.CardsDealtPayload{Seats: dealtSeats}))
 
+	// --- 阶段 6：确定翻牌前首个行动玩家 ---
+	// 两人局庄家先行动；多人局从大盲左手边开始
 	var firstActor int
 	if len(eligible) == 2 {
 		firstActor = e.gs.DealerSeat

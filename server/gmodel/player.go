@@ -15,9 +15,10 @@ type Player struct {
 	IsBot       bool     // 是否为 AI 机器人
 	BotStyle    BotStyle // bot 风格标识（仅 IsBot=true 时有效）
 
-	// ActedThisStreet 标记本街道内该玩家是否已行动；
+	// 标记本街道内该玩家是否已行动；
 	// 当有玩家加注超过其下注额时重置为 false，迫使其重新决策。
 	ActedThisStreet bool
 
-	Disconnected bool // 是否因断线而暂时离开（手牌进行中保留座位）
+	// 是否因断线而暂时离开（手牌进行中保留座位）
+	Disconnected bool
 }
