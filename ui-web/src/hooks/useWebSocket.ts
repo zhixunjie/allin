@@ -19,6 +19,7 @@ import { useChatStore } from '../store/chat'
 import { authAPI } from '../api/http'
 import { useRoomStore } from '../store/room'
 import { PlayerAction, WSEventType, WSInternalEvent } from '../types/enums'
+import { soundManager } from '../pixi/sound'
 
 function refreshBalance() {
   authAPI.me()
@@ -64,16 +65,58 @@ export function useWebSocket(roomCode: string | undefined, token: string | null)
         refreshBalance()
       }
     })
-    on(WSEventType.PlayerLeft,     (p) => store().applyPlayerLeft(p as PlayerLeftPayload))     // 玩家离桌（主动离开或踢出）
-    on(WSEventType.GameStarted,    (p) => store().applyGameStarted(p as GameStartedPayload))   // 新一手开始：重置座位下注、记录庄/盲位
-    on(WSEventType.HoleCards,      (p) => store().applyHoleCards(p as HoleCardsPayload))       // 服务端仅向当事人推送本人手牌
-    on(WSEventType.CardsDealt,     (p) => store().applyCardsDealt(p))                          // 广播发牌动作：其他座位显示背面牌占位
-    on(WSEventType.StreetStarted,  (p) => store().applyStreetStarted(p as StreetStartedPayload)) // 新街道开始：同步公共牌、底池，清空本街下注
-    on(WSEventType.ActionRequired, (p) => store().applyActionRequired(p as ActionRequiredPayload)) // 轮到某玩家行动：启动倒计时并更新跟注/加注参数
-    on(WSEventType.ActionTaken,    (p) => store().applyActionTaken(p as ActionTakenPayload))   // 玩家已行动：更新筹码/下注/状态，追加行动日志
-    on(WSEventType.ActionTimeout,  (p) => store().applyActionTaken(p as ActionTakenPayload))   // 行动超时：服务端自动弃牌，复用 ActionTaken 路径
-    on(WSEventType.Showdown,       (p) => store().applyShowdown(p as ShowdownPayload))         // 摊牌：公开各玩家手牌
-    on(WSEventType.HandResult,     (p) => store().applyHandResult(p as HandResultPayload))     // 手牌结算：更新筹码、记录赢家、重置街道为 Idle
+    on(WSEventType.PlayerLeft, (p) => store().applyPlayerLeft(p as PlayerLeftPayload))  // 玩家离桌（主动离开或踢出）
+
+    on(WSEventType.GameStarted, (p) => {
+      store().applyGameStarted(p as GameStartedPayload)  // 新一手开始：重置座位下注、记录庄/盲位
+      soundManager.play('deal')
+    })
+    on(WSEventType.HoleCards, (p) => {
+      store().applyHoleCards(p as HoleCardsPayload)  // 服务端仅向当事人推送本人手牌
+      soundManager.play('deal')
+    })
+    on(WSEventType.CardsDealt, (p) => {
+      store().applyCardsDealt(p)  // 广播发牌动作：其他座位显示背面牌占位
+      soundManager.play('deal')
+    })
+    on(WSEventType.StreetStarted, (p) => {
+      store().applyStreetStarted(p as StreetStartedPayload)  // 新街道开始：同步公共牌、底池，清空本街下注
+      soundManager.play('deal')
+    })
+    on(WSEventType.ActionRequired, (p) => {
+      const payload = p as ActionRequiredPayload
+      store().applyActionRequired(payload)  // 轮到某玩家行动：启动倒计时并更新跟注/加注参数
+      if (payload.player_id === store().myUserId) {
+        soundManager.play('myTurn')
+      }
+    })
+    on(WSEventType.ActionTaken, (p) => {
+      const payload = p as ActionTakenPayload
+      store().applyActionTaken(payload)  // 玩家已行动：更新筹码/下注/状态，追加行动日志
+      switch (payload.action) {
+        case PlayerAction.Fold:  soundManager.play('fold');  break
+        case PlayerAction.Check: soundManager.play('check'); break
+        case PlayerAction.Call:  soundManager.play('call');  break
+        case PlayerAction.Bet:   soundManager.play('bet');   break
+        case PlayerAction.Raise: soundManager.play('raise'); break
+        case PlayerAction.AllIn: soundManager.play('allin'); break
+      }
+    })
+    on(WSEventType.ActionTimeout, (p) => {
+      store().applyActionTaken(p as ActionTakenPayload)  // 行动超时：服务端自动弃牌，复用 ActionTaken 路径
+      soundManager.play('fold')
+    })
+    on(WSEventType.Showdown, (p) => {
+      store().applyShowdown(p as ShowdownPayload)  // 摊牌：公开各玩家手牌
+      soundManager.play('showdown')
+    })
+    on(WSEventType.HandResult, (p) => {
+      const payload = p as HandResultPayload
+      store().applyHandResult(payload)  // 手牌结算：更新筹码、记录赢家、重置街道为 Idle
+      const myId = store().myUserId
+      const iWon = myId != null && payload.winners.some((w) => w.player_id === myId)
+      soundManager.play(iWon ? 'win' : 'fold')
+    })
     on(WSEventType.SitOutStatus,   (p) => store().applySitOut(p as SitOutPayload))             // 玩家暂离/归座状态变更
     on(WSEventType.ReadyStatus,    (p) => store().applyReadyStatus(p as { ready_count: number; total_count: number })) // 结算间隙准备人数广播
 

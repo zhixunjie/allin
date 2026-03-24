@@ -382,7 +382,14 @@ export class TableScene {
     /** 更新底池金额、轮次标签 */
     private updateTableLabels(state: GameState) {
         this.potDisplay.setPot(state.pot ?? 0)
-        this.streetLabel.text = state.street === Street.Idle ? '' : state.street.toUpperCase()
+        const streetZh: Record<string, string> = {
+            [Street.PreFlop]: '翻牌前',
+            [Street.Flop]:    '翻牌',
+            [Street.Turn]:    '转牌',
+            [Street.River]:   '河牌',
+            [Street.Showdown]:'摊牌',
+        }
+        this.streetLabel.text = streetZh[state.street] ?? ''
         this.dealerChip.visible = false // 位置标签已传达庄家信息，D 标记常隐藏
     }
 

@@ -102,9 +102,10 @@ export interface SeatSnapshot {
     folded: boolean       // 是否已弃牌
     all_in: boolean       // 是否全押
     sit_out: boolean      // 是否暂离
-    disconnected?: boolean // 是否断线（手牌中保留座位）
-    is_bot?: boolean      // 是否 AI 机器人
-    hole?: string[]       // 手牌（showdown 时服务端下发）
+    disconnected?: boolean          // 是否断线（手牌中保留座位）
+    is_bot?: boolean                // 是否 AI 机器人
+    wait_for_next_hand?: boolean    // 是否等待下一手开始（中途入座）
+    hole?: string[]                 // 手牌（showdown 时服务端下发）
     avatar?: string       // 玩家头像图片链接
 }
 

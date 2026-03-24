@@ -365,15 +365,18 @@ export class SeatSprite extends Container {
         }
     }
 
-    /** 切变行为标记：ALL-IN 红底白字居中，已弃牌灰色作废章居中 */
+    /** 切变行为标记：ALL-IN 红底白字居中，已弃牌灰色作废章居中，等待中蓝色提示 */
     private updateStatusBadge(seat: SeatSnapshot) {
         if (seat.folded) {
             this.statusBadge.visible = true
             this.statusBadgeText.text = '已弃牌'
             this.statusBadgeText.style.fill = 0xaaaaaa
             this.layoutStatusBadge(false)
-        } else if (seat.all_in) {
-            this.statusBadge.visible = false
+        } else if (seat.wait_for_next_hand) {
+            this.statusBadge.visible = true
+            this.statusBadgeText.text = '等待中'
+            this.statusBadgeText.style.fill = 0x88bbff
+            this.layoutStatusBadge(false)
         } else {
             this.statusBadge.visible = false
         }

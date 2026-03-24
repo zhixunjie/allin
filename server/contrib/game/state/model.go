@@ -32,30 +32,31 @@ type BotSituation struct {
 
 // GameSnapshot 是发送给客户端的完整状态，在重连或首次入座时下发。
 type GameSnapshot struct {
-	Street     string          `json:"street"`      // 当前街道名称（idle/preflop/…）
-	HandNum    int             `json:"hand_num"`    // 当前手牌编号（从 1 递增）
-	Community  []string        `json:"community"`   // 公共牌字符串列表
-	Seats      []SeatSnapshot  `json:"seats"`       // 所有已入座玩家的状态列表
-	Pot        int64           `json:"pot"`         // 当前总底池
-	DealerSeat int             `json:"dealer_seat"` // 庄家座位号
-	ActionSeat int             `json:"action_seat"`          // 当前待行动座位号；-1 表示无
-	CurrentBet int64           `json:"current_bet"`          // 本回合最高下注额
-	MinRaise   int64           `json:"min_raise"`            // 最低加注增量
+	Street     string          `json:"street"`                // 当前街道名称（idle/preflop/…）
+	HandNum    int             `json:"hand_num"`              // 当前手牌编号（从 1 递增）
+	Community  []string        `json:"community"`             // 公共牌字符串列表
+	Seats      []SeatSnapshot  `json:"seats"`                 // 所有已入座玩家的状态列表
+	Pot        int64           `json:"pot"`                   // 当前总底池
+	DealerSeat int             `json:"dealer_seat"`           // 庄家座位号
+	ActionSeat int             `json:"action_seat"`           // 当前待行动座位号；-1 表示无
+	CurrentBet int64           `json:"current_bet"`           // 本回合最高下注额
+	MinRaise   int64           `json:"min_raise"`             // 最低加注增量
 	DeadlineTs int64           `json:"deadline_ts,omitempty"` // 当前行动截止时间（Unix 毫秒）；0 或省略表示无待行动
-	Config     room.RoomConfig `json:"config"`               // 房间配置（盲注/买入等）
+	Config     room.RoomConfig `json:"config"`                // 房间配置（盲注/买入等）
 }
 
 // SeatSnapshot 是 GameSnapshot 中单个座位的实时状态。
 type SeatSnapshot struct {
-	SeatIndex    int      `json:"seat_index"`             // 座位号 0–8
-	UserID       string   `json:"user_id"`                // 玩家唯一 ID
-	DisplayName  string   `json:"display_name"`           // 显示名称
-	Stack        int64    `json:"stack"`                  // 桌面筹码余额
-	Bet          int64    `json:"bet"`                    // 本街已下注金额
-	Folded       bool     `json:"folded"`                 // 是否已弃牌
-	AllIn        bool     `json:"all_in"`                 // 是否全押
-	SitOut       bool     `json:"sit_out"`                // 是否离座
-	Disconnected bool     `json:"disconnected,omitempty"` // 是否断线（手牌中保留座位）
-	IsBot        bool     `json:"is_bot,omitempty"`       // 是否为 AI bot
-	Hole         []string `json:"hole,omitempty"`         // 底牌（仅对请求玩家自身可见）
+	SeatIndex       int      `json:"seat_index"`                   // 座位号 0–8
+	UserID          string   `json:"user_id"`                      // 玩家唯一 ID
+	DisplayName     string   `json:"display_name"`                 // 显示名称
+	Stack           int64    `json:"stack"`                        // 桌面筹码余额
+	Bet             int64    `json:"bet"`                          // 本街已下注金额
+	Folded          bool     `json:"folded"`                       // 是否已弃牌
+	AllIn           bool     `json:"all_in"`                       // 是否全押
+	SitOut          bool     `json:"sit_out"`                      // 是否离座
+	Disconnected    bool     `json:"disconnected,omitempty"`       // 是否断线（手牌中保留座位）
+	IsBot           bool     `json:"is_bot,omitempty"`             // 是否为 AI bot
+	WaitForNextHand bool     `json:"wait_for_next_hand,omitempty"` // 是否正在等待下一手开始（中途入座）
+	Hole            []string `json:"hole,omitempty"`               // 底牌（仅对请求玩家自身可见）
 }

@@ -21,16 +21,17 @@ func (gs *GameStateMachine) Snapshot(viewerID string) GameSnapshot {
 			continue
 		}
 		ss := SeatSnapshot{
-			SeatIndex:    p.SeatIndex,
-			UserID:       p.UserID,
-			DisplayName:  p.DisplayName,
-			Stack:        p.Stack,
-			Bet:          p.Bet,
-			Folded:       p.Folded,
-			AllIn:        p.AllIn,
-			SitOut:       p.SitOut,
-			Disconnected: p.Disconnected,
-			IsBot:        p.IsBot,
+			SeatIndex:       p.SeatIndex,
+			UserID:          p.UserID,
+			DisplayName:     p.DisplayName,
+			Stack:           p.Stack,
+			Bet:             p.Bet,
+			Folded:          p.Folded,
+			AllIn:           p.AllIn,
+			SitOut:          p.SitOut,
+			Disconnected:    p.Disconnected,
+			IsBot:           p.IsBot,
+			WaitForNextHand: p.WaitForNextHand,
 		}
 		if gs.Street != gmodel.StreetIdle && !p.WaitForNextHand && !p.Folded {
 			if p.UserID == viewerID {

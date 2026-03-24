@@ -12,6 +12,7 @@ import { HandHistory } from '../panels/HandHistory'
 import { ActionLogPanel } from '../panels/ActionLogPanel'
 import { ChatPanel } from '../panels/ChatPanel'
 import { Street } from '../../types/enums'
+import { soundManager } from '../../pixi/sound'
 import styles from './RoomPage.module.css'
 
 const STREET_LABEL: Record<string, string> = {
@@ -34,6 +35,14 @@ export default function RoomPage() {
 
   // 手牌历史面板
   const [showHistory, setShowHistory] = useState(false)
+
+  // 静音开关（同步 SoundManager 单例状态）
+  const [muted, setMuted] = useState(false)
+  function toggleMute() {
+    const next = !muted
+    setMuted(next)
+    soundManager.setMuted(next)
+  }
 
   // 邀请链接复制
   const [copied, setCopied] = useState(false)
@@ -101,6 +110,14 @@ export default function RoomPage() {
                 <span className={styles.tableInfoValue}>${user.chip_balance.toLocaleString()}</span>
               </div>
             )}
+            <button
+              className={styles.leaveBtn}
+              onClick={toggleMute}
+              title={muted ? '开启音效' : '关闭音效'}
+              style={{ opacity: muted ? 0.45 : 1 }}
+            >
+              {muted ? '🔇' : '🔊'}
+            </button>
             <button
               className={styles.leaveBtn}
               onClick={() => setShowHistory((v) => !v)}
