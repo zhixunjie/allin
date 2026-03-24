@@ -21,4 +21,34 @@ type Player struct {
 
 	// 是否因断线而暂时离开（手牌进行中保留座位）
 	Disconnected bool
+
+	// 是否在手牌进行中入座，需等待下一手牌才能参与。
+	// 由引擎在中途入座时自动置 true，下一手牌开始时自动清除，无需玩家手动操作。
+	WaitForNextHand bool
+}
+
+// ── 玩家状态判断方法 ─────────────────────────────────────────────────────────
+
+// DealsIn 本手牌是否应发底牌：未离座且未等待下一手。
+// 用于：发牌循环、dealtSeats 列表、底牌私发过滤。
+func (p *Player) DealsIn() bool {
+	return !p.SitOut && !p.WaitForNextHand
+}
+
+// Active 是否为本手牌的活跃参与者：已发牌、未弃牌。
+// 用于：ActivePlayers、NextActiveSeat、摊牌评估。
+func (p *Player) Active() bool {
+	return !p.Folded && !p.SitOut && !p.WaitForNextHand
+}
+
+// CanBet 是否仍可参与本轮下注决策：活跃且未全押。
+// 用于：BettingRoundOver、NextActableSeat、CanAct。
+func (p *Player) CanBet() bool {
+	return !p.Folded && !p.SitOut && !p.AllIn && !p.WaitForNextHand
+}
+
+// ReadyToStart 是否满足参与新手牌的条件：有筹码、未离座、未断线、未等待。
+// 用于：EligibleToStart、scheduleNextHand bot 列表。
+func (p *Player) ReadyToStart() bool {
+	return !p.SitOut && !p.Disconnected && !p.WaitForNextHand && p.Stack > 0
 }

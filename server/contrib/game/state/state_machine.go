@@ -55,11 +55,11 @@ func (gs *GameStateMachine) FindPlayer(userID string) *gmodel.Player {
 	return nil
 }
 
-// ActivePlayers 返回未弃牌、未离座的玩家。
+// ActivePlayers 返回本手牌的活跃参与者（已发牌、未弃牌）。
 func (gs *GameStateMachine) ActivePlayers() []*gmodel.Player {
 	var out []*gmodel.Player
 	for _, p := range gs.Seats {
-		if p != nil && !p.Folded && !p.SitOut {
+		if p != nil && p.Active() {
 			out = append(out, p)
 		}
 	}
@@ -77,46 +77,45 @@ func (gs *GameStateMachine) SeatedCount() int {
 	return n
 }
 
-// EligibleToStart 返回可以参与新一手牌的玩家：未离座、未断线、有筹码。
+// EligibleToStart 返回满足参与新手牌条件的玩家。
 func (gs *GameStateMachine) EligibleToStart() []*gmodel.Player {
 	var out []*gmodel.Player
 	for _, p := range gs.Seats {
-		if p != nil && !p.SitOut && !p.Disconnected && p.Stack > 0 {
+		if p != nil && p.ReadyToStart() {
 			out = append(out, p)
 		}
 	}
 	return out
 }
 
-// NextActiveSeat 返回 from 之后下一个未弃牌、未离座的座位（循环查找）。
-// 如果没有找到则返回 -1。
+// NextActiveSeat 返回 from 之后下一个活跃参与者的座位（循环查找），未找到返回 NoSeat。
 func (gs *GameStateMachine) NextActiveSeat(from int) int {
 	for i := 1; i <= 9; i++ {
 		idx := (from + i) % 9
 		p := gs.Seats[idx]
-		if p != nil && !p.Folded && !p.SitOut {
+		if p != nil && p.Active() {
 			return idx
 		}
 	}
 	return gmodel.NoSeat
 }
 
-// NextActableSeat 返回下一个仍可下注/加注/跟注的座位（非全押/弃牌/离座）。
+// NextActableSeat 返回下一个仍可参与下注决策的座位（循环查找），未找到返回 NoSeat。
 func (gs *GameStateMachine) NextActableSeat(from int) int {
 	for i := 1; i <= 9; i++ {
 		idx := (from + i) % 9
 		p := gs.Seats[idx]
-		if p != nil && !p.Folded && !p.SitOut && !p.AllIn {
+		if p != nil && p.CanBet() {
 			return idx
 		}
 	}
 	return gmodel.NoSeat
 }
 
-// BettingRoundOver 当没有活跃玩家需要继续行动时返回 true。
+// BettingRoundOver 当所有可下注玩家均已行动且下注齐平时返回 true。
 func (gs *GameStateMachine) BettingRoundOver() bool {
 	for _, p := range gs.Seats {
-		if p == nil || p.Folded || p.SitOut || p.AllIn {
+		if p == nil || !p.CanBet() {
 			continue
 		}
 		if !p.ActedThisStreet {
@@ -129,11 +128,11 @@ func (gs *GameStateMachine) BettingRoundOver() bool {
 	return true
 }
 
-// CanAct 返回所有仍可参与下注决策的玩家：未弃牌、未离座、未全押。
+// CanAct 返回所有仍可参与下注决策的玩家。
 func (gs *GameStateMachine) CanAct() []*gmodel.Player {
 	var out []*gmodel.Player
 	for _, p := range gs.Seats {
-		if p != nil && !p.Folded && !p.SitOut && !p.AllIn {
+		if p != nil && p.CanBet() {
 			out = append(out, p)
 		}
 	}

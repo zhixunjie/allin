@@ -193,7 +193,7 @@ func (e *Engine) startHand() {
 
 	// 底牌仅私发给各自玩家，不广播给全房间
 	for _, p := range e.gs.Seats {
-		if p == nil || p.SitOut {
+		if p == nil || !p.DealsIn() {
 			continue
 		}
 		e.rc.SendTo(p.UserID, protocol.MustNewEnvelope(protocol.TypeHoleCards, protocol.HoleCardsPayload{
@@ -205,7 +205,7 @@ func (e *Engine) startHand() {
 	// 广播已发牌座位列表（背面），让所有客户端知道哪些位置持有手牌
 	var dealtSeats []int
 	for _, p := range e.gs.Seats {
-		if p != nil && !p.SitOut {
+		if p != nil && p.DealsIn() {
 			dealtSeats = append(dealtSeats, p.SeatIndex)
 		}
 	}
@@ -244,7 +244,7 @@ func (e *Engine) dealHoleCards() {
 	for round := 0; round < 2; round++ {
 		for seat := 0; seat < 9; seat++ {
 			p := e.gs.Seats[seat]
-			if p == nil || p.SitOut {
+			if p == nil || !p.DealsIn() {
 				continue
 			}
 			p.Hole[round] = e.deck[idx]
@@ -372,10 +372,10 @@ func (e *Engine) runShowdown() {
 	handNames := map[string]string{}
 	var reveals []revealEntry
 	for _, p := range e.gs.Seats {
-		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank == gmodel.CardRankNone {
+		if p != nil && p.Active() && p.Hole[0].Rank == gmodel.CardRankNone {
 			slog.Error("game: showdown player has no hole cards", "player", p.UserID, "seat", p.SeatIndex)
 		}
-		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank != gmodel.CardRankNone {
+		if p != nil && p.Active() && p.Hole[0].Rank != gmodel.CardRankNone {
 			_, handName := state.EvaluateHand(p.Hole, e.gs.Community)
 			handNames[p.UserID] = handName
 			reveals = append(reveals, revealEntry{
@@ -464,7 +464,7 @@ func (e *Engine) runShowdown() {
 			continue
 		}
 		hole := []string{}
-		if !p.Folded {
+		if p.Active() {
 			hole = []string{p.Hole[0].String(), p.Hole[1].String()}
 		}
 		allPlayers = append(allPlayers, handResultPlayer{
@@ -496,6 +496,13 @@ func (e *Engine) runShowdown() {
 	e.saveHandHistory(json.RawMessage(rawResult))
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
+
+	// 手牌结束，解除中途入座玩家的等待状态，使其从下一手牌起正式参与。
+	for _, p := range e.gs.Seats {
+		if p != nil {
+			p.WaitForNextHand = false
+		}
+	}
 
 	e.gs.Street = gmodel.StreetIdle
 	e.gs.ActionSeat = gmodel.NoSeat
@@ -554,6 +561,13 @@ func (e *Engine) awardUncontested(winner *gmodel.Player) {
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()
 
+	// 手牌结束，解除中途入座玩家的等待状态，使其从下一手牌起正式参与。
+	for _, p := range e.gs.Seats {
+		if p != nil {
+			p.WaitForNextHand = false
+		}
+	}
+
 	e.gs.Street = gmodel.StreetIdle
 	e.gs.ActionSeat = gmodel.NoSeat
 	e.scheduleNextHand()
@@ -576,7 +590,7 @@ func (e *Engine) scheduleNextHand() {
 	}
 	e.readyPlayers = make(map[string]bool)
 	for _, p := range e.gs.Seats {
-		if p != nil && botpkg.IsBotID(p.UserID) && !p.SitOut && !p.Disconnected && p.Stack > 0 {
+		if p != nil && botpkg.IsBotID(p.UserID) && p.ReadyToStart() {
 			e.readyPlayers[p.UserID] = true
 		}
 	}

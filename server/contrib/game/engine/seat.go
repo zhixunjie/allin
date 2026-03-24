@@ -88,6 +88,8 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 		UserID:      msg.SenderID,
 		DisplayName: msg.DisplayName,
 		Stack:       buyIn,
+		// 手牌进行中入座：等待当前手牌结束后再参与，避免破坏正在进行的投注轮。
+		WaitForNextHand: e.gs.Street != gmodel.StreetIdle,
 	}
 	e.gs.SeatPlayer(p)
 
