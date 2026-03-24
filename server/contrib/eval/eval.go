@@ -19,42 +19,42 @@ func Evaluate7(cards [7]gmodel.Card) uint32 {
 func toEvalInt(c gmodel.Card) int {
 	var rank int
 	switch c.Rank {
-	case '2':
+	case gmodel.CardRank2:
 		rank = 0
-	case '3':
+	case gmodel.CardRank3:
 		rank = 1
-	case '4':
+	case gmodel.CardRank4:
 		rank = 2
-	case '5':
+	case gmodel.CardRank5:
 		rank = 3
-	case '6':
+	case gmodel.CardRank6:
 		rank = 4
-	case '7':
+	case gmodel.CardRank7:
 		rank = 5
-	case '8':
+	case gmodel.CardRank8:
 		rank = 6
-	case '9':
+	case gmodel.CardRank9:
 		rank = 7
-	case 'T':
+	case gmodel.CardRankT:
 		rank = 8
-	case 'J':
+	case gmodel.CardRankJ:
 		rank = 9
-	case 'Q':
+	case gmodel.CardRankQ:
 		rank = 10
-	case 'K':
+	case gmodel.CardRankK:
 		rank = 11
-	case 'A':
+	case gmodel.CardRankA:
 		rank = 12
 	}
 	var suit int
 	switch c.Suit {
-	case 'c':
+	case gmodel.CardSuitC:
 		suit = 0
-	case 'd':
+	case gmodel.CardSuitD:
 		suit = 1
-	case 'h':
+	case gmodel.CardSuitH:
 		suit = 2
-	case 's':
+	case gmodel.CardSuitS:
 		suit = 3
 	}
 	return rank*4 + suit + 1
@@ -114,7 +114,7 @@ func encodeRank(cat uint8, values ...uint8) uint32 {
 
 func evaluateFive(cards [5]gmodel.Card) uint32 {
 	var vals [5]uint8
-	var suits [5]byte
+	var suits [5]gmodel.CardSuit
 	for i, c := range cards {
 		vals[i] = uint8(c.Rank.Val())
 		suits[i] = c.Suit

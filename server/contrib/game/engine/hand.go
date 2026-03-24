@@ -341,18 +341,25 @@ func (e *Engine) broadcastActionRequired() {
 
 // ---- 摊牌 ----
 
-// runShowdown 执行摊牌流程：展示手牌、分配底池、广播结果、写入历史、启动下一手。
+// runShowdown 执行摊牌流程，按以下步骤进行：
+//  1. 进入 Showdown 状态，锁定行动席位。
+//  2. 评估所有未弃牌玩家的最佳成牌，广播 showdown 事件（翻牌亮底）。
+//  3. 按主池→边池顺序分配筹码：每个底池找出最强手牌的玩家，平分奖池（余数归第一名）。
+//  4. 构造结算快照（赢家列表、各座位筹码、最佳五张），广播 hand_result 事件。
+//  5. 异步写入 hand_history，踢出破产玩家，清理断线玩家，最后安排下一手。
 func (e *Engine) runShowdown() {
+	// --- 阶段 1：锁定状态 ---
 	e.gs.Street = gmodel.StreetShowdown
 	e.gs.ActionSeat = gmodel.NoSeat
 
+	// --- 阶段 2：评估手牌 & 广播翻牌 ---
 	handNames := map[string]string{}
 	var reveals []revealEntry
 	for _, p := range e.gs.Seats {
-		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank == 0 {
+		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank == gmodel.CardRankNone {
 			slog.Error("game: showdown player has no hole cards", "player", p.UserID, "seat", p.SeatIndex)
 		}
-		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank != 0 {
+		if p != nil && !p.Folded && !p.SitOut && p.Hole[0].Rank != gmodel.CardRankNone {
 			_, handName := state.EvaluateHand(p.Hole, e.gs.Community)
 			handNames[p.UserID] = handName
 			reveals = append(reveals, revealEntry{
@@ -371,10 +378,13 @@ func (e *Engine) runShowdown() {
 	}
 	e.rc.Broadcast(protocol.MustNewEnvelope(protocol.TypeShowdown, json.RawMessage(rawReveals)))
 
+	// --- 阶段 3：按底池分配筹码 ---
+	// BuildPots 按 TotalBet 升序拆分主池和边池，保证全押玩家只能赢取其贡献上限内的筹码。
 	pots := state.BuildPots(e.gs.Seats)
 	var winners []handResultWinner
 
 	for _, pot := range pots {
+		// 找出该底池中手牌最强的玩家（rank 值越小越强）
 		bestRank := uint32(0xFFFFFFFF)
 		var bestPlayers []string
 		for _, uid := range pot.Eligible {
@@ -387,9 +397,11 @@ func (e *Engine) runShowdown() {
 				bestRank = rank
 				bestPlayers = []string{uid}
 			} else if rank == bestRank {
+				// 平手：多人均分
 				bestPlayers = append(bestPlayers, uid)
 			}
 		}
+		// 整除平分，余数归第一位赢家（避免筹码凭空消失）
 		share := pot.Amount / int64(len(bestPlayers))
 		remainder := pot.Amount % int64(len(bestPlayers))
 		for i, uid := range bestPlayers {
@@ -409,6 +421,7 @@ func (e *Engine) runShowdown() {
 		}
 	}
 
+	// --- 阶段 4：构造并广播结算快照 ---
 	var resultSeats []handResultSeat
 	for _, p := range e.gs.Seats {
 		if p != nil {
@@ -416,6 +429,7 @@ func (e *Engine) runShowdown() {
 		}
 	}
 
+	// 取第一位赢家的最佳五张用于前端高亮展示
 	var bestHand []string
 	if len(winners) > 0 {
 		wp := e.gs.FindPlayer(winners[0].PlayerID)
@@ -462,6 +476,7 @@ func (e *Engine) runShowdown() {
 
 	slog.Info("game: hand complete", "room", e.room.Code, "hand", e.gs.HandNum)
 
+	// --- 阶段 5：收尾 ---
 	e.saveHandHistory(json.RawMessage(rawResult))
 	e.kickBrokePlayers()
 	e.cleanupDisconnected()

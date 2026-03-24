@@ -6,8 +6,12 @@ import (
 	"github.com/allin/server/gmodel"
 )
 
-var ranks = []gmodel.CardRank{'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
-var suits = []byte{'c', 'd', 'h', 's'}
+var ranks = []gmodel.CardRank{
+	gmodel.CardRank2, gmodel.CardRank3, gmodel.CardRank4, gmodel.CardRank5,
+	gmodel.CardRank6, gmodel.CardRank7, gmodel.CardRank8, gmodel.CardRank9,
+	gmodel.CardRankT, gmodel.CardRankJ, gmodel.CardRankQ, gmodel.CardRankK, gmodel.CardRankA,
+}
+var suits = []gmodel.CardSuit{gmodel.CardSuitC, gmodel.CardSuitD, gmodel.CardSuitH, gmodel.CardSuitS}
 
 // NewShuffledDeck 返回一副新洗好的 52 张牌。
 func NewShuffledDeck() []gmodel.Card {

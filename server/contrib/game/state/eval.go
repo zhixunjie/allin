@@ -27,7 +27,7 @@ func EvaluateHand(hole [2]gmodel.Card, community []gmodel.Card) (uint32, string)
 		slog.Error("game: EvaluateHand called with insufficient community cards", "community_len", len(community))
 		return gmodel.InvalidHandRank, ""
 	}
-	if hole[0].Rank == 0 || hole[1].Rank == 0 {
+	if hole[0].Rank == gmodel.CardRankNone || hole[1].Rank == gmodel.CardRankNone {
 		slog.Error("game: EvaluateHand called with undealt hole cards", "hole0", hole[0], "hole1", hole[1])
 		return gmodel.InvalidHandRank, ""
 	}
