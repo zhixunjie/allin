@@ -1,14 +1,18 @@
 package eval
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/allin/server/gmodel"
+)
 
 func c(r, s byte) Card { return Card{Rank: r, Suit: s} }
 
 func TestRoyalFlush(t *testing.T) {
 	hand := [7]Card{c('A', 's'), c('K', 's'), c('Q', 's'), c('J', 's'), c('T', 's'), c('2', 'c'), c('3', 'd')}
 	rank := Evaluate7(hand)
-	if Category(rank) != 1 {
-		t.Fatalf("expected Straight Flush (Royal), got category %d, rank %d, desc %q", Category(rank), rank, Describe(rank))
+	if model.HandCategory(rank>>20) != model.CatStraightFlush {
+		t.Fatalf("expected Straight Flush (Royal), got category %d, rank %d, desc %q", rank>>20, rank, Describe(rank))
 	}
 	if Describe(rank) != "Royal Flush" {
 		t.Fatalf("expected Royal Flush, got %q", Describe(rank))
@@ -18,8 +22,8 @@ func TestRoyalFlush(t *testing.T) {
 func TestStraightFlush(t *testing.T) {
 	hand := [7]Card{c('9', 'h'), c('8', 'h'), c('7', 'h'), c('6', 'h'), c('5', 'h'), c('A', 'c'), c('K', 'd')}
 	rank := Evaluate7(hand)
-	if Category(rank) != 1 {
-		t.Fatalf("expected Straight Flush, got %q (cat %d)", Describe(rank), Category(rank))
+	if model.HandCategory(rank>>20) != model.CatStraightFlush {
+		t.Fatalf("expected Straight Flush, got %q (cat %d)", Describe(rank), rank>>20)
 	}
 }
 

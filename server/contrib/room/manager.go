@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/allin/server/base/biz/dao"
+	"github.com/allin/server/gmodel"
 )
 
 // Manager 在内存中维护所有活跃房间。
@@ -62,7 +63,7 @@ func (m *Manager) Get(code string) (*Room, error) {
 	r, ok := m.rooms[code]
 	m.mu.RUnlock()
 	if !ok {
-		return nil, ErrNotFound
+		return nil, model.ErrRoomNotFound
 	}
 	return r, nil
 }
@@ -90,7 +91,7 @@ func (m *Manager) generateUniqueCode() (string, error) {
 			return code, nil
 		}
 	}
-	return "", ErrCodeConflict
+	return "", model.ErrRoomCodeConflict
 }
 
 // StartGC 启动后台 goroutine，定期清理空闲超过 idleTimeout 的房间。

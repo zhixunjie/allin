@@ -27,7 +27,10 @@
   
 - 开发进度：[PROGRESS.md](PROGRESS.md)
   
-- 视觉设计风格：[DESIGN.md](DESIGN.md) https://stitch.withgoogle.com/projects/4278287175556993233?pli=1
+- 视觉设计风格：
+  
+  - [DESIGN.md](DESIGN.md) 
+  - https://stitch.withgoogle.com/projects/4278287175556993233?pli=1
   
   ~~~
   # 星空德州 (Galactic Aces) 视觉设计规范 v4.0

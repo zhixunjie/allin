@@ -145,8 +145,18 @@ func preflopStrength(hole [2]model.Card) float64 {
 	return base
 }
 
-// catStrength 将成牌类别（rank >> 20）映射为强度值，0=同花顺 … 8=高牌。
-var catStrength = [9]float64{1.0, 0.95, 0.88, 0.78, 0.70, 0.60, 0.45, 0.30, 0.15}
+// catStrength 按 HandCategory（0=同花顺 … 8=高牌）映射强度值，数值越大手牌越强。
+var catStrength = map[model.HandCategory]float64{
+	model.CatStraightFlush: 1.00,
+	model.CatFourOfAKind:   0.95,
+	model.CatFullHouse:     0.88,
+	model.CatFlush:         0.78,
+	model.CatStraight:      0.70,
+	model.CatThreeOfAKind:  0.60,
+	model.CatTwoPair:       0.45,
+	model.CatOnePair:       0.30,
+	model.CatHighCard:      0.15,
+}
 
 // postflopStrength 在有公共牌时评估最佳成牌强度，返回 0.0–1.0。
 func postflopStrength(hole [2]model.Card, community []model.Card) float64 {
@@ -154,14 +164,17 @@ func postflopStrength(hole [2]model.Card, community []model.Card) float64 {
 		return preflopStrength(hole)
 	}
 	rank, _ := state.EvaluateHand(hole, community)
-	if rank == 0xFFFFFFFF {
+	if rank == model.InvalidHandRank {
 		return preflopStrength(hole)
 	}
-	cat := rank >> 20
-	if cat >= 9 {
+	cat := model.HandCategory(rank >> 20)
+	if cat > model.CatHighCard {
 		return 0.05
 	}
-	return catStrength[cat]
+	if s, ok := catStrength[cat]; ok {
+		return s
+	}
+	return 0.05
 }
 
 // handStrength 按当前街道分派到 preflop 或 postflop 强度计算。

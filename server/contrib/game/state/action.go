@@ -9,17 +9,17 @@ import (
 // ValidateAction 检查给定的行动对该玩家是否合法。
 func (gs *GameStateMachine) ValidateAction(userID string, action model.Action, amount int64) error {
 	if gs.Street == model.StreetIdle || gs.Street == model.StreetShowdown {
-		return ErrGameNotActive
+		return model.ErrGameNotActive
 	}
 	p := gs.FindPlayer(userID)
 	if p == nil {
-		return ErrPlayerNotSeated
+		return model.ErrPlayerNotSeated
 	}
 	if gs.ActionSeat != p.SeatIndex {
-		return ErrNotYourTurn
+		return model.ErrNotYourTurn
 	}
 	if p.Folded || p.AllIn {
-		return ErrInvalidAction
+		return model.ErrInvalidAction
 	}
 
 	switch action {
@@ -28,50 +28,50 @@ func (gs *GameStateMachine) ValidateAction(userID string, action model.Action, a
 
 	case model.ActionCheck:
 		if p.Bet < gs.CurrentBet {
-			return fmt.Errorf("%w: must call %d or raise", ErrInvalidAction, gs.CurrentBet-p.Bet)
+			return fmt.Errorf("%w: must call %d or raise", model.ErrInvalidAction, gs.CurrentBet-p.Bet)
 		}
 		return nil
 
 	case model.ActionCall:
 		if p.Bet >= gs.CurrentBet {
-			return fmt.Errorf("%w: no bet to call, use check", ErrInvalidAction)
+			return fmt.Errorf("%w: no bet to call, use check", model.ErrInvalidAction)
 		}
 		return nil
 
 	case model.ActionBet:
 		if gs.CurrentBet > 0 {
-			return fmt.Errorf("%w: there is already a bet, use raise", ErrInvalidAction)
+			return fmt.Errorf("%w: there is already a bet, use raise", model.ErrInvalidAction)
 		}
 		if amount < gs.Config.BigBlind {
-			return fmt.Errorf("%w: bet must be at least %d (one big blind)", ErrInvalidAmount, gs.Config.BigBlind)
+			return fmt.Errorf("%w: bet must be at least %d (one big blind)", model.ErrInvalidAmount, gs.Config.BigBlind)
 		}
 		if amount > p.Stack {
-			return fmt.Errorf("%w: not enough chips", ErrInvalidAmount)
+			return fmt.Errorf("%w: not enough chips", model.ErrInvalidAmount)
 		}
 		return nil
 
 	case model.ActionRaise:
 		if gs.CurrentBet == 0 {
-			return fmt.Errorf("%w: no bet to raise, use bet", ErrInvalidAction)
+			return fmt.Errorf("%w: no bet to raise, use bet", model.ErrInvalidAction)
 		}
 		toCall := gs.CurrentBet - p.Bet
 		minRaiseTotal := gs.CurrentBet + gs.MinRaise
 		if amount < minRaiseTotal && amount != p.Stack+p.Bet {
-			return fmt.Errorf("%w: raise must be to at least %d", ErrInvalidAmount, minRaiseTotal)
+			return fmt.Errorf("%w: raise must be to at least %d", model.ErrInvalidAmount, minRaiseTotal)
 		}
 		if toCall >= p.Stack {
-			return fmt.Errorf("%w: not enough chips to raise, use all_in", ErrInvalidAmount)
+			return fmt.Errorf("%w: not enough chips to raise, use all_in", model.ErrInvalidAmount)
 		}
 		return nil
 
 	case model.ActionAllIn:
 		if p.Stack == 0 {
-			return fmt.Errorf("%w: no chips to go all-in", ErrInvalidAmount)
+			return fmt.Errorf("%w: no chips to go all-in", model.ErrInvalidAmount)
 		}
 		return nil
 
 	default:
-		return fmt.Errorf("%w: unknown action %q", ErrInvalidAction, action)
+		return fmt.Errorf("%w: unknown action %q", model.ErrInvalidAction, action)
 	}
 }
 
