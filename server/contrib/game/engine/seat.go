@@ -172,16 +172,10 @@ func (e *Engine) handleDisconnect(msg protocol.InboundMessage) {
 		return
 	}
 
-	// 手牌进行中断线：保留座位给重连使用，仅标记断线状态
+	// 手牌进行中断线：保留座位给重连使用，仅标记断线状态。
+	// 无论是否轮到该玩家行动，均等待超时计时器自动 check/fold，
+	// 给予玩家完整的行动时限内重连并恢复参与的机会。
 	p.Disconnected = true
-	if e.gs.ActionSeat == p.SeatIndex {
-		// 当前正轮到断线玩家行动，立即代为弃牌，避免全桌等待
-		e.gs.ApplyAction(p.UserID, gmodel.ActionFold, 0)
-		e.stopTimer()
-		e.advanceOrEnd()
-	}
-	// 若不是行动位，不做干预：等轮到他时超时逻辑会自动弃牌，
-	// 这段时间内玩家仍可重连并恢复正常参与
 }
 
 // cashOut 将玩家剩余筹码返还到账户余额（bot 跳过）。
