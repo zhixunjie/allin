@@ -6,7 +6,7 @@ import (
 	"github.com/allin/server/gmodel"
 )
 
-var ranks = []byte{'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
+var ranks = []gmodel.CardRank{'2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'}
 var suits = []byte{'c', 'd', 'h', 's'}
 
 // NewShuffledDeck 返回一副新洗好的 52 张牌。

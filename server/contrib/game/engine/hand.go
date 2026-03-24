@@ -65,12 +65,12 @@ func (e *Engine) handleTimeout() {
 func (e *Engine) handleAction(msg protocol.InboundMessage) {
 	var cmd protocol.ActionCmd
 	if err := json.Unmarshal(msg.Env.Payload, &cmd); err != nil {
-		e.sendError(msg.SenderID, protocol.SkErrBadPayload, msg.Env.Seq)
+		e.sendError(msg.SenderID, gmodel.SkErrBadPayload, msg.Env.Seq)
 		return
 	}
 
 	if err := e.gs.ValidateAction(msg.SenderID, cmd.Action, cmd.Amount); err != nil {
-		e.sendError(msg.SenderID, protocol.SkErrInvalidAction, msg.Env.Seq, err.Error())
+		e.sendError(msg.SenderID, gmodel.SkErrInvalidAction, msg.Env.Seq, err.Error())
 		return
 	}
 

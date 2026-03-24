@@ -9,8 +9,8 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	botpkg "github.com/allin/server/contrib/game/bot"
-	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/ws/protocol"
+	"github.com/allin/server/gmodel"
 )
 
 // ---- 加入 ----
@@ -41,7 +41,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	}
 
 	if e.gs.SeatedCount() >= e.room.Config.MaxPlayers {
-		e.sendError(msg.SenderID, protocol.SkErrRoomFull, msg.Env.Seq)
+		e.sendError(msg.SenderID, gmodel.SkErrRoomFull, msg.Env.Seq)
 		return
 	}
 
@@ -57,7 +57,7 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	minBuyIn := e.room.Config.MinBuyIn
 	maxBuyIn := e.room.Config.MaxBuyIn
 	if buyIn < minBuyIn || buyIn > maxBuyIn {
-		e.sendError(msg.SenderID, protocol.SkErrInvalidBuyIn, msg.Env.Seq,
+		e.sendError(msg.SenderID, gmodel.SkErrInvalidBuyIn, msg.Env.Seq,
 			fmt.Sprintf("buy_in must be between %d and %d", minBuyIn, maxBuyIn))
 		return
 	}
@@ -65,22 +65,22 @@ func (e *Engine) handleJoinRoom(msg protocol.InboundMessage) {
 	// 从用户账户扣除买入金额（bot 跳过 DB 操作）。
 	senderIntID, parseErr := strconv.ParseInt(msg.SenderID, 10, 64)
 	if parseErr != nil {
-		e.sendError(msg.SenderID, protocol.SkErrUserNotFound, msg.Env.Seq)
+		e.sendError(msg.SenderID, gmodel.SkErrUserNotFound, msg.Env.Seq)
 		return
 	}
 	u, err := bizdao.UserDao.GetByID(senderIntID)
 	if err != nil {
-		e.sendError(msg.SenderID, protocol.SkErrUserNotFound, msg.Env.Seq)
+		e.sendError(msg.SenderID, gmodel.SkErrUserNotFound, msg.Env.Seq)
 		return
 	}
 	if u.ChipBalance < buyIn {
-		e.sendError(msg.SenderID, protocol.SkErrInsufficientChips, msg.Env.Seq,
+		e.sendError(msg.SenderID, gmodel.SkErrInsufficientChips, msg.Env.Seq,
 			fmt.Sprintf("insufficient chips: need $%d, have $%d", buyIn, u.ChipBalance))
 		return
 	}
 	if err := bizdao.UserDao.AdjustChips(senderIntID, -buyIn, "buy_in", e.room.Code); err != nil {
 		slog.Error("game: failed to deduct buy-in", "user", msg.SenderID, "err", err)
-		e.sendError(msg.SenderID, protocol.SkErrServerError, msg.Env.Seq, "failed to process buy-in")
+		e.sendError(msg.SenderID, gmodel.SkErrServerError, msg.Env.Seq, "failed to process buy-in")
 		return
 	}
 
@@ -237,7 +237,7 @@ func (e *Engine) handleSitOut(msg protocol.InboundMessage) {
 // 只允许在 Idle 状态执行；移除玩家、返还筹码、广播离开事件。
 func (e *Engine) handleLeaveTable(msg protocol.InboundMessage) {
 	if e.gs.Street != gmodel.StreetIdle {
-		e.sendError(msg.SenderID, protocol.SkErrHandInProgress, msg.Env.Seq)
+		e.sendError(msg.SenderID, gmodel.SkErrHandInProgress, msg.Env.Seq)
 		return
 	}
 	p := e.gs.FindPlayer(msg.SenderID)

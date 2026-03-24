@@ -97,38 +97,6 @@ func evaluate7Pure(cards [7]gmodel.Card) uint32 {
 	return best
 }
 
-// rankVal 将牌面字节映射为整数值（2=2…A=14）。
-func rankVal(r byte) uint8 {
-	switch r {
-	case '2':
-		return 2
-	case '3':
-		return 3
-	case '4':
-		return 4
-	case '5':
-		return 5
-	case '6':
-		return 6
-	case '7':
-		return 7
-	case '8':
-		return 8
-	case '9':
-		return 9
-	case 'T':
-		return 10
-	case 'J':
-		return 11
-	case 'Q':
-		return 12
-	case 'K':
-		return 13
-	case 'A':
-		return 14
-	}
-	return 0
-}
 
 // encodeRank 将手牌编码为 uint32，值越小越好。
 // cat: 0=同花顺…8=高牌。values: 牌面值，按重要性从高到低排列。
@@ -148,7 +116,7 @@ func evaluateFive(cards [5]gmodel.Card) uint32 {
 	var vals [5]uint8
 	var suits [5]byte
 	for i, c := range cards {
-		vals[i] = rankVal(c.Rank)
+		vals[i] = uint8(c.Rank.Val())
 		suits[i] = c.Suit
 	}
 

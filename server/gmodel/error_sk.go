@@ -1,6 +1,6 @@
-package protocol
+package gmodel
 
-// SkErrCode 是服务端错误码枚举。
+// SkErrCode 是服务端下发给客户端的错误码枚举。
 type SkErrCode string
 
 const (
@@ -16,7 +16,7 @@ const (
 	SkErrInvalidAmount     SkErrCode = "invalid_amount"     // 金额参数非法（如小于等于零）
 )
 
-var errMessages = map[SkErrCode]string{
+var skErrMessages = map[SkErrCode]string{
 	SkErrRoomFull:          "room is full",
 	SkErrInvalidBuyIn:      "invalid buy-in amount",
 	SkErrUserNotFound:      "user not found",
@@ -31,14 +31,14 @@ var errMessages = map[SkErrCode]string{
 
 // Message 返回该错误码对应的默认描述。
 func (c SkErrCode) Message() string {
-	if msg, ok := errMessages[c]; ok {
+	if msg, ok := skErrMessages[c]; ok {
 		return msg
 	}
 	return string(c)
 }
 
-// ErrorPayload 承载对客户端命令的错误响应。
-type ErrorPayload struct {
+// SkErrorPayload 承载对客户端命令的错误响应。
+type SkErrorPayload struct {
 	Code    SkErrCode `json:"code"`    // 错误码，见 SkErrCode 枚举
 	Message string    `json:"message"` // 可读的错误描述
 	RefSeq  int64     `json:"ref_seq"` // 触发该错误的客户端命令序列号（用于关联请求）

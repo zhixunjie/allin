@@ -8,8 +8,8 @@ import (
 
 	bizdao "github.com/allin/server/base/biz/dao"
 	bizmodel "github.com/allin/server/base/biz/model"
-	"github.com/allin/server/gmodel"
 	"github.com/allin/server/contrib/ws/protocol"
+	"github.com/allin/server/gmodel"
 )
 
 // saveHandHistory 异步将手牌结果写入 DB，不阻塞引擎 goroutine。
@@ -92,12 +92,12 @@ func (e *Engine) sendSnapshot(userID string) {
 
 // sendError 向指定玩家发送错误事件。
 // msgOverride 可选，不传则使用 SkErrCode 的默认描述。
-func (e *Engine) sendError(userID string, code protocol.SkErrCode, refSeq int64, msgOverride ...string) {
+func (e *Engine) sendError(userID string, code gmodel.SkErrCode, refSeq int64, msgOverride ...string) {
 	msg := code.Message()
 	if len(msgOverride) > 0 && msgOverride[0] != "" {
 		msg = msgOverride[0]
 	}
-	e.rc.SendTo(userID, protocol.MustNewEnvelope(protocol.TypeError, protocol.ErrorPayload{
+	e.rc.SendTo(userID, protocol.MustNewEnvelope(protocol.TypeError, gmodel.SkErrorPayload{
 		Code: code, Message: msg, RefSeq: refSeq,
 	}))
 }

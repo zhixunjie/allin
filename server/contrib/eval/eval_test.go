@@ -6,7 +6,7 @@ import (
 	"github.com/allin/server/gmodel"
 )
 
-func c(r, s byte) gmodel.Card { return gmodel.Card{Rank: r, Suit: s} }
+func c(r, s byte) gmodel.Card { return gmodel.Card{Rank: gmodel.CardRank(r), Suit: s} }
 
 func TestRoyalFlush(t *testing.T) {
 	hand := [7]gmodel.Card{c('A', 's'), c('K', 's'), c('Q', 's'), c('J', 's'), c('T', 's'), c('2', 'c'), c('3', 'd')}
