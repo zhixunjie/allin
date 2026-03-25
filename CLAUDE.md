@@ -95,7 +95,7 @@ curl http://localhost:8080/health
 多窗口测试：用多个浏览器窗口或无痕模式分别登录不同账号，一人创建房间，其余用房间码加入。
 
 ## 进度
-详见 `docs/PROGRESS.md`。当前阶段：Phase 10（服务端重构）已完成。
+详见 `docs/PROGRESS.md`。当前阶段：Phase 17（准备系统）已完成。
 
 ## Docs Conventions
 
@@ -132,6 +132,29 @@ curl http://localhost:8080/health
 - **ID 类型**：用户/房间 ID 均为 `string`（UUID v4）
 - **错误处理**：`fmt.Errorf("xxx failed: %w", err)`
 - **错误不忽略**：禁止用 `_` 丢弃 `error`；后台 goroutine 中用 `slog.Error` 记录
+
+### Go Struct 字段注释规范
+
+服务端 Go struct 的每个字段（含私有字段）**必须**在字段后面写行内注释，说明字段含义、取值范围或使用场景。
+
+```go
+// ✅ 正确
+type Player struct {
+    ID           string  // 玩家唯一 ID（UUID v4）
+    DisplayName  string  // 显示名
+    Stack        int64   // 桌面筹码余额（单位：分）
+    Bet          int64   // 本街已下注金额
+    Folded       bool    // 是否已弃牌
+    Disconnected bool    // 是否处于断线保留座位状态
+}
+
+// ❌ 错误（缺少注释）
+type Player struct {
+    ID          string
+    DisplayName string
+    Stack       int64
+}
+```
 
 ### 前端数据实体字段注释规范
 

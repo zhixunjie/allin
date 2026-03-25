@@ -1,6 +1,6 @@
 # AllIn — 功能点与实现逻辑全览
 
-> 最后更新：2026-03-22
+> 最后更新：2026-03-25
 
 ---
 
@@ -49,10 +49,11 @@ server/contrib/ws/Hub   ←→  game/Engine
 
 | 常量 | 值 | 说明 |
 |------|-----|------|
-| `handStartDelay` | 5s | 两手牌之间的等待时间 |
+| `handStartDelay` | 10s | 两手牌之间的等待时间（全员已准备时缩短为 500ms） |
 | `chatRateLimit` | 1s | 聊天消息限速 |
 | `emptyGracePeriod` | 30s | 人类全离场后 bot 清场宽限期 |
 | 默认 `ActionTimeSec` | 30s | 玩家行动超时时间 |
+| `botReplaceDelay` | 8s | bot 破产后自动补位延迟 |
 
 ---
 
@@ -167,6 +168,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 | `chat_message` | 聊天消息中继 |
 | `sit_out_status` | 玩家离座/归座状态变更 |
 | `stack_updated` | 玩家筹码变化（补充筹码后广播） |
+| `ready_status` | 当前准备人数广播（含 `ready_count`、`total_count`） |
 | `error` | 错误响应（含错误码 code、RefSeq） |
 
 ### 客户端 → 服务端（命令类型）
@@ -179,6 +181,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 | `add_chips` | 补充筹码（手牌间隙，从账户余额扣除） |
 | `sit_out` | 离座/归座切换 |
 | `leave_table` | 主动离桌（仅限手牌间隙） |
+| `ready` | 玩家准备好开始下一手（结算后发送，全员准备则立即开局） |
 
 ---
 
@@ -188,7 +191,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 
 - 每个房间一个 `Engine` 实例，在独立 goroutine 中运行 `Engine.Run()`
 - **单 goroutine** 处理所有状态变更，无需加锁
-- `select` 监听三个 channel：`hub.Inbound`（玩家消息）、`timerC`（可重置计时器）、`quit`（退出）
+- `select` 监听四个 channel：`hub.Inbound`（玩家消息）、`timerC`（可重置计时器）、`botReplaceC`（bot 补位定时器）、`quit`（退出）
 - `timerC = nil` 时该分支永不触发（惰性定时器实现可重置效果）
 
 ### 街道状态机
@@ -270,13 +273,13 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 4. 取首位赢家最佳五张 `BestFiveStrings`
 5. 构建 `all_players`（含弃牌者信息），广播 `hand_result`
 6. 异步 `saveHandHistory`，调用 `kickBrokePlayers`、`cleanupDisconnected`
-7. `Street = Idle`，`EligibleToStart() >= 2` 则启动 `handStartDelay` 计时器
+7. `Street = Idle`，调用 `scheduleNextHand`
 
 ### 未摊牌颁奖 (`awardUncontested`)
 
 - 活跃玩家仅剩 1 人时，将所有玩家 `TotalBet` 之和全部颁给该玩家
 - 广播 `hand_result`（赢家手牌不公开，`all_players` 中弃牌者手牌为空）
-- 同样异步保存历史，执行清理逻辑
+- 同样异步保存历史，执行清理逻辑，调用 `scheduleNextHand`
 
 ### 断线处理 (`handleDisconnect`)
 
@@ -324,6 +327,22 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 
 - 仅允许手牌间隙，否则返回 `hand_in_progress` 错误
 - 离座 `cashOut`，广播 `player_left`，调用 `maybeStartEmptyTimer`
+
+### 准备系统 (`scheduleNextHand` / `handleReady`)
+
+- `scheduleNextHand`：每手结束后调用，替代原内联 `resetTimer`
+  1. 清空 `readyPlayers` 集合；Bot 自动标记为已准备
+  2. 广播初始 `ready_status`（`ready_count / total_count`）
+  3. 若全员已准备（`allEligibleReady`）→ 500ms 后直接开局；否则等待 `handStartDelay`（10s）
+- `handleReady`：收到客户端 `ready` 命令后标记该玩家已准备，广播最新 `ready_status`；若此时全员已准备则立即缩短计时器至 500ms 开局
+- `broadcastReadyStatus`：广播 `{ ready_count, total_count }` 给房间内所有客户端
+- `allEligibleReady`：判断所有 `EligibleToStart()` 玩家均已在 `readyPlayers` 中
+
+### Bot 破产自动补位 (`botReplaceC`)
+
+- `kickBrokePlayers` 检测被踢出的破产 bot；若场内仍有人类玩家，启动 `botReplaceDelay`（8s）计时器
+- 计时结束后调用 `seatBots()` 补充 bot 席位；若 `Street == Idle` 且满足开局条件则触发下一手倒计时
+- `hasHumanPlayers()`：辅助函数，判断场内是否存在非 bot 玩家
 
 ### `EligibleToStart` 判定条件
 
@@ -526,6 +545,8 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 | `callAmount` | 跟注所需金额（`action_required` 更新） |
 | `minRaiseAmount` | 最小加注额（`action_required` 更新） |
 | `lastHandResult` | 上一手结算结果，驱动 `RoundResultModal` 显示，idle 时为 null |
+| `readyCount` | 当前已准备的玩家数（`ready_status` 更新） |
+| `readyTotal` | 需要准备的总玩家数（`ready_status` 更新） |
 
 ### WS 事件 → Store 方法映射
 
@@ -545,6 +566,7 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 | `player_left` | `applyPlayerLeft` | 从座位列表移除 |
 | `sit_out_status` | `applySitOut` | 更新座位 `sit_out` 字段 |
 | `stack_updated` | `applyStackUpdated` | 更新指定座位 `stack` |
+| `ready_status` | `applyReadyStatus` | 更新 `readyCount` / `readyTotal`；`game_started` / `reset` 时清零 |
 
 ### `useWebSocket` hook 生命周期
 
@@ -633,7 +655,7 @@ root (Container)
 | `ChatPanel` | `panels/ChatPanel.tsx` | 聊天窗口（折叠/展开切换，最多 200 条历史，1s 限速） |
 | `HandHistory` | `panels/HandHistory.tsx` | 历史手牌记录面板（按需展示，从 `/api/rooms/:code/hands` 拉取，赢家显示 display_name） |
 | `RoomInfo` | `panels/RoomInfo.tsx` | 房间信息（盲注/买入范围/在线人数） |
-| `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张） |
+| `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张；「开始下一局」发送 `ready` 命令并显示准备人数；满足条件时底部内嵌「补充筹码」滑块；z-index: z-[70]） |
 | `ConnectionBanner` | `components/ConnectionBanner.tsx` | 断线提示横幅 |
 
 ### ActionPanel 行动逻辑
@@ -648,8 +670,9 @@ root (Container)
 
 - **「邀请」按钮**：复制 `/join/:code` 链接到剪贴板，2 秒后恢复文字
 - **「历史」按钮**：切换 `HandHistory` 面板显示/隐藏
-- **「补充筹码」按钮**：仅在 `Street.Idle` 且有可补空间时显示，弹窗含金额输入 + 25%/50%/全补快捷按钮
 - **聊天面板**：始终挂载，折叠状态下右下角显示消息徽标
+- **破产弹窗**：检测 `gs.mySeat` 从非空变为空（非首次进入）时触发（z-index: z-[50]），提供「返回大厅」和「再次买入」两个选项；「再次买入」子界面含金额滑块，入座成功后自动关闭
+- **「补充筹码」**：已合并至 `RoundResultModal`，不再在 `RoomPage` 独立弹窗
 
 ### 离桌逻辑（`RoomPage`）
 
@@ -663,6 +686,7 @@ root (Container)
 - **领取免费筹码**：余额 < 1000 时头部显示「领取筹码」按钮，调用 `POST /api/chips/claim`
 - **加入房间买入自选**：确认弹窗内含滑块，范围 `[min_buy_in, min(max_buy_in, balance)]`；选定值存入 `roomStore.selectedBuyIn`，WS 连接后发送 `join_room` 时附带
 - **邀请链接处理**：路由 `/join/:code` 自动填充加入表单的房间码
+- **BB 联动计算**：创建房间时监听 `bigBlind` 变化，自动将 `maxBuyIn` 设为 `100 × BB`、`minBuyIn` 设为 `20 × BB`
 
 ---
 
@@ -709,6 +733,6 @@ root (Container)
 | `id` | BIGINT PK | 记录 ID |
 | `user_id` | BIGINT | 用户 ID |
 | `delta` | BIGINT | 变动金额（正数=增加，负数=减少） |
-| `reason` | VARCHAR | 原因（`buy_in` / `cash_out` / `add_chips`） |
+| `reason` | VARCHAR | 原因（`buy_in` / `cash_out` / `add_chips` / `claim_free`） |
 | `ref_id` | VARCHAR | 关联 ID（房间码） |
 | `created_at` | DATETIME | 变动时间 |

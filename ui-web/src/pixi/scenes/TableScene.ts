@@ -45,22 +45,22 @@ type GameState = ReturnType<typeof useGameStore.getState>
  *   display → server : (displayIdx + myServerSeat) % 9
  */
 export class TableScene {
-    private app: Application
-    private root: Container
+    private app: Application      // PixiJS Application 实例
+    private root: Container       // 场景根容器，挂载到 app.stage
 
     // ── 子元素 ────────────────────────────────────────
-    private seatSprites: SeatSprite[] = []
-    private communityCards: CardSprite[] = []
-    private potDisplay: PotDisplay
-    private timerArc: TimerArc
-    private chipAnim: ChipAnimation
-    private streetLabel: Text
-    private dealerChip: Graphics
+    private seatSprites: SeatSprite[] = []      // 9 个座位精灵，下标对应 display index（0=本地玩家底部）
+    private communityCards: CardSprite[] = []   // 公共牌精灵，最多 5 张
+    private potDisplay: PotDisplay              // 底池金额显示组件
+    private timerArc: TimerArc                  // 行动倒计时圆弧，绑定 deadlineTs
+    private chipAnim: ChipAnimation             // 筹码飞入底池动画控制器
+    private streetLabel: Text                   // 当前街道名称文字标签（Flop / Turn / River 等）
+    private dealerChip: Graphics                // 庄家按钮图形，跟随庄家座位移动
 
     // ── 帧间状态（用于检测变化） ──────────────────────
-    private myServerSeat = -1
-    private prevStreet: Street = Street.Idle
-    private prevActionSeat = -1
+    private myServerSeat = -1                           // 本地玩家的服务端座位号（-1 表示未入座）
+    private prevStreet: Street = Street.Idle            // 上一帧街道，用于检测街道切换触发动画
+    private prevActionSeat = -1                         // 上一帧行动座位，用于检测轮次切换
 
     private unsubscribe: () => void = () => {
     }
