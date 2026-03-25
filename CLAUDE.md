@@ -31,7 +31,7 @@ allin/
 ### 前置条件
 - MySQL 8.0 运行在 `127.0.0.1:13306`，root 无密码
 - 连接命令：`mysql -h 127.0.0.1 -P 13306 -u root`
-- 数据库 `allin` 已存在，启动时 AutoMigrate 自动建表
+- 数据库 `allin` 已存在，表结构通过 `docs/sql/allin.sql` 手动维护（无 AutoMigrate）
 
 ### 后端（server/）
 ```bash
