@@ -2,39 +2,36 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: ""
       MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
       MYSQL_DATABASE: allin
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./docs/sql/allin.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./docs/sql/seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+    restart: unless-stopped
 
   server:
     build:
       context: .
       dockerfile: Dockerfile
-    environment:
-      SERVER_ADDR: ":8080"
-      MYSQL_DSN: "root:@tcp(mysql:3306)/allin?parseTime=true&charset=utf8mb4"
-      JWT_SECRET: "change-me-in-production"
-      ALLOW_ORIGINS: "http://localhost"
+      target: server
     depends_on:
       mysql:
         condition: service_healthy
     restart: unless-stopped
 
-  nginx:
-    image: nginx:alpine
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
     ports:
       - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      # Mount built frontend; or run `npm run build` before docker compose up
-      - ./allin-web/dist:/usr/share/nginx/html:ro
     depends_on:
       - server
     restart: unless-stopped

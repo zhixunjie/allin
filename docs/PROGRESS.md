@@ -168,3 +168,16 @@
 - [ ] 锦标赛模式（固定买入，递增盲注，淘汰制）
 - [ ] 手牌历史详情页（逐行动回放）
 - [ ] 移动端响应式适配
+---
+
+## Phase 11：一键部署完善 ✅
+
+**目标**：`git clone` 后 `make up` 即可跑通全栈，无需手动安装任何依赖。
+
+- [x] **Dockerfile 修复**：更新路径（`allin-server/` → `server/`、`allin-web/` → `ui-web/`）；拆分为四个 target：`go-builder`、`node-builder`、`server`（distroless）、`web`（nginx:alpine）
+- [x] **docker-compose.yml 重写**：MySQL 自动加载 schema + 测试账号；`server` / `web` 分别使用 Dockerfile 对应 target；前端在容器内构建，移除旧的宿主机 dist 挂载
+- [x] **`server/base/config.docker.yaml`**：Docker 专用配置（MySQL DSN 指向 `mysql:3306`），与本地 `config.yaml` 隔离
+- [x] **`docs/sql/seed.sql`**：4 个测试账号种子数据（密码 `123456`，初始 10,000 筹码），`INSERT IGNORE` 幂等
+- [x] **`Makefile`**：`make up/down/down-v/build/logs/logs-server/logs-web/ps/dev-server/dev-ui`
+- [x] **`.dockerignore`**：排除 `node_modules`、`dist`、`.git`、`docs/` 等，加速镜像构建
+- [x] **CLAUDE.md**：补充「Docker 一键部署」章节（命令速查、服务构成、配置说明）

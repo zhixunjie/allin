@@ -1,0 +1,18 @@
+# Git
+.git
+.gitignore
+
+# Frontend dependencies（在容器内重新安装）
+ui-web/node_modules
+ui-web/dist
+
+# 文档和备份（不影响构建）
+docs/
+
+# 本地开发配置
+server/base/config.yaml
+
+# IDE
+.idea
+.vscode
+*.swp

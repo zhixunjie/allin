@@ -1,24 +1,31 @@
 # syntax=docker/dockerfile:1
 
 # ---- Build Go backend ----
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.25-alpine AS go-builder
 WORKDIR /src
-COPY allin-server/go.mod allin-server/go.sum ./
+COPY server/go.mod server/go.sum ./
 RUN go mod download
-COPY allin-server/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /app/server ./cmd/server
+COPY server/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /bin/server ./base/
 
 # ---- Build frontend ----
 FROM node:22-alpine AS node-builder
 WORKDIR /src
-COPY allin-web/package*.json ./
+COPY ui-web/package*.json ./
 RUN npm ci
-COPY allin-web/ .
+COPY ui-web/ .
 RUN npm run build
 
-# ---- Final image ----
-FROM gcr.io/distroless/static-debian12
-COPY --from=go-builder /app/server /server
-COPY --from=node-builder /src/dist /static
+# ---- Server runtime ----
+FROM gcr.io/distroless/static-debian12 AS server
+WORKDIR /app
+COPY --from=go-builder /bin/server .
+COPY server/base/config.docker.yaml config.yaml
 EXPOSE 8080
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/app/server"]
+
+# ---- Nginx + built frontend ----
+FROM nginx:alpine AS web
+COPY --from=node-builder /src/dist /usr/share/nginx/html
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

@@ -1,0 +1,12 @@
+server:
+  addr: ":8080"
+
+mysql:
+  dsn: "root:@tcp(mysql:3306)/allin?parseTime=true&charset=utf8mb4"
+
+jwt:
+  secret: "change-me-in-production"
+
+cors:
+  allow_origins:
+    - "http://localhost"

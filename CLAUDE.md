@@ -55,6 +55,42 @@ npm run dev
 curl http://localhost:8080/health
 ```
 
+## Docker 一键部署
+
+### 前置条件
+- Docker + Docker Compose（无需本地 Go / Node / MySQL）
+
+### 启动
+```bash
+make up          # 等价于 docker compose up -d
+```
+
+首次运行会自动构建镜像（Go 编译 + npm build），完成后访问 `http://localhost`。
+
+### 常用命令
+
+| 命令 | 说明 |
+|------|------|
+| `make up` | 启动所有服务 |
+| `make down` | 停止容器（保留数据） |
+| `make down-v` | 停止容器并清空数据库 |
+| `make build` | 代码更新后重新构建镜像 |
+| `make logs` | 查看实时日志 |
+| `make ps` | 查看服务状态 |
+
+### 服务构成
+
+| 服务 | 镜像 | 说明 |
+|------|------|------|
+| `mysql` | `mysql:8.0` | 自动初始化 schema（`docs/sql/allin.sql`）+ 测试账号（`docs/sql/seed.sql`） |
+| `server` | 本地构建（distroless） | Go 后端，监听 `:8080`，使用 `server/base/config.docker.yaml` |
+| `web` | 本地构建（nginx:alpine） | 前端静态文件 + 反代 `/api` 到 `server:8080` |
+
+### 配置说明
+- **本地开发**：使用 `server/base/config.yaml`（指向 `127.0.0.1:13306`）
+- **Docker 部署**：使用 `server/base/config.docker.yaml`（指向 `mysql:3306`，已打包进镜像）
+- JWT Secret 默认为 `change-me-in-production`，生产环境请修改 `config.docker.yaml`
+
 ## 技术栈
 
 | 层 | 技术 |
