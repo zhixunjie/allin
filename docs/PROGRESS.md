@@ -12,7 +12,7 @@
 - [x] Go module 初始化（`server/go.mod`，module `github.com/allin/server`）
 - [x] 目录结构：`server/base/`（3 层架构）、`server/contrib/`（共享组件）
 - [x] Viper 配置加载（`server/base/config.yaml`）
-- [x] sqlx + MySQL 连接池，AutoMigrate 建表（`users`、`room_history`、`hand_history`、`chip_ledger`）
+- [x] sqlx + MySQL 连接池，表结构通过 `docs/sql/allin.sql` 手动维护（`users`、`room_history`、`hand_history`、`chip_ledger`）
 - [x] `contrib/auth`：bcrypt 密码哈希 + JWT HS256 签发/验证（7 天有效期）
 - [x] `biz/dao/user_dao.go`：用户 CRUD + `AdjustChips`
 - [x] `biz/service/user_svc.go`：注册、登录、查询
@@ -27,10 +27,11 @@
 **目标**：实时双向消息传递基础设施，支撑游戏所有事件推送。
 
 - [x] `contrib/ws/client.go`：WebSocket Client（gorilla/websocket，hertz adaptor 桥接）
-- [x] `contrib/ws/hub.go`：Hub（`register` / `unregister` / `broadcast` / `Inbound` channel）
-- [x] `contrib/ws/message.go`：统一消息协议（`Type` + `Payload` JSON 封装），所有上行命令枚举（`join_room`、`action`、`ready`、`add_chips`、`leave_table`、`sit_out`、`chat`）
-- [x] `biz/handler/ws.go`：`GET /api/ws` 升级端点（JWT 鉴权后注入 `user_id`）
-- [x] `main.go`：`SetEngineStarter` 回调注入，解耦 `contrib/ws` 与 `contrib/game`
+- [x] `contrib/ws/room_conn.go`：`RoomConn`——单房间连接管理器（`register` / `unregister` / `broadcast` / `Inbound` channel），替代传统 Hub 设计，天然隔离房间间消息
+- [x] `contrib/ws/protocol/command.go`：上行消息协议（`CmdEnvelope`，`CmdType` 枚举：`join_room`、`action`、`ready`、`add_chips`、`leave_table`、`sit_out`、`chat`、`disconnect`，及各命令载荷结构体）
+- [x] `contrib/ws/protocol/payload.go`：下行消息协议（`Envelope`，`MsgType` 枚举，及所有事件载荷结构体）
+- [x] `contrib/ws/handler.go`：`ws.Handler`——WS 升级入口，维护 `roomConns` 索引，内置 JWT 鉴权；`ServeWS` 通过 `adaptor.HertzHandler` 桥接到 Hertz 路由
+- [x] `main.go`：`wsHandler.SetEngineStarter` 回调注入，解耦 `contrib/ws` 与 `contrib/game/engine`
 
 ---
 
@@ -38,17 +39,21 @@
 
 **目标**：完整的德州扑克规则实现，单 goroutine 状态机。
 
+- [x] `server/gmodel/`：全局共享数据模型（`Card`、`Player`、`Action`、`Street`、`HandCategory`、`SeatIndex` 常量、`BotStyle` 枚举）
 - [x] `contrib/eval`：HandRanks.dat 加速路径 + 纯 Go `Evaluate7`（枚举 C(7,5)=21 种组合）+ 牌型描述
-- [x] `contrib/game/model.go`：`GameState`、`Player`、`Card`、`Pot`、`GameSnapshot`，`Street` 状态机常量
-- [x] `contrib/game/deck.go`：洗牌（Fisher-Yates）+ 发牌
-- [x] `contrib/game/pot.go`：`BuildPots` 边底池算法（按 TotalBet 升序迭代，逐层计算贡献）
-- [x] `contrib/game/action.go`：`ValidateAction` + `ApplyAction`
-- [x] `contrib/game/engine.go`：Engine 主循环（`select` 监听 `hub.Inbound` + 可重置 timer channel）
-  - 状态流转：`Idle → Preflop → Flop → Turn → River → Showdown`
-  - 盲注发布、发洞牌、公共牌翻开、行动超时自动 fold
-  - `runShowdown`：`BuildPots` 结算 + 多赢家平分 + 广播 `hand_result`
-  - `awardUncontested`：所有人弃牌时直接派奖
-  - All-in 超额下注由 `BuildPots` 正确处理（超额作为独立边池）
+- [x] `contrib/game/state/`：纯状态逻辑（无 I/O）
+  - `state_machine.go`：`GameStateMachine`（街道、座位数组、盲注位、当前下注、配置）
+  - `deck.go`：洗牌（Fisher-Yates）+ 发牌
+  - `pot.go`：`BuildPots` 边底池算法（按 TotalBet 升序迭代，逐层计算贡献）
+  - `action.go`：`ValidateAction` + `ApplyAction`
+  - `snapshot.go`：将 `GameStateMachine` 序列化为前端快照
+  - `eval.go`：集成 `contrib/eval`，供结算使用
+  - `situation.go`：局面评估辅助（用于 Bot 决策）
+- [x] `contrib/game/engine/`：I/O + 驱动层
+  - `engine.go`：`Engine` 主循环（`select` 监听 `rc.Inbound` + 可重置 timer channel）；状态流转 `Idle → PreFlop → Flop → Turn → River → Showdown`；盲注发布、发洞牌、公共牌翻开、行动超时自动 fold；`runShowdown`（`BuildPots` 结算 + 多赢家平分）；`awardUncontested`（所有人弃牌直接派奖）
+  - `hand.go`：单手牌生命周期（startHand、dealHoleCards、dealCommunity 等）
+  - `seat.go`：座位管理（加入、离开、断线、补位）
+  - `registry.go`：`Registry` 全局引擎表（`SIGTERM → StopAll`）
 - [x] 单元测试：手牌评估 15 用例 ✅，边底池计算 20 场景 ✅
 
 ---
@@ -63,8 +68,8 @@
 - [x] `biz/handler/room.go`：`POST /api/rooms`（创建）、`GET /api/rooms/:code`（查询）
 - [x] Engine `handleJoinRoom`：带入金额校验（`min_buy_in ≤ buy_in ≤ max_buy_in`，0 值默认 max）、从 `chip_balance` 扣除买入额
 - [x] Engine `handleLeaveTable`（`leave_table` 命令）：手牌间隙离座 cashOut，广播 `player_left`
-- [x] 断线重连：手牌进行中断线保留座位（`Player.Disconnected`）；手牌结束后 `cleanupDisconnected` 统一 cashOut；重连路径恢复座位
-- [x] 优雅关闭：`game.Registry` + SIGTERM → `StopAll()`
+- [x] 断线重连：手牌进行中断线保留座位（`gmodel.Player.Disconnected`）；手牌结束后 `cleanupDisconnected` 统一 cashOut；重连路径恢复座位
+- [x] 优雅关闭：`engine.Registry` + SIGTERM → `StopAll()`
 - [x] 空房间 GC：`StartGC` 每 5 分钟扫描，30 分钟无活动的房间回收
 
 ---
@@ -100,8 +105,8 @@
 - [x] `ChatPanel`：聊天消息（最多 200 条），折叠状态常驻右下角
 - [x] `RoomInfo`：房间码、盲注结构、在线人数
 - [x] `HandHistory` 面板：按需加载最近 20 手，展示赢家、金额、牌型、时间（`GET /api/rooms/:code/hands`）
-- [x] `RoundResultModal`：结算弹窗（多赢家遍历展示、平分合并、最佳五张牌）；内嵌补充筹码滑块；「开始下一局」按钮触发 ready 命令
-- [x] 破产弹窗：检测 `mySeat` 从非空变为空，提供「返回大厅」和「再次买入」两个选项
+- [x] `RoundResultModal`：结算弹窗（多赢家遍历展示、平分合并、最佳五张牌）；破产时切换为「再次买入」面板（滑块选额、校验余额/座位、入座成功自动关闭）；「开始下一局」按钮发送 `ready` 命令
+- [x] `ActionLogPanel`：实时行动日志面板，显示当局每步操作（阶段标签 + 玩家名 + 行动类型 + 金额）
 - [x] 邀请链接复制按钮（2 秒后文字恢复）
 - [x] `RoomPage` 顶部栏：房间码、邀请、历史切换
 
@@ -112,11 +117,10 @@
 **目标**：可配置风格的 AI 陪玩，自动补位，游戏始终流畅。
 
 - [x] 创建房间时指定 `bot_count`，Bot 自动入座（`"bot_"` 前缀 ID）
-- [x] Bot 行动：1–3 秒随机延迟，走与真人完全相同的引擎路径
-- [x] 四种风格：`TAG`（紧凶）、`LAG`（松凶）、`Station`（松被动）、`Rock`（紧被动）
-- [x] 四种主题：混合 / 激进 / 被动 / 随机
-- [x] Preflop / Postflop 手牌强度评估 + 风格感知决策 + `BluffRate` 虚张声势
-- [x] Bot 破产后 8 秒自动补位（`botReplaceDelay`），补位后满足条件自动开局
+- [x] `contrib/game/bot/bot.go`：`Bot` 结构体，持有 `RoomConn` 引用，1–3 秒随机延迟后通过 `rc.Inbound` 投递行动（与真人走完全相同的引擎路径）
+- [x] `contrib/game/bot/personality.go`：四种风格（`TAG` 紧凶 / `LAG` 松凶 / `Station` 松被动 / `Rock` 紧被动）+ 四种主题（混合 / 激进 / 被动 / 随机）
+- [x] `contrib/game/bot/util.go` + `contrib/game/state/situation.go`：Preflop / Postflop 手牌强度评估 + 风格感知决策 + `BluffRate` 虚张声势
+- [x] Bot 破产后 8 秒自动补位（`engine.botReplaceDelay`），补位后满足条件自动开局
 - [x] 真人全部离开时清场 Bot，30 秒宽限期等待真人重连
 - [x] 前端 Bot 标识（蓝色边框区分）
 
@@ -129,8 +133,7 @@
 - [x] `biz/dao/hand_history_dao.go`：`HandHistoryRecord`（`room_id`、`hand_num`、`players_json`、`result_json`、`actions_json`、`played_at`）
 - [x] Engine 结算后异步写库（不阻塞主循环）；`handActions []actionLogEntry` 记录完整行动日志
 - [x] `GET /api/rooms/:code/hands`：JOIN `room_history` 查最近 20 手（JWT 保护）
-- [x] `handleAddChips`（`add_chips` 命令）：DB 校验余额充足后扣除，广播 `stack_updated`
-- [x] 账户余额自动刷新：`player_joined`（首次入桌）/ `stack_updated` 时 fetch `/api/me`；`LobbyPage` 挂载时拉取最新余额
+- [x] 账户余额自动刷新：`player_joined`（首次入桌）时 fetch `/api/me`；`LobbyPage` 挂载时拉取最新余额
 - [x] `LobbyPage` 加入确认弹窗：`min_buy_in < max_buy_in` 时显示买入滑块（上限 `min(max, balance)`）
 - [x] `LobbyPage`：余额 < 1000 时显示「领取筹码」按钮
 
@@ -156,7 +159,6 @@
 - [x] Dockerfile 多阶段构建（Go + Node）+ docker-compose + nginx 反代
 - [x] 前端断线自动重连（指数退避）+ 连接丢失 UI 提示
 - [x] `LobbyPage` 监听 `bigBlind` 变化，自动将 `maxBuyIn` 设为 `100×BB`、`minBuyIn` 设为 `20×BB`
-- [x] 补充筹码入口合并至 `RoundResultModal`（减少弹窗层数）
 
 ---
 

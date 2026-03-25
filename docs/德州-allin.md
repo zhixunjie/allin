@@ -21,6 +21,5 @@
   - 比牌逻辑（Two Plus Two算法）
 - 项目说明：[PROJECT.md](PROJECT.md)
 - 开发进度：[PROGRESS.md](PROGRESS.md)
-- 视觉设计风格：[DESIGN.md](DESIGN.md) 
-
+- 视觉设计：[DESIGN.md](DESIGN.md) 
 

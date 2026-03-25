@@ -136,7 +136,7 @@ server/contrib/ws/Hub   ←→  game/Engine
 4. 创建 `Client`，注册到 Hub（`hub.register <- client`）
 5. 启动 `client.writePump`（goroutine）和 `client.readPump`（当前 goroutine）
 
-### Hub (`contrib/ws/hub.go`)
+### RoomConn (`contrib/ws/room_conn.go`)
 
 - `clients map[string]*Client`（以 userID 为键）
 - `Inbound chan InboundMessage`（容量 256，游戏引擎消费）
@@ -167,7 +167,6 @@ server/contrib/ws/Hub   ←→  game/Engine
 | `hand_result` | 本手结算（含 winners/seats/best_hand/all_players） |
 | `chat_message` | 聊天消息中继 |
 | `sit_out_status` | 玩家离座/归座状态变更 |
-| `stack_updated` | 玩家筹码变化（补充筹码后广播） |
 | `ready_status` | 当前准备人数广播（含 `ready_count`、`total_count`） |
 | `error` | 错误响应（含错误码 code、RefSeq） |
 
@@ -178,7 +177,6 @@ server/contrib/ws/Hub   ←→  game/Engine
 | `join_room` | 加入房间（含 `room_code`、可选 `buy_in`） |
 | `action` | 玩家行动（`fold/check/call/bet/raise/all_in` + `amount`） |
 | `chat` | 发送聊天消息（限 1–200 字符，1 秒限速） |
-| `add_chips` | 补充筹码（手牌间隙，从账户余额扣除） |
 | `sit_out` | 离座/归座切换 |
 | `leave_table` | 主动离桌（仅限手牌间隙） |
 | `ready` | 玩家准备好开始下一手（结算后发送，全员准备则立即开局） |
@@ -309,13 +307,6 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 
 - 统计人类玩家数，若为 0：移除所有 bot 座位，`botsSeated = false`
 - 启动 30 秒宽限期（`time.AfterFunc`），触发 `onEmpty` 回调（`Manager.Close`）
-
-### 补充筹码 (`handleAddChips`)
-
-- 仅允许手牌间隙（`Street == Idle`）
-- 新筹码量 = `min(stack + amount, MaxBuyIn)`，计算实际增量
-- 查 DB 校验余额充足，`AdjustChips(-added, "add_chips", roomCode)` 扣除
-- 广播 `stack_updated`
 
 ### 离座/归座 (`handleSitOut`)
 
@@ -481,7 +472,6 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 |------|------|--------|--------|
 | 加入房间（买入） | `-buyIn` | `buy_in` | roomCode |
 | 离开/断线/踢出（现金兑出） | `+stack` | `cash_out` | roomCode |
-| 补充筹码 | `-added` | `add_chips` | roomCode |
 | 领取免费筹码 | `+10,000` | `claim_free` | — |
 
 ### `AdjustChips` 实现
@@ -565,7 +555,6 @@ Idle → PreFlop → Flop → Turn → River → Showdown → Idle
 | `player_joined` | `applyPlayerJoined` | 追加新座位（重连时若已存在则跳过） |
 | `player_left` | `applyPlayerLeft` | 从座位列表移除 |
 | `sit_out_status` | `applySitOut` | 更新座位 `sit_out` 字段 |
-| `stack_updated` | `applyStackUpdated` | 更新指定座位 `stack` |
 | `ready_status` | `applyReadyStatus` | 更新 `readyCount` / `readyTotal`；`game_started` / `reset` 时清零 |
 
 ### `useWebSocket` hook 生命周期
@@ -655,7 +644,7 @@ root (Container)
 | `ChatPanel` | `panels/ChatPanel.tsx` | 聊天窗口（折叠/展开切换，最多 200 条历史，1s 限速） |
 | `HandHistory` | `panels/HandHistory.tsx` | 历史手牌记录面板（按需展示，从 `/api/rooms/:code/hands` 拉取，赢家显示 display_name） |
 | `RoomInfo` | `panels/RoomInfo.tsx` | 房间信息（盲注/买入范围/在线人数） |
-| `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张；「开始下一局」发送 `ready` 命令并显示准备人数；满足条件时底部内嵌「补充筹码」滑块；z-index: z-[70]） |
+| `RoundResultModal` | `panels/RoundResultModal.tsx` | 结算弹窗（多赢家逐行显示，首位赢家展示最佳五张；「开始下一局」发送 `ready` 命令并显示准备人数；z-index: z-[70]） |
 | `ConnectionBanner` | `components/ConnectionBanner.tsx` | 断线提示横幅 |
 
 ### ActionPanel 行动逻辑
@@ -672,7 +661,6 @@ root (Container)
 - **「历史」按钮**：切换 `HandHistory` 面板显示/隐藏
 - **聊天面板**：始终挂载，折叠状态下右下角显示消息徽标
 - **破产弹窗**：检测 `gs.mySeat` 从非空变为空（非首次进入）时触发（z-index: z-[50]），提供「返回大厅」和「再次买入」两个选项；「再次买入」子界面含金额滑块，入座成功后自动关闭
-- **「补充筹码」**：已合并至 `RoundResultModal`，不再在 `RoomPage` 独立弹窗
 
 ### 离桌逻辑（`RoomPage`）
 

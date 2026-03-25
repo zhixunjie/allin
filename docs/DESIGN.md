@@ -1,6 +1,6 @@
-> https://stitch.withgoogle.com/projects/4278287175556993233?pli=1
-
 # Design System: Galactic Casino
+
+> https://stitch.withgoogle.com/projects/4278287175556993233?pli=1
 
 ## 1. 概览
 
