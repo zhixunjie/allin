@@ -24,6 +24,8 @@ func init() {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./base") // go run ./base/ 时从模块根目录查找
 	viper.AutomaticEnv()
+	// 允许通过环境变量 JWT_SECRET 覆盖配置文件中的 jwt.secret
+	viper.BindEnv("jwt.secret", "JWT_SECRET") //nolint:errcheck
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Fprintf(os.Stderr, "config: %v (using defaults)\n", err)
 	}
@@ -31,6 +33,10 @@ func init() {
 
 func main() {
 	initLogger()
+
+	if viper.GetString("jwt.secret") == "change-me-in-production" {
+		slog.Warn("SECURITY: jwt.secret is using the insecure default value; set JWT_SECRET env var or update config.yaml")
+	}
 
 	// 基础设施层
 	dao.Init()
@@ -53,7 +59,7 @@ func initLogger() {
 
 // initGame 初始化 WebSocket Handler 和游戏引擎注册表，注入引擎启动回调。
 func initGame(roomManager *room.Manager) (*ws.Handler, *engine.Registry) {
-	wsHandler := ws.NewHandler(roomManager, viper.GetString("jwt.secret"))
+	wsHandler := ws.NewHandler(roomManager, viper.GetString("jwt.secret"), viper.GetStringSlice("cors.allow_origins"))
 	registry := engine.NewRegistry()
 
 	wsHandler.SetEngineStarter(func(rc *ws.RoomConn, rm *room.Room) {

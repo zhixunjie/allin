@@ -70,21 +70,23 @@ func (svc *UserSvc) GetByID(id int64) (*model.User, error) {
 	return dao.UserDao.GetByID(id)
 }
 
-// ClaimFreeChips 在余额不足 1000 时补发 10000 筹码。
+// ClaimFreeChips 在余额不足 1000 时补发 10000 筹码（原子操作，防并发重复领取）。
 // 返回补发后的新余额。
 func (svc *UserSvc) ClaimFreeChips(userID int64) (int64, error) {
+	const threshold = int64(1000)
+	const award = int64(10000)
+	ok, err := dao.UserDao.ClaimChipsIfBelow(userID, threshold, award, "claim_free")
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, errors.New("sufficient balance")
+	}
 	u, err := dao.UserDao.GetByID(userID)
 	if err != nil {
 		return 0, err
 	}
-	if u.ChipBalance >= 1000 {
-		return 0, errors.New("sufficient balance")
-	}
-	const award = int64(10000)
-	if err := dao.UserDao.AdjustChips(userID, award, "claim_free", ""); err != nil {
-		return 0, err
-	}
-	return u.ChipBalance + award, nil
+	return u.ChipBalance, nil
 }
 
 func validateRegister(username, password, displayName string) error {

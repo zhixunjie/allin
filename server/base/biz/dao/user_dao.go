@@ -88,6 +88,35 @@ func (d *userDao) AdjustChips(userID int64, delta int64, reason, refID string) e
 	return tx.Commit()
 }
 
+// ClaimChipsIfBelow 原子地在 chip_balance < threshold 时将 delta 加到余额，并写账本。
+// 返回 (true, nil) 表示成功补发；(false, nil) 表示余额已满足条件，未执行更新。
+func (d *userDao) ClaimChipsIfBelow(userID int64, threshold, delta int64, reason string) (bool, error) {
+	tx, err := DBM.Begin()
+	if err != nil {
+		return false, fmt.Errorf("userDao.ClaimChipsIfBelow: begin tx: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	result, err := tx.Exec(
+		fmt.Sprintf(`UPDATE %s SET chip_balance = chip_balance + ? WHERE id = ? AND chip_balance < ?`, model.TableNameUser),
+		delta, userID, threshold,
+	)
+	if err != nil {
+		return false, fmt.Errorf("userDao.ClaimChipsIfBelow: update: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return false, nil // 余额已满足条件，无需补发
+	}
+	if _, err := tx.Exec(
+		fmt.Sprintf(`INSERT INTO %s (user_id, delta, reason, ref_id, created_at) VALUES (?, ?, ?, ?, NOW())`, model.TableNameChipLedger),
+		userID, delta, reason, "",
+	); err != nil {
+		return false, fmt.Errorf("userDao.ClaimChipsIfBelow: ledger: %w", err)
+	}
+	return true, tx.Commit()
+}
+
 func isDuplicateEntry(err error) bool {
 	if err == nil {
 		return false

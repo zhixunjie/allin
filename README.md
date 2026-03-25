@@ -35,5 +35,6 @@ cd ui-web && npm install && npm run dev
 
 ## 文档
 
+- [项目详情](docs/PROJECT.md)
 - [设计规范](docs/DESIGN.md)
 - [功能进度](docs/PROGRESS.md)

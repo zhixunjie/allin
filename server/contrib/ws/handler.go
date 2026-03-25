@@ -9,6 +9,7 @@ import (
 
 	"github.com/allin/server/contrib/auth"
 	"github.com/allin/server/contrib/room"
+	"github.com/gorilla/websocket"
 )
 
 // EngineStarter 是在为房间创建新 RoomConn 时调用的函数。
@@ -17,18 +18,36 @@ type EngineStarter func(rc *RoomConn, rm *room.Room)
 
 // Handler 负责处理 WebSocket 升级请求，并维护每个房间的 RoomConn 生命周期。
 type Handler struct {
-	roomManager   *room.Manager // 用于按房间码查询房间元数据
-	jwtSecret     string        // JWT 验证密钥，从 config.yaml 注入
-	engineStarter EngineStarter // 创建 RoomConn 时触发的回调，用于启动游戏引擎
+	roomManager   *room.Manager    // 用于按房间码查询房间元数据
+	jwtSecret     string           // JWT 验证密钥，从 config.yaml 注入
+	engineStarter EngineStarter    // 创建 RoomConn 时触发的回调，用于启动游戏引擎
+	upgrader      websocket.Upgrader // WebSocket 升级器，含 Origin 白名单校验
 
 	roomConnsMu sync.RWMutex         // 保护 roomConns 并发读写
 	roomConns   map[string]*RoomConn // 活跃 RoomConn 索引，key = 房间码
 }
 
-func NewHandler(roomManager *room.Manager, jwtSecret string) *Handler {
+func NewHandler(roomManager *room.Manager, jwtSecret string, allowedOrigins []string) *Handler {
+	originSet := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		originSet[o] = struct{}{}
+	}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true // 非浏览器客户端（curl、内部服务）放行
+			}
+			_, ok := originSet[origin]
+			return ok
+		},
+	}
 	return &Handler{
 		roomManager: roomManager,
 		jwtSecret:   jwtSecret,
+		upgrader:    upgrader,
 		roomConns:   make(map[string]*RoomConn),
 	}
 }
@@ -66,7 +85,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	// 4. Upgrade to WebSocket
 	// UserID is int64 in JWT claims; WS/game layers use string representation.
 	userIDStr := fmt.Sprintf("%d", claims.UserID)
-	client, err := NewClient(rc, w, r, userIDStr, claims.DisplayName)
+	client, err := NewClient(rc, &h.upgrader, w, r, userIDStr, claims.DisplayName)
 	if err != nil {
 		slog.Error("ws: upgrade failed", "err", err)
 		return

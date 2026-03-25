@@ -43,7 +43,9 @@
       "Bash(sed -i '' 's/\\\\bmodel\\\\./gmodel./g' \"$f\")",
       "Bash(done)",
       "Bash(python3:*)",
-      "Bash(perl -i -pe ':*)"
+      "Bash(perl -i -pe ':*)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(xargs ls:*)"
     ]
   }
 }

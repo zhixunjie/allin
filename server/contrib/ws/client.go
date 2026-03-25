@@ -26,17 +26,9 @@ type Client struct {
 	DisplayName string          // 玩家显示名称
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// Origin 验证在 HTTP 服务器层通过 CORS 处理。
-		return true
-	},
-}
-
 // NewClient 将 HTTP 连接升级为 WebSocket 并注册到 RoomConn。
-func NewClient(rc *RoomConn, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
+// upgrader 由调用方（ws.Handler）传入，其中包含 Origin 白名单校验逻辑。
+func NewClient(rc *RoomConn, upgrader *websocket.Upgrader, w http.ResponseWriter, r *http.Request, userID, displayName string) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, err

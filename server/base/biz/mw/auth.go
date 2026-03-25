@@ -40,7 +40,7 @@ func extractToken(c *app.RequestContext) string {
 	if hdr := string(c.GetHeader("Authorization")); strings.HasPrefix(hdr, "Bearer ") {
 		return strings.TrimPrefix(hdr, "Bearer ")
 	}
-	return c.Query("token")
+	return ""
 }
 
 // GetUserID returns the authenticated user ID set by JWTMiddleware.

@@ -20,8 +20,8 @@ func register(h *server.Hertz, wsHandler *ws.Handler) {
 
 	api := h.Group("/api")
 	{
-		api.POST("/auth/register", handler.User.Register)
-		api.POST("/auth/login", handler.User.Login)
+		api.POST("/auth/register", mw.RateLimitAuth(), handler.User.Register)
+		api.POST("/auth/login", mw.RateLimitAuth(), handler.User.Login)
 		api.GET("/me", mw.JWTMiddleware(), handler.User.Me)
 
 		api.POST("/chips/claim", mw.JWTMiddleware(), handler.User.ClaimChips)
