@@ -25,7 +25,9 @@ EXPOSE 8080
 ENTRYPOINT ["/app/server"]
 
 # ---- Nginx + built frontend ----
+# nginx:alpine 官方镜像会在启动时用 envsubst 处理 /etc/nginx/templates/*.template
+# 运行时需设置环境变量 BACKEND_URL（如 server:8080 或 server.railway.internal:8080）
 FROM nginx:alpine AS web
 COPY --from=node-builder /src/dist /usr/share/nginx/html
-COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx/nginx.conf /etc/nginx/templates/default.conf.template
 EXPOSE 80

@@ -45,7 +45,9 @@
       "Bash(python3:*)",
       "Bash(perl -i -pe ':*)",
       "Bash(xargs -I {} basename {})",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker-compose config:*)"
     ]
   }
 }

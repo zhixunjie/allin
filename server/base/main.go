@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/cloudwego/hertz/pkg/app/server"
@@ -23,9 +24,12 @@ func init() {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("./base") // go run ./base/ 时从模块根目录查找
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
-	// 允许通过环境变量 JWT_SECRET 覆盖配置文件中的 jwt.secret
-	viper.BindEnv("jwt.secret", "JWT_SECRET") //nolint:errcheck
+	// 以下绑定仅在对应环境变量存在时生效，不影响本地 config.yaml
+	viper.BindEnv("jwt.secret", "JWT_SECRET")                  //nolint:errcheck
+	viper.BindEnv("mysql.dsn", "MYSQL_DSN")                    //nolint:errcheck
+	viper.BindEnv("cors.allow_origins", "CORS_ALLOW_ORIGINS")  //nolint:errcheck
 	if err := viper.ReadInConfig(); err != nil {
 		fmt.Fprintf(os.Stderr, "config: %v (using defaults)\n", err)
 	}

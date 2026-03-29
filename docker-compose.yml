@@ -32,6 +32,8 @@ services:
       target: web
     ports:
       - "80:80"
+    environment:
+      BACKEND_URL: "server:8080"
     depends_on:
       - server
     restart: unless-stopped
