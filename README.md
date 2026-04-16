@@ -2,7 +2,7 @@
 
 全栈 No-Limit Hold'em 游戏，支持多人实时对战与 AI 陪玩。
 
-![演示](docs/output.webp)
+![演示](docs/images/output.webp)
 
 ## 技术栈
 
