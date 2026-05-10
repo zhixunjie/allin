@@ -1,12 +1,5 @@
 > https://github.com/zhixunjie/allin
 >
-> refer：
->
-> https://github.com/search?q=%E5%BE%B7%E5%B7%9E%E6%89%91%E5%85%8B&type=repositories
->
-> https://www.waliyouxi.com/demo/app
->
-> https://www.sud.tech/cn/gamelist
 
 我的想法：
 
